@@ -1,8 +1,8 @@
 <img width="1536" height="1024" alt="Noir-style heist planning board with an iPhone at center labeled The Vault, connected by red string to crew member dossiers: The Inside Job, The Safecracker, The Mastermind, The Fence, and The Bagman. A whiskey glass and desk lamp sit in the foreground." src="https://github.com/user-attachments/assets/ab62f18f-a3bd-480e-906d-3167b90c1d77" />
 
-[![CI](https://github.com/RoyalPineapple/TheButtonHeist/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/RoyalPineapple/TheButtonHeist/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/RoyalPineapple/TheButtonHeist?label=release)](https://github.com/RoyalPineapple/TheButtonHeist/releases/latest)
-[![License](https://img.shields.io/github/license/RoyalPineapple/TheButtonHeist)](LICENSE)
+[![CI](https://github.com/TheButtonHeist/TheButtonHeist/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/TheButtonHeist/TheButtonHeist/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/TheButtonHeist/TheButtonHeist?label=release)](https://github.com/TheButtonHeist/TheButtonHeist/releases/latest)
+[![License](https://img.shields.io/github/license/TheButtonHeist/TheButtonHeist)](LICENSE)
 
 # The Button Heist
 
@@ -362,7 +362,7 @@ If you enable network scope, add the Bonjour permissions:
 ### 2. Install the tools
 
 ```bash
-brew install RoyalPineapple/tap/buttonheist
+brew install TheButtonHeist/tap/buttonheist
 ```
 
 The Homebrew distribution currently supports Apple Silicon macOS only.

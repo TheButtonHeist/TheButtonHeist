@@ -42,7 +42,7 @@ chmod +x "$TMP_DIR/gh"
 run_guard() {
     GH_RUNS_JSON="$1" GH_JOBS_JSON="$2" PATH="$TMP_DIR:$PATH" \
         GH_MANIFEST_JSON="$3" \
-        bash "$GUARD" --repo RoyalPineapple/TheButtonHeist --timeout 0 "$COMMIT" test-commit
+        bash "$GUARD" --repo TheButtonHeist/TheButtonHeist --timeout 0 "$COMMIT" test-commit
 }
 
 expect_success() {
@@ -87,7 +87,7 @@ successful_manifest=$(jq -cn --arg sha "$COMMIT" '{
     schemaVersion: 1,
     commit: $sha,
     workflow: {
-        ref: "RoyalPineapple/TheButtonHeist/.github/workflows/ci.yml@refs/heads/main",
+        ref: "TheButtonHeist/TheButtonHeist/.github/workflows/ci.yml@refs/heads/main",
         sha: $sha,
         runId: "41",
         runAttempt: "1"
@@ -179,7 +179,7 @@ wrong_workflow_sha=$(jq -c '.workflow.sha = "fffffffffffffffffffffffffffffffffff
 expect_failure "wrong workflow SHA" "$successful_run" "$successful_suite" "$wrong_workflow_sha"
 
 wrong_workflow_ref=$(jq -c \
-    '.workflow.ref = "RoyalPineapple/TheButtonHeist/.github/workflows/release.yml@refs/heads/main"' \
+    '.workflow.ref = "TheButtonHeist/TheButtonHeist/.github/workflows/release.yml@refs/heads/main"' \
     <<< "$successful_manifest")
 expect_failure "wrong workflow ref" "$successful_run" "$successful_suite" "$wrong_workflow_ref"
 

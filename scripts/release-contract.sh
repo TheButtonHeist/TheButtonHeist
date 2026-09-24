@@ -2,8 +2,8 @@
 # Shared release/install contract for release scripts and CI workflows.
 
 # shellcheck disable=SC2034
-BUTTONHEIST_GITHUB_REPO="RoyalPineapple/TheButtonHeist"
-BUTTONHEIST_TAP_REPO="RoyalPineapple/homebrew-tap"
+BUTTONHEIST_GITHUB_REPO="TheButtonHeist/TheButtonHeist"
+BUTTONHEIST_TAP_REPO="TheButtonHeist/homebrew-tap"
 
 # TheScore owns the version. The release file and formula are checked mirrors.
 BUTTONHEIST_CODE_VERSION_FILE="ButtonHeist/Sources/TheScore/Wire/Messages.swift"
