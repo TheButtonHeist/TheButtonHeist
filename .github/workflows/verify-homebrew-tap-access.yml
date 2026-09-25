@@ -1,0 +1,35 @@
+name: Verify Homebrew Tap Access
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-homebrew-tap-access:
+    name: verify-homebrew-tap-access
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Require tap token
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::HOMEBREW_TAP_TOKEN is not configured"
+            exit 1
+          fi
+
+      - name: Verify organization tap write access
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_REPOSITORY: TheButtonHeist/homebrew-tap
+        run: |
+          permission=$(gh api "repos/${TAP_REPOSITORY}" --jq '.permissions.push')
+          if [[ "$permission" != "true" ]]; then
+            echo "::error::HOMEBREW_TAP_TOKEN cannot write to ${TAP_REPOSITORY}"
+            exit 1
+          fi
+          echo "HOMEBREW_TAP_TOKEN has write access to ${TAP_REPOSITORY}."
