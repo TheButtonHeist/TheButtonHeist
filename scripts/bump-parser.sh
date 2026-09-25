@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-PARSER_REPO_URL="https://github.com/RoyalPineapple/AccessibilitySnapshotBH"
+PARSER_REPO_URL="https://github.com/TheButtonHeist/AccessibilitySnapshotBH"
 PARSER_IDENTITY="accessibilitysnapshotbh"
 SUBMODULE_DIR="submodules/AccessibilitySnapshotBH"
 ROOT_MANIFEST="Package.swift"

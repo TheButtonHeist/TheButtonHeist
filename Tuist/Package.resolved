@@ -3,7 +3,7 @@
     {
       "identity" : "accessibilitysnapshotbh",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/RoyalPineapple/AccessibilitySnapshotBH",
+      "location" : "https://github.com/TheButtonHeist/AccessibilitySnapshotBH",
       "state" : {
         "revision" : "10f07e0df74002c20a4207c2fc3307968c7bcab3",
         "version" : "0.25.1"

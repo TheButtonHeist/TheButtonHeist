@@ -11,7 +11,7 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "ButtonHeist", path: ".."),
-        .package(url: "https://github.com/RoyalPineapple/AccessibilitySnapshotBH", exact: "0.25.1"),
+        .package(url: "https://github.com/TheButtonHeist/AccessibilitySnapshotBH", exact: "0.25.1"),
         .package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", .upToNextMinor(from: "0.12.0"))
     ],
     targets: [

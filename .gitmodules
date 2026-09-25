@@ -1,4 +1,4 @@
 [submodule "submodules/AccessibilitySnapshotBH"]
 	path = submodules/AccessibilitySnapshotBH
-	url = https://github.com/RoyalPineapple/AccessibilitySnapshotBH.git
+	url = https://github.com/TheButtonHeist/AccessibilitySnapshotBH.git
 	branch = main
