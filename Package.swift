@@ -21,11 +21,11 @@ let package = Package(
         // Parser semantics are part of Button Heist's release contract.
         // Keep this exact tag aligned with submodules/AccessibilitySnapshotBH
         // via scripts/check-parser-contract.sh and scripts/bump-parser.sh.
-        .package(url: "https://github.com/RoyalPineapple/AccessibilitySnapshotBH", exact: "0.25.1"),
+        .package(url: "https://github.com/TheButtonHeist/AccessibilitySnapshotBH", exact: "0.25.1"),
         .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "1.7.0")),
         // Source-shape validation runs the dependency's executable product
         // directly through SwiftPM; it is not linked into a Button Heist target.
-        .package(url: "https://github.com/RoyalPineapple/BumperBowling.git", exact: "0.6.0"),
+        .package(url: "https://github.com/TheButtonHeist/BumperBowling.git", exact: "0.6.0"),
     ],
     targets: [
         .target(

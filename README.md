@@ -495,7 +495,7 @@ ButtonHeist/
 
 ## Acknowledgments
 
-- [AccessibilitySnapshot](https://github.com/cashapp/AccessibilitySnapshot), used through [AccessibilitySnapshotBH](https://github.com/RoyalPineapple/AccessibilitySnapshotBH), handles UIKit accessibility hierarchy parsing. Patient infrastructure. The kind you want under a machine that acts on what the app says.
+- [AccessibilitySnapshot](https://github.com/cashapp/AccessibilitySnapshot), used through [AccessibilitySnapshotBH](https://github.com/TheButtonHeist/AccessibilitySnapshotBH), handles UIKit accessibility hierarchy parsing. Patient infrastructure. The kind you want under a machine that acts on what the app says.
 
 ## License
 

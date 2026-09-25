@@ -733,7 +733,7 @@ Save a new baseline when landing major changes.
 
 ## AccessibilitySnapshotBH Submodule
 
-The `AccessibilitySnapshotBH` submodule points at our fork (`RoyalPineapple/AccessibilitySnapshotBH`) on `main`. Upstream is `cashapp/AccessibilitySnapshot` (default branch: `main`). Our `main` is rebased on upstream `main` and carries five targeted commits:
+The `AccessibilitySnapshotBH` submodule points at our fork (`TheButtonHeist/AccessibilitySnapshotBH`) on `main`. Upstream is `cashapp/AccessibilitySnapshot` (default branch: `main`). Our `main` is rebased on upstream `main` and carries five targeted commits:
 
 1. `elementVisitor` closure on the hierarchy parser + xcodegen project support
 2. `Hashable` conformance on `AccessibilityElement`
