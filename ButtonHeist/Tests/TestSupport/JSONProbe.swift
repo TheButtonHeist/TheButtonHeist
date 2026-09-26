@@ -189,13 +189,6 @@ public struct JSONProbe: Sendable {
         throw JSONProbeFailure(path: hit.path, reason: "Expected key '\(hit.key)' to be absent recursively")
     }
 
-    public func isEmptyObject() throws -> Bool {
-        guard case .object(let object) = value else {
-            throw typeMismatch(expected: "object")
-        }
-        return object.isEmpty
-    }
-
     public func decode<T: Decodable>(
         _ type: T.Type = T.self,
         decoder: JSONDecoder = JSONDecoder()

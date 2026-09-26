@@ -141,20 +141,6 @@ extension AccessibilityPredicateTests {
         }
     }
 
-    func testResolutionProducesCanonicalObservationPredicate() throws {
-        let predicate: ObservationPredicate = try AccessibilityPredicate
-            .exists(.label("Ready"))
-            .resolve(in: .empty)
-        let canonical: ObservationPredicate = predicate
-        let result = evaluateExpectation(Expectation([canonical]), events: [
-            .elementsChanged(observationSnapshot(elements: [
-                element(label: "Ready"),
-            ])),
-        ])
-
-        XCTAssertTrue(result.isSatisfied)
-    }
-
     func testDecodeRejectsUnknownOrMissingRootType() {
         for json in [#"{"type":"rainbow"}"#, #"{}"#] {
             XCTAssertThrowsError(

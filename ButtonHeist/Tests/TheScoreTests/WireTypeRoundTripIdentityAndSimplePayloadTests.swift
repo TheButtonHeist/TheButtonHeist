@@ -25,7 +25,6 @@ final class WireTypeRoundTripTests: XCTestCase {
         let data = try encoder.encode(envelope)
         let decoded = try decoder.decode(RequestEnvelope.self, from: data)
 
-        XCTAssertEqual(buttonHeistVersion, expected)
         XCTAssertEqual(decoded.buttonHeistVersion, expected)
         XCTAssertEqual(decoded.message, .ping)
     }

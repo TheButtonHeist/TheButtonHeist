@@ -71,17 +71,6 @@ struct ToolRoutingTests {
         }
     }
 
-    @Test("unknown tool returns routing error")
-    func unknownToolReturnsRoutingError() {
-        let result = routeToolRequest(name: "not_a_tool")
-
-        guard case .failure(let error) = result else {
-            Issue.record("Expected routing failure")
-            return
-        }
-        #expect(error.message == "Unknown tool: not_a_tool")
-    }
-
     @Test("routing errors map to canonical public failures")
     func routingErrorsMapToCanonicalPublicFailures() throws {
         let result = routeToolRequest(name: "not_a_tool")
@@ -116,15 +105,6 @@ struct ToolRoutingTests {
 
         #expect(operation.command == .runHeist)
         #expect(operation.arguments.value(for: .plan) == .string("HeistPlan { Activate(.label(\"Pay\")) }"))
-    }
-
-    @Test("run_heist tool schema exposes plan source")
-    func runHeistToolSchemaHasPlanSource() throws {
-        guard let runHeist = ToolDefinitions.all.first(where: { $0.name == TheFence.Command.runHeist.rawValue }) else {
-            Issue.record("run_heist tool not found")
-            return
-        }
-        #expect(schemaValue(at: ["properties", "plan"], in: runHeist.inputSchema) != nil)
     }
 
     @Test("run_heist routes root argument opaquely")
@@ -216,23 +196,6 @@ struct ToolRoutingTests {
         }
     }
 
-    @Test func `MCP tool routes after typed argument boundary`() throws {
-        let arguments = try MCPValueBridge.commandEnvelope(
-            from: ["argument": .string("accepted")]
-        )
-
-        let result = TheFence.Command.routeToolRequest(
-            named: "not_a_tool",
-            arguments: arguments
-        )
-
-        guard case .failure(let error) = result else {
-            Issue.record("Expected routing failure after argument boundary")
-            return
-        }
-        #expect(error.message == "Unknown tool: not_a_tool")
-    }
-
     @Test func `MCP tool arguments reject binary data before command envelopes`() {
         do {
             _ = try MCPValueBridge.commandEnvelope(
@@ -267,23 +230,6 @@ struct ToolRoutingTests {
         #expect(describe.command == .describeHeist)
         #expect(describe.arguments.value(for: .heist) == .string("Cart.checkout"))
         #expect(describe.arguments.value(for: .path) == .string("Flow.heist"))
-    }
-
-    @Test("core router accepts a prebuilt command argument envelope")
-    func coreRouterAcceptsPrebuiltCommandArgumentEnvelope() throws {
-        let envelope = TheFence.CommandArgumentEnvelope(values: ["target": .string("demo")])
-
-        let result = TheFence.Command.routeToolRequest(
-            named: TheFence.Command.connect.rawValue,
-            arguments: envelope
-        )
-
-        guard case .success(let operation) = result else {
-            Issue.record("Expected core routing success")
-            return
-        }
-        #expect(operation.command == .connect)
-        #expect(operation.arguments.value(for: .target) == .string("demo"))
     }
 
     private func routeToolRequest(

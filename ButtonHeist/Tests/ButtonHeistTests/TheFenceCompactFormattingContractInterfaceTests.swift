@@ -353,7 +353,7 @@ extension TheFenceCompactFormattingContractTests {
         XCTAssertEqual(try omitted.strings("reasonCodes"), ["scroll-attempt-budget"])
     }
 
-    func testPublicInterfaceJSONProjectsScrollableContainerAsScrollable() throws {
+    func testPublicInterfaceJSONUsesCanonicalContainerTypeWithScrollMetadata() throws {
         let interface = makeTestInterface(nodes: [
             .container(
                 makeTestScrollableContainer(
