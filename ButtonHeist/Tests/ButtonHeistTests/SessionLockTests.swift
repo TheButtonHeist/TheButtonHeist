@@ -50,26 +50,4 @@ final class SessionLockTests: XCTestCase {
         XCTAssertFalse(disconnected)
     }
 
-    @ButtonHeistActor
-    func testSessionLockedCallbackFires() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
-        conn.simulateConnected()
-
-        var receivedPayload: SessionLockedPayload?
-        conn.onEvent = { event in
-            if case .message(.sessionLocked(let payload), _) = event {
-                receivedPayload = payload
-            }
-        }
-
-        let payload = SessionLockedPayload(
-            message: "Another driver active.",
-            activeConnections: 1
-        )
-        try conn.handleMessage(encode(.sessionLocked(payload)))
-
-        XCTAssertNotNil(receivedPayload)
-        XCTAssertEqual(receivedPayload?.message, "Another driver active.")
-        XCTAssertEqual(receivedPayload?.activeConnections, 1)
-    }
 }

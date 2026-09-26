@@ -203,23 +203,7 @@ struct CanonicalAccessibilityPredicateTests {
 
     @Test(
         "malformed changed JSON is rejected",
-        arguments: [
-            #"{"type":"changed","scope":"screen","unexpected":true}"#,
-            #"{"type":"changed","scope":"invalid","assertions":[]}"#,
-            #"{"type":"changed","scope":"elements","assertions":[{"type":"updated","# +
-                #""target":{"checks":[{"identifier":{"mode":"exact","value":"count"}}]},"# +
-                #""property":"value","after":{"mode":"exact","value":"2"}}]}"#,
-            #"{"type":"changed","scope":"elements","assertions":["# +
-                #"{"type":"changed","scope":"screen"}]}"#,
-            #"{"type":"exists","target":{"container":{"checks":["# +
-                #"{"kind":"semantic","semantic":{"kind":"identifier","# +
-                #""match":{"mode":"exact","value":"Checkout"}}}]},"ordinal":-1}}"#,
-            #"{"type":"exists","target":{"container":{"checks":["# +
-                #"{"kind":"semantic","semantic":{"kind":"identifier","# +
-                #""match":{"mode":"exact","value":"Checkout"}}}]},"# +
-                #""target":{"checks":["# +
-                #"{"kind":"label","match":{"mode":"exact","value":"Pay"}}]},"ordinal":1}}"#,
-        ]
+        arguments: malformedJSONSources
     )
     func rejectsMalformedJSON(source: String) {
         #expect(throws: (any Error).self) {
@@ -229,6 +213,24 @@ struct CanonicalAccessibilityPredicateTests {
             )
         }
     }
+
+    private static let malformedJSONSources: [String] = [
+        #"{"type":"changed","scope":"screen","unexpected":true}"#,
+        #"{"type":"changed","scope":"invalid","assertions":[]}"#,
+        #"{"type":"changed","scope":"elements","assertions":[{"type":"updated","# +
+            #""target":{"checks":[{"identifier":{"mode":"exact","value":"count"}}]},"# +
+            #""property":"value","after":{"mode":"exact","value":"2"}}]}"#,
+        #"{"type":"changed","scope":"elements","assertions":["# +
+            #"{"type":"changed","scope":"screen"}]}"#,
+        #"{"type":"exists","target":{"container":{"checks":["# +
+            #"{"kind":"semantic","semantic":{"kind":"identifier","# +
+            #""match":{"mode":"exact","value":"Checkout"}}}]},"ordinal":-1}}"#,
+        #"{"type":"exists","target":{"container":{"checks":["# +
+            #"{"kind":"semantic","semantic":{"kind":"identifier","# +
+            #""match":{"mode":"exact","value":"Checkout"}}}]},"# +
+            #""target":{"checks":["# +
+            #"{"kind":"label","match":{"mode":"exact","value":"Pay"}}]},"ordinal":1}}"#,
+    ]
 
     /// Both screen spellings round-trip: bare `.screen()` for any boundary, and
     /// `.screen("Name")` for the arrived-at screen. The element question that

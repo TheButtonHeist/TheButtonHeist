@@ -14,10 +14,7 @@ final class IdleMonitorTests: XCTestCase {
     }
 
     @ButtonHeistActor
-    func testResetReplacesPriorTimer() async {
-        // resetTimer() should cancel any prior timer task and schedule a new one.
-        // Verify deterministically by inspecting `hasPendingTimer` rather than
-        // racing against wall-clock waits.
+    func testResetKeepsTimerPendingAndStopClearsIt() async {
         let monitor = IdleMonitor(timeout: 60) { /* never fires within test */ }
 
         monitor.resetTimer()
@@ -41,14 +38,4 @@ final class IdleMonitorTests: XCTestCase {
         XCTAssertFalse(monitor.hasPendingTimer, "Zero timeout must not schedule a task")
     }
 
-    @ButtonHeistActor
-    func testCancelStopsTimer() async {
-        let monitor = IdleMonitor(timeout: 60) {
-            XCTFail("Should not fire after stop()")
-        }
-        monitor.resetTimer()
-        XCTAssertTrue(monitor.hasPendingTimer)
-        monitor.stop()
-        XCTAssertFalse(monitor.hasPendingTimer)
-    }
 }

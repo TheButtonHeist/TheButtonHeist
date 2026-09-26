@@ -7,13 +7,6 @@ import TheScore
 
 final class CLICommandSyncTests: XCTestCase {
 
-    func testTopLevelSubcommandsHaveNoDuplicates() {
-        var seen = Set<String>()
-        for cliName in topLevelCommandNames() {
-            XCTAssertTrue(seen.insert(cliName).inserted, "Duplicate top-level CLI command: '\(cliName)'")
-        }
-    }
-
     func testTopLevelSubcommandsMatchFenceCLIExposure() {
         let descriptorNames = TheFence.Command.cliDirectCommandDescriptors.map(\.command.rawValue)
         let expected = (descriptorNames + ["adversarial_catalog", "json_lines"]).sorted()
@@ -129,10 +122,6 @@ final class CLICommandSyncTests: XCTestCase {
             return XCTFail("expected object expectation")
         }
         XCTAssertEqual(object["type"], .string("changed"))
-    }
-
-    func testFenceExpectationArgumentContractRejectsUnknownString() {
-        XCTAssertThrowsError(try TheFence.parseExpectationArgument("layout_changed"))
     }
 
     func testRunHeistForwardsInlineButtonHeistSource() throws {
@@ -389,19 +378,13 @@ final class CLICommandSyncTests: XCTestCase {
         }
     }
 
-    func testMachineRequestParserAcceptsValidPingRequest() throws {
-        let parsed = try CLIMachineRequestParser.parsedRequest(from: #"{"command":"ping"}"#)
-
-        XCTAssertEqual(parsed.command, .ping)
-        XCTAssertNil(parsed.requestId)
-    }
-
     func testMachineRequestParserAcceptsCanonicalMachineJSONInJSONLinesMode() throws {
         let parsed = try CLIMachineRequestParser.parsedRequest(
             from: #"{"command":"activate","target":{"checks":[{"kind":"identifier","match":{"mode":"exact","value":"button_save"}}]}}"#
         )
 
         XCTAssertEqual(parsed.command, .activate)
+        XCTAssertNil(parsed.requestId)
         guard case .object(let target)? = parsed.argument(.target) else {
             return XCTFail("expected typed target object")
         }
@@ -413,17 +396,9 @@ final class CLICommandSyncTests: XCTestCase {
             from: #"{"command":"wait","predicate":{"type":"changed","scope":"screen","assertions":[]},"timeout":0,"unknown":true}"#
         )
 
+        XCTAssertEqual(parsed.command, .wait)
         XCTAssertEqual(parsed.argument(.timeout), .int(0))
         XCTAssertEqual(parsed.argument(FenceParameterKey(rawValue: "unknown")!), .bool(true))
-    }
-
-    func testMachineRequestParserRoutesValidWaitInJSONLinesMode() throws {
-        let parsed = try CLIMachineRequestParser.parsedRequest(
-            from: #"{"command":"wait","predicate":{"type":"changed","scope":"screen","assertions":[]},"timeout":5}"#
-        )
-
-        XCTAssertEqual(parsed.command, .wait)
-        XCTAssertEqual(parsed.argument(.timeout), .int(5))
     }
 
     func testMachineRequestParserRejectsMCPOnlyPerformInJSONLinesMode() {

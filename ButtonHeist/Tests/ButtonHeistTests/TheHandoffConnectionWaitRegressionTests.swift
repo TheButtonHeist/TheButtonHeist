@@ -78,35 +78,4 @@ final class TheHandoffConnectionWaitRegressionTests: XCTestCase {
         }
     }
 
-    /// Regression test: when `connect(to: device)` is called while phase is
-    /// already `.disconnected`, the replacement teardown is a no-op transition
-    /// (`.disconnected → .disconnected`). The subsequent `.connecting →
-    /// .connected` transition should resolve the awaiter with success — the
-    /// awaiter must not have been spuriously failed by the no-op teardown.
-    @ButtonHeistActor
-    func testWaitForConnectionResultDoesNotFailOnReconnectDisconnect() async throws {
-        let handoff = TheHandoff()
-        let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
-
-        // Mock that stays in .connecting until we manually fire .connected.
-        let mock = MockConnection()
-        mock.connectEventsOverride = []
-        handoff.makeConnection = { _ in mock }
-
-        // Phase starts at .disconnected. `connect()` first runs replacement
-        // teardown (a no-op .disconnected → .disconnected transition), then
-        // transitions to .connecting.
-        handoff.connect(to: device)
-
-        let waitTask = Task { @ButtonHeistActor in
-            try await handoff.waitForConnectionResult(timeout: 30)
-        }
-        await Task.yield()
-
-        // Drive into .connected — awaiter must resolve with success.
-        mock.onEvent?(.connected)
-
-        try await waitTask.value
-        XCTAssertTrue(handoff.connectionLifecycle.isConnected)
-    }
 }

@@ -242,12 +242,10 @@ final class InterfaceGraphTests: XCTestCase {
             ])
         )
 
-        let firstRead = interface.graph
-        let secondRead = interface.graph
+        let graph = interface.graph
 
-        XCTAssertEqual(firstRead, secondRead)
-        XCTAssertEqual(firstRead.node(at: path), interface.tree[0])
-        XCTAssertEqual(firstRead.elementsInTraversalOrder.first?.annotation?.actions, [.activate])
+        XCTAssertEqual(graph.node(at: path), interface.tree[0])
+        XCTAssertEqual(graph.elementsInTraversalOrder.first?.annotation?.actions, [.activate])
         XCTAssertEqual(interface.projectedElements.map(\.semantics.assertable.label), ["Save"])
     }
 

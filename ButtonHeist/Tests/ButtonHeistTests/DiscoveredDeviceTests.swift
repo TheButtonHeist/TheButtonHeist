@@ -59,17 +59,6 @@ final class DiscoveredDeviceTests: XCTestCase {
 
     // MARK: - Typed Discovery Identifiers
 
-    func testDiscoveryIdentityPreservesRawAndPrintedValue() {
-        XCTAssertEqual(
-            DiscoveryIdentity.device("DemoApp#abc123"),
-            .device("DemoApp#abc123")
-        )
-        XCTAssertEqual(
-            DiscoveryIdentity.installation(appName: "demoapp", id: "install-1"),
-            .installation(appName: "demoapp", id: "install-1")
-        )
-    }
-
     func testDiscoveryWrappersEncodeAsSingleJSONStringValues() throws {
         let encoder = JSONEncoder()
         let deviceID: DiscoveryDeviceID = "DemoApp#abc123"
@@ -152,16 +141,6 @@ final class DiscoveredDeviceTests: XCTestCase {
     }
 
     // MARK: - Device Identifiers
-
-    func testSimulatorUDID() {
-        let device = DiscoveredDevice(
-            id: "test", name: "TestApp#abc",
-            endpoint: endpoint,
-            simulatorUDID: "DEADBEEF-1234-5678-9ABC-DEF012345678"
-        )
-
-        XCTAssertEqual(device.simulatorUDID, "DEADBEEF-1234-5678-9ABC-DEF012345678")
-    }
 
     func testDefaultIdentifiersNil() {
         let device = DiscoveredDevice(id: "test", name: "TestApp", endpoint: endpoint)

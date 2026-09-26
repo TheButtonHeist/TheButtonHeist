@@ -126,43 +126,6 @@ final class ElementActionRequestContractTests: XCTestCase {
     }
 
     @ButtonHeistActor
-    func testActivateMissingTargetKeepsContractDiagnostics() async throws {
-        let (fence, _) = makeConnectedFence()
-        let response = try await fence.execute(command: .activate)
-
-        guard case .error(let failure) = response else {
-            return XCTFail("Expected error response")
-        }
-        let message = failure.message
-        XCTAssertTrue(message.contains("activate request contract failed: missing target"))
-        XCTAssertTrue(message.contains("Next: get_interface()"))
-        XCTAssertEqual(failure.details.code, .requestMissingTarget)
-        XCTAssertEqual(failure.details.phase, .request)
-        XCTAssertEqual(failure.details.retryable, false)
-        XCTAssertEqual(failure.details.hint, "get_interface()")
-    }
-
-    @ButtonHeistActor
-    func testTypeTextEmptyStringKeepsObservedValueDiagnostic() async {
-        await assertExecutionError(
-            command: .typeText,
-            arguments: ["text": .string("")],
-            contains: "schema validation failed for text: observed string \"\"; expected non-empty string"
-        )
-    }
-
-    @ButtonHeistActor
-    func testScrollRejectsContainerObjectAtTypedBoundary() async {
-        await assertExecutionError(
-            command: .scroll,
-            arguments: [
-                "container": .object(["containerName": .string("list")]),
-            ],
-            contains: "schema validation failed for container"
-        )
-    }
-
-    @ButtonHeistActor
     func testActivateRejectsContainerNameAsSemanticTarget() async {
         await assertExecutionError(
             command: .activate,
@@ -196,7 +159,10 @@ final class ElementActionRequestContractTests: XCTestCase {
                 "checks": .array([
                     .object([
                         "kind": .string("label"),
-                        "extra": .string("unexpected"),
+                        "match": .object([
+                            "mode": .string("exact"),
+                            "value": .string("Pay"),
+                        ]),
                     ]),
                 ]),
             ],

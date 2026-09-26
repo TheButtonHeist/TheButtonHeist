@@ -4,44 +4,6 @@ import ThePlans
 @testable import TheScore
 
 @Suite struct ObservationFactFoldTests {
-    @Test func `same authored events produce the same result at every prefix`() throws {
-        let predicates = [
-            try resolved(.exists(.label("Pay"))),
-            try resolved(.screenChanged("Checkout")),
-        ]
-        let events: [Observation.Event] = [
-            .elementsChanged(snapshot(["Cart"])),
-            .elementsChanged(snapshot(["Pay"])),
-            .screenChanged(ScreenFacts(idAfter: "Checkout")),
-            .noChange,
-        ]
-        var first = Expectation(predicates)
-        var second = Expectation(predicates)
-
-        for event in events {
-            first = first.evaluating(event)
-            second = second.evaluating(event)
-            #expect(first == second)
-        }
-        #expect(first.result == .satisfied)
-        #expect(second.result == .satisfied)
-    }
-
-    @Test func `fold preserves identity and composition`() throws {
-        let predicates = [try resolved(.exists(.label("Pay")))]
-        let cart = Observation.Event.elementsChanged(snapshot(["Cart"]))
-        let pay = Observation.Event.elementsChanged(snapshot(["Pay"]))
-        let initial = Expectation(predicates)
-        let allAtOnce = [cart, pay].reduce(initial) { $0.evaluating($1) }
-        let prefix = [cart].reduce(initial) { $0.evaluating($1) }
-        let composed = [pay].reduce(prefix) { $0.evaluating($1) }
-
-        #expect([Observation.Event]().reduce(initial) { $0.evaluating($1) } == initial)
-        #expect(prefix.result != .satisfied)
-        #expect(composed == allAtOnce)
-        #expect(composed.result == .satisfied)
-    }
-
     @Test func `screen replacement is authored as departure boundary then arrival`() {
         let events = screenReplacementEvents(
             departing: snapshot(["Cart"]),

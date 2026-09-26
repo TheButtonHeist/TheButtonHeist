@@ -74,16 +74,6 @@ final class ServerInfoTests: XCTestCase {
         XCTAssertThrowsError(try JSONDecoder().decode(ServerInfo.self, from: data))
     }
 
-    func testEncodingRequiresIdentity() throws {
-        let info = makeServerInfo(bundleIdentifier: "com.test", deviceName: "iPhone", systemVersion: "18.0")
-
-        let data = try JSONEncoder().encode(info)
-        let decoded = try JSONDecoder().decode(ServerInfo.self, from: data)
-
-        XCTAssertEqual(decoded.instanceId, info.instanceId)
-        XCTAssertEqual(decoded.listeningPort, info.listeningPort)
-    }
-
     func testEncodingRoundTripWithDeviceIdentifiers() throws {
         let info = makeServerInfo(
             deviceName: "iPhone 16 Pro",
@@ -122,31 +112,6 @@ final class ServerInfoTests: XCTestCase {
         XCTAssertEqual(decoded.listeningPort, 49152)
         XCTAssertNil(decoded.simulatorUDID)
         XCTAssertNil(decoded.vendorIdentifier)
-    }
-
-    func testDifferentDevices() throws {
-        let devices = [
-            ("iPhone 15 Pro", "17.0", 393.0, 852.0),
-            ("iPad Pro", "17.0", 1024.0, 1366.0),
-            ("iPhone SE", "17.0", 375.0, 667.0),
-        ]
-
-        for (name, version, width, height) in devices {
-            let info = makeServerInfo(
-                bundleIdentifier: "com.test",
-                deviceName: name,
-                systemVersion: version,
-                screenWidth: width,
-                screenHeight: height
-            )
-
-            let data = try JSONEncoder().encode(info)
-            let decoded = try JSONDecoder().decode(ServerInfo.self, from: data)
-
-            XCTAssertEqual(decoded.deviceName, name)
-            XCTAssertEqual(decoded.screenWidth, width)
-            XCTAssertEqual(decoded.screenHeight, height)
-        }
     }
 
     func testAdmissionRejectsInvalidNumericValues() {

@@ -351,9 +351,6 @@ private let screenChangePredicate = AccessibilityPredicate.screenChanged
         body: [.warn(WarnStep(message: "ready"))]
     )
 
-    #expect(throws: HeistDescriptionLookupError.self) {
-        try plan.describeHeist(at: "checkout")
-    }
     do {
         _ = try plan.describeHeist(at: "checkout")
         Issue.record("Expected missing heist diagnostic")

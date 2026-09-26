@@ -26,18 +26,29 @@ final class DeviceResolverTests: XCTestCase {
 
     @ButtonHeistActor
     func testResolveNonLoopbackFilterDoesNotShortCircuit() async {
+        var discoveryCallCount = 0
         let resolver = DeviceResolver(
             filter: "192.168.1.100:5555",
-            discoveryTimeout: 100_000_000,
-            getDiscoveredDevices: { [] }
+            discoveryTimeout: 0,
+            getDiscoveredDevices: {
+                discoveryCallCount += 1
+                return []
+            }
         )
+        guard case .query(let query) = resolver.target.kind else {
+            return XCTFail("Expected non-loopback endpoint to remain a discovery query")
+        }
+        XCTAssertEqual(query.rawValue, "192.168.1.100:5555")
 
         do {
             _ = try await resolver.resolve()
             XCTFail("Expected error for no devices found")
+        } catch let error as HandoffConnectionError {
+            XCTAssertEqual(error, .noDeviceFound)
         } catch {
-            // Expected: no matching device or no device found
+            XCTFail("Unexpected error: \(error)")
         }
+        XCTAssertGreaterThan(discoveryCallCount, 0)
     }
 
     @ButtonHeistActor

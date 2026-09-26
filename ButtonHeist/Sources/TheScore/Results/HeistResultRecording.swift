@@ -158,7 +158,7 @@ extension HeistResultRecording {
 
     package static func withEnvironmentRecording<Value>(
         _ enabled: Bool,
-        operation: @Sendable () async throws -> Value
+        operation: nonisolated(nonsending) @Sendable () async throws -> Value
     ) async rethrows -> Value {
         try await $environmentRecordingEnabled.withValue(enabled, operation: operation)
     }

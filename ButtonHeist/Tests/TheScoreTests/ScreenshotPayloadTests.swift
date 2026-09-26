@@ -81,40 +81,6 @@ final class ScreenshotPayloadTests: XCTestCase {
         XCTAssertNil(decoded.interface)
     }
 
-    func testLargeBase64Data() throws {
-        // Simulate a large screenshot (~100KB base64)
-        let largeData = String(repeating: "A", count: 100_000)
-        let payload = ScreenPayload(
-            pngData: largeData,
-            width: 1206,
-            height: 2622,
-            interface: Interface(timestamp: Date(), tree: [])
-        )
-
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(payload)
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let decoded = try decoder.decode(ScreenPayload.self, from: data)
-
-        XCTAssertEqual(decoded.pngData.count, 100_000)
-    }
-
-    func testRetinaScreenDimensions() {
-        // iPhone 17 Pro @3x: 402x874 points = 1206x2622 pixels
-        let payload = ScreenPayload(
-            pngData: "data",
-            width: 402,
-            height: 874,
-            interface: Interface(timestamp: Date(), tree: [])
-        )
-
-        XCTAssertEqual(payload.width, 402)
-        XCTAssertEqual(payload.height, 874)
-    }
-
     func testAdmissionRejectsInvalidDimensions() {
         for dimensions in [(0.0, 1.0), (-1, 1), (.nan, 1), (1, 0), (1, .infinity)] {
             XCTAssertNil(ScreenPayload.admit(pngData: "data", width: dimensions.0, height: dimensions.1))

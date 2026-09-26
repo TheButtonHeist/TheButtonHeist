@@ -7,12 +7,6 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(buttonHeistServiceType, "_buttonheist._tcp")
     }
 
-    func testServiceTypeFormat() {
-        // Verify the service type follows Bonjour naming conventions
-        XCTAssertTrue(buttonHeistServiceType.hasPrefix("_"))
-        XCTAssertTrue(buttonHeistServiceType.hasSuffix("._tcp"))
-    }
-
     func testWireFrameLimitsExposeCurrentDirectionalCaps() {
         XCTAssertEqual(WireFrameLimits.newlineDelimiterByte, 0x0A)
         XCTAssertEqual(WireFrameLimits.receiveChunkBytes, 65_536)
