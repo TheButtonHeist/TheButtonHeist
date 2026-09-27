@@ -254,13 +254,14 @@ final class DeterministicRuntimeScenarioDriver {
     @MainActor
     private final class ScriptInputProbe {
         private struct Waiter {
+            let id: UInt64
             let after: UInt64
             let continuation: CheckedContinuation<Bool, Never>
         }
 
         private var generation: UInt64 = 0
         private var nextWaiterID: UInt64 = 0
-        private var waiters: [UInt64: Waiter] = [:]
+        private var waiters: [Waiter] = []
         private var ignoredRegistrations = 0
 
         var currentGeneration: UInt64 { generation }
@@ -271,12 +272,17 @@ final class DeterministicRuntimeScenarioDriver {
                 return
             }
             generation += 1
-            var ready: [UInt64: Waiter] = [:]
-            for (id, waiter) in waiters where waiter.after < generation {
-                ready[id] = waiter
+            var pending: [Waiter] = []
+            var ready: [Waiter] = []
+            for waiter in waiters {
+                if waiter.after < generation {
+                    ready.append(waiter)
+                } else {
+                    pending.append(waiter)
+                }
             }
-            for (id, waiter) in ready {
-                waiters.removeValue(forKey: id)
+            waiters = pending
+            for waiter in ready {
                 waiter.continuation.resume(returning: true)
             }
         }
@@ -297,13 +303,20 @@ final class DeterministicRuntimeScenarioDriver {
                     } else if self.generation > generation {
                         continuation.resume(returning: true)
                     } else {
-                        waiters[id] = Waiter(after: generation, continuation: continuation)
+                        waiters.append(Waiter(
+                            id: id,
+                            after: generation,
+                            continuation: continuation
+                        ))
                     }
                 }
             } onCancel: {
                 Task { @MainActor in
-                    guard let waiter = probe.waiters.removeValue(forKey: id) else { return }
-                    waiter.continuation.resume(returning: false)
+                    for index in probe.waiters.indices where probe.waiters[index].id == id {
+                        let waiter = probe.waiters.remove(at: index)
+                        waiter.continuation.resume(returning: false)
+                        break
+                    }
                 }
             }
         }
@@ -311,7 +324,9 @@ final class DeterministicRuntimeScenarioDriver {
         func close() {
             let active = waiters
             waiters.removeAll()
-            active.values.forEach { $0.continuation.resume(returning: false) }
+            for waiter in active {
+                waiter.continuation.resume(returning: false)
+            }
         }
     }
 
