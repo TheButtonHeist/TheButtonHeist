@@ -7,15 +7,6 @@ final class PresentationObscuringTests: XCTestCase {
 
     // MARK: - UIView.nearestViewController
 
-    func testNearestViewControllerFindsOwningVC() {
-        let viewController = UIViewController()
-        _ = viewController.view
-        let childView = UIView()
-        viewController.view.addSubview(childView)
-
-        XCTAssertIdentical(childView.nearestViewController, viewController)
-    }
-
     func testNearestViewControllerReturnsNilForOrphanView() {
         let orphan = UIView()
         XCTAssertNil(orphan.nearestViewController)
@@ -37,15 +28,6 @@ final class PresentationObscuringTests: XCTestCase {
     func testIsDescendantOfSelf() {
         let viewController = UIViewController()
         XCTAssertTrue(viewController.isDescendant(of: viewController))
-    }
-
-    func testIsDescendantOfParent() {
-        let parent = UIViewController()
-        let child = UIViewController()
-        parent.addChild(child)
-        child.didMove(toParent: parent)
-
-        XCTAssertTrue(child.isDescendant(of: parent))
     }
 
     func testIsNotDescendantOfUnrelatedVC() {

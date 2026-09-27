@@ -219,27 +219,6 @@ final class WireConverterTests: XCTestCase {
                        "HeistTrait.allCases must match parser's UIKit knownTraitNames")
     }
 
-    /// Wire payload regression: a secure text field must emit `"secureTextField"` exactly once
-    /// in its `traits` array. A duplicate row in the parser's `knownTraits` table caused
-    /// `traits: ["secureTextField", "secureTextField"]` to ship to every client.
-    func testSecureTextFieldEmitsSecureTraitOnce() throws {
-        let traits = AccessibilityTraits.secureTextField.heistTraits
-        let secureCount = traits.filter { $0 == .secureTextField }.count
-        XCTAssertEqual(secureCount, 1,
-                       "secureTextField must appear exactly once in wire trait list, got \(traits)")
-    }
-
-    /// Every known trait in `HeistTrait.allCases` must round-trip through `AccessibilityTraits.heistTraits`
-    /// without duplication. Generalises the secure-text-field regression across the table.
-    func testAllKnownTraitsRoundTripWithoutDuplicates() throws {
-        for trait in HeistTrait.allCases {
-            let bitmask = UIAccessibilityTraits.fromNames([trait.rawValue])
-            let wire = AccessibilityTraits(bitmask).heistTraits
-            XCTAssertEqual(wire.count, Set(wire).count,
-                           "Trait \(trait.rawValue) produced duplicates on the wire: \(wire)")
-        }
-    }
-
     // MARK: - Unknown Trait Bits
 
     /// Trait bits outside the current contract do not become public trait

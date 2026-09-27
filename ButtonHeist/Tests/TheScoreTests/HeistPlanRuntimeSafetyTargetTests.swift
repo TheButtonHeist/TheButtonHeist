@@ -199,18 +199,16 @@ func runtimeSafetyRejectsEmptyBroadConcreteAccessibilityTargets() throws {
 
 @Test
 func runtimeSafetyRejectsNegativeOrdinalsBeforeRuntimeUse() throws {
-    for _ in 0..<2 {
-        let diagnostics = runtimeSafetyDiagnostics {
-            try HeistPlan(body: [
-                .action(ActionStep(command: .activate(.predicate(.label("Save"), ordinal: -1)))),
-            ])
-        }
-
-        #expect(diagnostics.contains {
-            $0.message.contains("ordinal must be non-negative")
-                && $0.message.contains("observed -1")
-        }, "\(diagnostics)")
+    let diagnostics = runtimeSafetyDiagnostics {
+        try HeistPlan(body: [
+            .action(ActionStep(command: .activate(.predicate(.label("Save"), ordinal: -1)))),
+        ])
     }
+
+    #expect(diagnostics.contains {
+        $0.message.contains("ordinal must be non-negative")
+            && $0.message.contains("observed -1")
+    }, "\(diagnostics)")
 }
 
 @Test

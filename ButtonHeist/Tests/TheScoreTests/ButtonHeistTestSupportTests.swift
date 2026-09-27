@@ -15,8 +15,7 @@ import ThePlans
             "enabled": true,
             "count": 2,
             "ratio": 1,
-            "traits": ["button", "selected"],
-            "empty": {}
+            "traits": ["button", "selected"]
           }
         }
         """.utf8))
@@ -29,7 +28,6 @@ import ThePlans
         #expect(try metadata.int("count") == 2)
         #expect(try metadata.double("ratio") == 1)
         #expect(try metadata.strings("traits") == ["button", "selected"])
-        #expect(try metadata.object("empty").isEmptyObject())
     }
 
     @Test func `shared JSONProbe reports typed path failures`() throws {

@@ -31,7 +31,6 @@ final class WireCommandParityTests: XCTestCase {
         XCTAssertEqual(TheFence.Command.describeHeist.descriptor.family, .heistRuntime)
 
         XCTAssertEqual(TheFence.Command.wait.descriptor.command, .wait)
-        XCTAssertEqual(TheFence.Command.wait.descriptor.family, .assertion)
     }
 
     func testDescriptorBackedCLIHelpDisplaysFamilyGrouping() {

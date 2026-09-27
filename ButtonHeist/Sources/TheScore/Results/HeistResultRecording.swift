@@ -156,9 +156,9 @@ package struct HeistResultRecording: Codable, Sendable, Equatable {
 extension HeistResultRecording {
     @TaskLocal package static var environmentRecordingEnabled = true
 
-    package static func withEnvironmentRecording<Value>(
+    package static func withEnvironmentRecording<Value: Sendable>(
         _ enabled: Bool,
-        operation: @Sendable () async throws -> Value
+        operation: nonisolated(nonsending) @Sendable () async throws -> Value
     ) async rethrows -> Value {
         try await $environmentRecordingEnabled.withValue(enabled, operation: operation)
     }

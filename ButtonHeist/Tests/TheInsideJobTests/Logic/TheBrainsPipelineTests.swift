@@ -163,14 +163,17 @@ final class TheBrainsPipelineTests: XCTestCase {
             .commitDiscoveryObservationForTesting(.empty)
             .current
 
+        let startTime = CACurrentMediaTime() - 1
         let result = exploration.finish(
-            startTime: CACurrentMediaTime() - 0.01,
+            startTime: startTime,
             current: current,
             didMoveViewport: false,
             viewportExit: .restored
         )
+        let finishTime = CACurrentMediaTime()
 
-        XCTAssertGreaterThan(result.progress.explorationTime, 0)
+        XCTAssertGreaterThanOrEqual(result.progress.explorationTime, 1)
+        XCTAssertLessThanOrEqual(result.progress.explorationTime, finishTime - startTime)
         XCTAssertFalse(result.didMoveViewport)
         XCTAssertEqual(result.current, current)
     }

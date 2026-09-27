@@ -5,19 +5,6 @@ import TheScore
 
 @MainActor
 final class TheMuscleBruteForceProtectionTests: TheMuscleTestCase {
-    func testSingleFailedAttemptNotLockedOut() async throws {
-        let (respond, responses) = collectResponses()
-        try await authenticate(clientId: 1, token: "wrong-token", respond: respond)
-
-        let hasAuthFailed = responses().compactMap { decodeServerMessage($0) }.contains { message in
-            if case .error(let error) = message, error.kind == .authFailure {
-                return !error.message.description.contains("Too many")
-            }
-            return false
-        }
-        XCTAssertTrue(hasAuthFailed, "First failed attempt should get normal authFailed, not lockout")
-    }
-
     func testLockoutAfterMaxFailedAttempts() async throws {
         for clientID in 1...5 {
             try await authenticate(

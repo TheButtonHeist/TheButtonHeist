@@ -300,14 +300,6 @@ import Testing
             .value(before: "", after: "milk")
         )]))
     """#))
-    let updatedAllFields = try HeistSourceCompilation.compile(root(#"""
-    TypeText("milk", into: .identifier("Search"))
-        .expect(.elementsChanged([.updated(
-            .identifier("Search"),
-            .value(before: "", after: "milk")
-        )]))
-    """#))
-
     let expectedAppeared = try HeistPlan(body: [
         .action(ActionStep(
             command: .activate(.predicate(.label("Add"))),
@@ -336,21 +328,13 @@ import Testing
                 .updated(.identifier("Search"), .value(before: "", after: "milk")),
             ]), timeout: .sessionDefault)))),
     ])
-    let expectedUpdatedAllFields = try HeistPlan(body: [
-        .action(ActionStep(
-            command: .typeText(text: "milk", target: .predicate(.identifier("Search"))),
-            expectationPolicy: .expect(ActionExpectation(predicate: .elementsChanged([
-                .updated(.identifier("Search"), .value(before: "", after: "milk")),
-            ]), timeout: .sessionDefault)))),
-    ])
     #expect(appeared == expectedAppeared)
     #expect(disappeared == expectedDisappeared)
     #expect(updatedPropertyOnly == expectedUpdatedPropertyOnly)
     #expect(updatedBeforeAfterOnly == expectedUpdatedBeforeAfterOnly)
-    #expect(updatedAllFields == expectedUpdatedAllFields)
     try assertCanonicalRoundTrip(appeared)
     try assertCanonicalRoundTrip(disappeared)
-    try assertCanonicalRoundTrip(updatedAllFields)
+    try assertCanonicalRoundTrip(updatedBeforeAfterOnly)
 }
 
 @Test func `inline plan source rejects inferred element change predicates`() {

@@ -31,14 +31,35 @@ final class TheHandoffLifecycleStateTests: XCTestCase {
     }
 
     @ButtonHeistActor
-    func testDisconnectClearsState() async {
+    func testDisconnectClearsConnectedStateAndClosesTransport() async {
         let handoff = TheHandoff()
+        let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
+        let mock = MockConnection()
+        mock.serverInfo = ServerInfo(
+            appName: "TestApp",
+            bundleIdentifier: "com.test",
+            deviceName: "Simulator",
+            systemVersion: "26.1",
+            screenWidth: 402,
+            screenHeight: 874,
+            instanceId: "test-session",
+            instanceIdentifier: "test",
+            listeningPort: 49152,
+            tlsActive: true
+        )
+        handoff.makeConnection = { _ in mock }
+
+        handoff.connect(to: device)
+        XCTAssertEqual(handoff.connectionLifecycle.connectedDevice, device)
+        XCTAssertEqual(handoff.connectionLifecycle.serverInfo?.appName, "TestApp")
+        XCTAssertEqual(mock.disconnectCount, 0)
 
         handoff.disconnect()
 
         XCTAssertNil(handoff.connectionLifecycle.connectedDevice)
         XCTAssertNil(handoff.connectionLifecycle.serverInfo)
         assertDisconnected(handoff.connectionPhase)
+        XCTAssertEqual(mock.disconnectCount, 1)
     }
 
     @ButtonHeistActor

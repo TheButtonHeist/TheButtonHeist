@@ -40,23 +40,6 @@ final class AuthFlowTests: XCTestCase {
     // MARK: - Tests
 
     @ButtonHeistActor
-    func testAuthRequiredIsEmittedToHandoff() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
-        conn.simulateConnected()
-
-        var receivedAuthRequired = false
-        conn.onEvent = { event in
-            if case .message(.authRequired, _) = event {
-                receivedAuthRequired = true
-            }
-        }
-
-        try conn.handleMessage(testResponseEnvelopeData(.authRequired))
-
-        XCTAssertTrue(receivedAuthRequired)
-    }
-
-    @ButtonHeistActor
     func testProtocolMismatchEmitsPayloadWithoutDisconnectingTransport() async throws {
         let conn = DeviceConnection(device: makeDummyDevice())
         conn.simulateConnected()

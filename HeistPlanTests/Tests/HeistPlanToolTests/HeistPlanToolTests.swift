@@ -75,7 +75,7 @@ struct HeistPlanToolTests {
     }
 
     @Test
-    func `canonicalize writes sorted stable JSON`() throws {
+    func `canonicalize writes package JSON from plan`() throws {
         let temp = try TemporaryDirectory()
         let inputURL = temp.url.appendingPathComponent("input.heist")
         let outputURL = temp.url.appendingPathComponent("output.heist")

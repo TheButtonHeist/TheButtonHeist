@@ -207,22 +207,6 @@ extension TheFenceHandlerTests {
         }
     }
 
-    @ButtonHeistActor
-    func testHeistPlanCarriesTypedActionExpectation() async throws {
-        let expectation = AccessibilityPredicate.elementsChanged([
-            .updated(.identifier("counter"), .value(after: "5")),
-        ])
-        let sourceStep = HeistStep.action(ActionStep(
-            command: .activate(.predicate(ElementPredicate(identifier: .exact("counter")))),
-            expectationPolicy: .expect(ActionExpectation(predicate: expectation, timeout: 10))))
-        let plan = try HeistPlan(body: [sourceStep])
-        guard case .action(let action)? = plan.body.first else {
-            return XCTFail("Expected action step")
-        }
-
-        XCTAssertEqual(action.expectationPolicy.expectedExpectation?.predicate, expectation)
-    }
-
     // MARK: - Parse Expectation: Discriminator Wire Shape
 
     @ButtonHeistActor

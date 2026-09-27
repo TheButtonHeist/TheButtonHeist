@@ -54,7 +54,7 @@ SUITES = {
         "serial": True,
         "disable_animations": True,
     },
-    "MacFrameworkTests": {"platform": "macos"},
+    "MacFrameworkTests": {"platform": "macos", "serial": True},
 }
 
 # Named focused projections onto the canonical suite catalog. Test identifiers

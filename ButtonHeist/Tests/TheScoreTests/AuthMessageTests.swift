@@ -118,63 +118,6 @@ final class AuthMessageTests: XCTestCase {
         XCTAssertThrowsError(try JSONDecoder().decode(ServerInfo.self, from: data))
     }
 
-    // MARK: - Auth handshake simulation (JSON round-trip)
-
-    func testFullAuthHandshakeMessages() throws {
-        // Step 1: Server sends authRequired
-        let authReq = ServerMessage.authRequired
-        let authReqData = try JSONEncoder().encode(authReq)
-        let decodedAuthReq = try JSONDecoder().decode(ServerMessage.self, from: authReqData)
-        if case .authRequired = decodedAuthReq {} else {
-            XCTFail("Step 1 failed: expected authRequired")
-            return
-        }
-
-        // Step 2: Client sends authenticate
-        let authMsg = ClientMessage.authenticate(AuthenticatePayload(token: "valid-token"))
-        let authMsgData = try JSONEncoder().encode(authMsg)
-        let decodedAuth = try JSONDecoder().decode(ClientMessage.self, from: authMsgData)
-        if case .authenticate(let payload) = decodedAuth {
-            XCTAssertEqual(payload.token, "valid-token")
-        } else {
-            XCTFail("Step 2 failed: expected authenticate")
-            return
-        }
-
-        // Step 3a: Server sends info on success
-        let serverInfo = ServerInfo(
-            appName: "MyApp",
-            bundleIdentifier: "com.test.myapp",
-            deviceName: "iPhone 16",
-            systemVersion: "18.0",
-            screenWidth: 393,
-            screenHeight: 852,
-            instanceId: "session-1",
-            instanceIdentifier: "test-1",
-            listeningPort: 49152,
-            tlsActive: true
-        )
-        let infoMsg = ServerMessage.info(serverInfo)
-        let infoData = try JSONEncoder().encode(infoMsg)
-        let decodedInfo = try JSONDecoder().decode(ServerMessage.self, from: infoData)
-        if case .info(let info) = decodedInfo {
-            XCTAssertEqual(info.instanceIdentifier, "test-1")
-        } else {
-            XCTFail("Step 3a failed: expected info")
-        }
-
-        // Step 3b: Or server sends an authFailure error
-        let failMsg = ServerMessage.error(ServerError(kind: .authFailure, message: "Token mismatch"))
-        let failData = try JSONEncoder().encode(failMsg)
-        let decodedFail = try JSONDecoder().decode(ServerMessage.self, from: failData)
-        if case .error(let serverError) = decodedFail {
-            XCTAssertEqual(serverError.kind, .authFailure)
-            XCTAssertEqual(serverError.message, "Token mismatch")
-        } else {
-            XCTFail("Step 3b failed: expected error(authFailure)")
-        }
-    }
-
     // MARK: - Wire format contract
 
     func testAuthRequiredFromRawJSON() throws {

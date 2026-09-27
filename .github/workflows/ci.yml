@@ -73,7 +73,7 @@ jobs:
   macos-tests:
     name: macos-tests
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
     env:
       BUTTONHEIST_RESULTS_MODE: failures
@@ -98,10 +98,10 @@ jobs:
           git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA" \
             | python3 scripts/select-ci-change-scopes.py --github-output "$GITHUB_OUTPUT"
 
-      - name: Select Xcode 26.3
+      - name: Select Xcode 26.6
         run: |
           echo "MAC_VALIDATION_START=$(date +%s)" >> "$GITHUB_ENV"
-          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
 
       - name: Install build tools
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151  # v4
@@ -166,7 +166,7 @@ jobs:
   ios-logic:
     name: ios-logic
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 50
     env:
       BUTTONHEIST_RESULTS_MODE: failures
@@ -179,8 +179,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+      - name: Select Xcode 26.6
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
 
       - name: Install Tuist
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151  # v4
@@ -242,7 +242,7 @@ jobs:
     name: ios-hosted
     needs: ios-logic
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 80
     env:
       BUTTONHEIST_RESULTS_MODE: failures
@@ -255,8 +255,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+      - name: Select Xcode 26.6
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
 
       - name: Install Tuist
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151  # v4
@@ -357,7 +357,7 @@ jobs:
     name: ios-integration
     needs: [ios-logic, release-contract]
     if: always() && needs.ios-logic.result == 'success' && needs.release-contract.outputs.run_ios_integration == 'true'
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 65
     env:
       BUTTONHEIST_RESULTS_MODE: failures
@@ -370,8 +370,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Select Xcode 26.3
-        run: sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+      - name: Select Xcode 26.6
+        run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
 
       - name: Install Tuist
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151  # v4

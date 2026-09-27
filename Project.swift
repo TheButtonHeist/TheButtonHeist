@@ -474,6 +474,7 @@ let project = Project(
                 .testableTarget(target: .target("ThePlansTests")),
             ], arguments: .arguments(environmentVariables: [
                 "HEIST_THEPLANS_BUILD_DIR": "$(BUILT_PRODUCTS_DIR)",
+                "DEVELOPER_DIR": "$(DEVELOPER_DIR)",
             ]), expandVariableFromTarget: .target("ThePlansTests"))
         ),
         testScheme(name: "TheScoreTests"),
@@ -490,6 +491,7 @@ let project = Project(
                 },
                 arguments: .arguments(environmentVariables: [
                     "HEIST_THEPLANS_BUILD_DIR": "$(BUILT_PRODUCTS_DIR)",
+                    "DEVELOPER_DIR": "$(DEVELOPER_DIR)",
                 ]),
                 expandVariableFromTarget: .target("ThePlansTests")
             )
