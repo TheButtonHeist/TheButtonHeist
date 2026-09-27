@@ -528,6 +528,15 @@ class TestRunnerTests(unittest.TestCase):
         index = command.index("-parallel-testing-enabled")
         self.assertEqual(command[index + 1], "NO")
 
+    def test_mac_framework_tests_are_serial(self) -> None:
+        suite = SUITES["MacFrameworkTests"]
+        paths = RUNNER["suite_paths"]("MacFrameworkTests")
+        command = RUNNER["test_command"](
+            "run", "MacFrameworkTests", suite, paths, None
+        )
+        index = command.index("-parallel-testing-enabled")
+        self.assertEqual(command[index + 1], "NO")
+
     def test_simulator_result_cleanup_is_scoped_to_selected_device(self) -> None:
         with mock.patch.object(RUNNER["Path"], "home", return_value=Path("/Users/test")), \
              mock.patch.object(RUNNER["Path"], "exists", return_value=True), \
