@@ -188,9 +188,11 @@ final class DeterministicRuntimeScenarioDriver {
                 throw DeterministicRuntimeDriverFailure.negativePulseElapsed(duration)
             }
             elapsed += duration
-            resumeReadyDeadlineWaiters(
-                deadlineWaiters.filter { $0.value.deadline <= elapsed }
-            )
+            var ready: [UInt64: DeadlineWaiter] = [:]
+            for (id, waiter) in deadlineWaiters where waiter.deadline <= elapsed {
+                ready[id] = waiter
+            }
+            resumeReadyDeadlineWaiters(ready)
         }
 
         func wait(for duration: Duration) async -> Bool {
@@ -269,7 +271,10 @@ final class DeterministicRuntimeScenarioDriver {
                 return
             }
             generation += 1
-            let ready = waiters.filter { $0.value.after < generation }
+            var ready: [UInt64: Waiter] = [:]
+            for (id, waiter) in waiters where waiter.after < generation {
+                ready[id] = waiter
+            }
             for (id, waiter) in ready {
                 waiters.removeValue(forKey: id)
                 waiter.continuation.resume(returning: true)
