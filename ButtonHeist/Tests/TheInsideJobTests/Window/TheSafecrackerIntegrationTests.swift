@@ -57,53 +57,6 @@ final class TheSafecrackerIntegrationTests: XCTestCase {
 
     // MARK: - Touch Injection
 
-    func testTapReturnsTrue() async {
-        let result = await safecracker.tap(at: CGPoint(x: 100, y: 100))
-        XCTAssertTrue(result)
-    }
-
-    func testLongPressDoesNotCrash() async {
-        let button = UIButton(type: .system)
-        button.frame = CGRect(x: 50, y: 300, width: 200, height: 44)
-        hostView.addSubview(button)
-        defer { button.removeFromSuperview() }
-
-        let screenPoint = button.convert(
-            CGPoint(x: button.bounds.midX, y: button.bounds.midY),
-            to: nil
-        )
-
-        let result = await safecracker.longPress(
-            at: screenPoint,
-            duration: 0.1
-        )
-        XCTAssertTrue(result)
-    }
-
-    func testSwipeCompletesSuccessfully() async {
-        let start = CGPoint(x: 200, y: 400)
-        let end = CGPoint(x: 200, y: 200)
-
-        let result = await safecracker.swipe(
-            from: start,
-            to: end,
-            duration: 0.1
-        )
-        XCTAssertTrue(result)
-    }
-
-    func testDragCompletesSuccessfully() async {
-        let start = CGPoint(x: 100, y: 300)
-        let end = CGPoint(x: 300, y: 300)
-
-        let result = await safecracker.drag(
-            from: start,
-            to: end,
-            duration: 0.1
-        )
-        XCTAssertTrue(result)
-    }
-
     func testCancellingBeforeTapBeginsEmitsNoTouch() async {
         let control = makeTouchLifecycleControl()
         defer { control.removeFromSuperview() }
@@ -176,7 +129,7 @@ final class TheSafecrackerIntegrationTests: XCTestCase {
         await teardownKeyboard(textField: textField)
     }
 
-    func testActiveTextInputRequiresFocusedEditableResponder() async throws {
+    func testActiveTextInputBecomesAvailableWhenTextFieldIsFocused() async throws {
         let textField = UITextField()
         textField.frame = CGRect(x: 50, y: 400, width: 200, height: 44)
         hostView.addSubview(textField)

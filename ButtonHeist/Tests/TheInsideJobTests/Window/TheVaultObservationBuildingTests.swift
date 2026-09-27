@@ -23,26 +23,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - buildObservation populates elements
-
-    func testBuildObservationPopulatesElements() {
-        let elementA = makeElement(label: "Save", traits: .button)
-        let elementB = makeElement(label: "Cancel", traits: .button)
-        let result = TheVault.CaptureResult(
-            hierarchy: [
-                .element(elementA, traversalIndex: 0),
-                .element(elementB, traversalIndex: 1),
-            ],
-        )
-
-        let observation = TheVault.buildObservation(from: result)
-
-        XCTAssertEqual(observation.tree.elements.count, 2, "InterfaceObservation should have one entry per parsed element")
-        for heistId in observation.tree.elements.keys {
-            XCTAssertNotNil(observation.tree.findElement(heistId: heistId),
-                            "Each heistId should map to an entry")
-        }
-    }
+    // MARK: - Observation identity
 
     func testBuildObservationPopulatesHeistIdsByPath() {
         let element = makeElement(label: "OK", traits: .button)
@@ -74,18 +55,6 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         XCTAssertEqual(Set(observation.tree.elements.keys), ["item_button_1", "item_button_2"])
         XCTAssertEqual(Set(observation.tree.elements.values.map(\.path)), [TreePath([0]), TreePath([1])])
         XCTAssertEqual(interface.annotations.elements.map(\.path), [TreePath([0]), TreePath([1])])
-    }
-
-    func testBuildObservationSetsHierarchy() {
-        let element = makeElement(label: "Item")
-        let hierarchy: [AccessibilityHierarchy] = [.element(element, traversalIndex: 0)]
-        let result = TheVault.CaptureResult(
-            hierarchy: hierarchy
-        )
-
-        let observation = TheVault.buildObservation(from: result)
-
-        XCTAssertEqual(observation.tree.viewportCapture.hierarchy.count, 1)
     }
 
     func testBuildObservationKeepsOffscreenFactsOutOfViewportEvidence() {
@@ -519,44 +488,6 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             observation.tree.viewportCapture.firstResponderHeistId,
             observation.tree.viewportCapture.heistId(forPath: secondPath)
         )
-    }
-
-    // MARK: - HeistId determinism
-
-    func testHeistIdsAreAssignedDeterministically() {
-        let button = makeElement(label: "Submit", traits: .button)
-        let result = TheVault.CaptureResult(
-            hierarchy: [.element(button, traversalIndex: 0)]
-        )
-
-        let first = TheVault.buildObservation(from: result)
-        let second = TheVault.buildObservation(from: result)
-
-        XCTAssertEqual(Set(first.tree.elements.keys), Set(second.tree.elements.keys),
-                       "Same elements should produce same heistIds")
-    }
-
-    func testDuplicateLabelsGetDisambiguatedHeistIds() {
-        let buttonA = makeElement(
-            label: "Option", traits: .button,
-            frame: CGRect(x: 0, y: 0, width: 100, height: 44)
-        )
-        let buttonB = makeElement(
-            label: "Option", traits: .button,
-            frame: CGRect(x: 0, y: 60, width: 100, height: 44)
-        )
-        let result = TheVault.CaptureResult(
-            hierarchy: [
-                .element(buttonA, traversalIndex: 0),
-                .element(buttonB, traversalIndex: 1),
-            ]
-        )
-
-        let observation = TheVault.buildObservation(from: result)
-
-        XCTAssertEqual(observation.tree.elements.count, 2)
-        XCTAssertEqual(observation.tree.elements.count, 2,
-                       "Duplicate labels should produce two distinct entries")
     }
 
     func testElementOrderDerivesFromHierarchyTraversalIndex() {

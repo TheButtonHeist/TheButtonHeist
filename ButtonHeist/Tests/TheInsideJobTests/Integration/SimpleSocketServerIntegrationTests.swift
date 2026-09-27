@@ -309,6 +309,8 @@ final class SimpleSocketServerIntegrationTests: XCTestCase {
         await server.removeClient(clientId)
 
         await fulfillment(of: [clientDisconnected], timeout: 5.0)
+        let outcome = await server.send(Data("after-disconnect".utf8), to: clientId)
+        XCTAssertEqual(outcome, .failed(.clientNotFound(clientId)))
     }
 
     func testScopeRejectionSendsServerErrorBeforeDisconnect() async throws {

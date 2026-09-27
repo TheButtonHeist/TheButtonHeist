@@ -191,7 +191,7 @@ extension TheBrainsScrollTests {
         XCTAssertTrue(inflatedTarget.liveTarget.object === arrivedObject)
     }
 
-    func testRevealRetryAttemptsFreshKnownTargetOnlyOnce() async throws {
+    func testFreshKnownTargetDoesNotRevealDuringCandidateSearch() async throws {
         brains.tripwire.stopPulse()
         let overviewVisible = makeElement(label: "Combo Overview", traits: .header)
         let staleCoke = makeElement(label: "Coke", traits: .button)
@@ -241,7 +241,7 @@ extension TheBrainsScrollTests {
 
         await inflation.value
         guard case .failed(let failure)? = resultBox.value else {
-            return XCTFail("Expected typed cancellation after reveal retry")
+            return XCTFail("Expected typed cancellation during candidate search")
         }
         XCTAssertEqual(failure.failedStep, .cancelled)
     }

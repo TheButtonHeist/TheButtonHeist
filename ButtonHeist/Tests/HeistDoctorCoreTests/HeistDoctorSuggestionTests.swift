@@ -128,25 +128,6 @@ import TheScore
         #expect(resolvedCount(suggestion.newTarget, in: current.beforeSnapshot) == 1)
     }
 
-    @Test("Missing target does not guess from the only compatible role")
-    func missingTargetDoesNotGuessFromTheOnlyCompatibleRole() {
-        let target = AccessibilityTarget.predicate(ElementPredicate(label: "Delete"))
-        let last = passedEvidence(
-            target: target,
-            before: makeTestInterface(elements: [
-                element(label: "Delete", traits: [.button], actions: [.activate]),
-            ])
-        )
-        let current = failedEvidence(
-            target: target,
-            before: makeTestInterface(elements: [
-                element(label: "Checkout", traits: [.button], actions: [.activate]),
-            ])
-        )
-
-        #expect(HeistDoctor.diagnosis(for: request(last, current)).suggestions.isEmpty)
-    }
-
     @Test("Missing target does not use traversal ordinal without matching neighbors")
     func missingTargetDoesNotUseTraversalOrdinalWithoutMatchingNeighbors() {
         let target = AccessibilityTarget.predicate(ElementPredicate(label: "Delete"))

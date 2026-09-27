@@ -22,24 +22,10 @@ extension AccessibilityPolicy {
         let mask: AccessibilityTraits
     }
 
-    /// Bitmask form of `stateTraits`. Consumed by
-    /// `TheVault.stableTraitNames`.
-    static let stateTraitsBitmask: AccessibilityTraits =
-        AccessibilityTraits.fromNames(stateTraits.map(\.rawValue))
-
-    /// Set of trait *names* in `stateTraits`. Consumed by
-    /// `TheVault.stableTraitNames` for `Set<String>` subtraction.
-    static let stateTraitNames: Set<String> =
-        Set(stateTraits.map(\.rawValue))
-
     /// Bitmask form of `interactiveTraits`. Consumed by
     /// `TheVault.Interactivity.hasInteractiveTraits`.
     static let interactiveTraitsBitmask: AccessibilityTraits =
         AccessibilityTraits.fromNames(interactiveTraits.map(\.rawValue))
-
-    /// Bitmask form of `staticOnlyTraits`.
-    static let staticOnlyTraitsBitmask: AccessibilityTraits =
-        AccessibilityTraits.fromNames(staticOnlyTraits.map(\.rawValue))
 
     /// Synthesis priority resolved to trait/mask projections in priority
     /// order. Consumed by `HeistIdAssignment.synthesizeBaseId` to find

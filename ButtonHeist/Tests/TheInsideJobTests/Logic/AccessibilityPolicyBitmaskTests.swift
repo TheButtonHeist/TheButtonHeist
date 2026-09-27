@@ -16,36 +16,12 @@ final class AccessibilityPolicyBitmaskTests: XCTestCase {
 
     // MARK: - Bitmask round-trip
 
-    func testTransientTraitsBitmaskRoundTrips() {
-        let bitmask = AccessibilityPolicy.stateTraitsBitmask
-        let recoveredNames = Set(bitmask.heistTraitNames)
-        let expectedNames = Set(AccessibilityPolicy.stateTraits.map(\.rawValue))
-        XCTAssertEqual(recoveredNames, expectedNames,
-                       "stateTraitsBitmask must round-trip the trait names")
-    }
-
     func testInteractiveTraitsBitmaskRoundTrips() {
         let bitmask = AccessibilityPolicy.interactiveTraitsBitmask
         let recoveredNames = Set(bitmask.heistTraitNames)
         let expectedNames = Set(AccessibilityPolicy.interactiveTraits.map(\.rawValue))
         XCTAssertEqual(recoveredNames, expectedNames,
                        "interactiveTraitsBitmask must round-trip the trait names")
-    }
-
-    func testStaticOnlyTraitsBitmaskRoundTrips() {
-        let bitmask = AccessibilityPolicy.staticOnlyTraitsBitmask
-        let recoveredNames = Set(bitmask.heistTraitNames)
-        let expectedNames = Set(AccessibilityPolicy.staticOnlyTraits.map(\.rawValue))
-        XCTAssertEqual(recoveredNames, expectedNames,
-                       "staticOnlyTraitsBitmask must round-trip the trait names")
-    }
-
-    // MARK: - Name set agreement
-
-    func testTransientTraitNamesAgreesWithTraitSet() {
-        let derived = Set(AccessibilityPolicy.stateTraits.map(\.rawValue))
-        XCTAssertEqual(AccessibilityPolicy.stateTraitNames, derived,
-                       "stateTraitNames must agree with stateTraits.map(\\.rawValue)")
     }
 
     // MARK: - Synthesis priority projections
@@ -71,9 +47,9 @@ final class AccessibilityPolicyBitmaskTests: XCTestCase {
 
     func testAllTransientTraitNamesAreKnownToParser() {
         let known = AccessibilityTraits.knownTraitNames
-        for name in AccessibilityPolicy.stateTraitNames {
-            XCTAssertTrue(known.contains(name),
-                          "stateTrait \(name) is not in the parser's knownTraitNames")
+        for trait in AccessibilityPolicy.stateTraits {
+            XCTAssertTrue(known.contains(trait.rawValue),
+                          "stateTrait \(trait.rawValue) is not in the parser's knownTraitNames")
         }
     }
 

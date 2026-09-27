@@ -502,8 +502,7 @@ final class TheBrainsScrollTests: XCTestCase {
     func installScreenWithOffViewport(
         visible: InterfaceObservation.TestEntry,
         offscreen: OffViewportScrollTarget,
-        includeLiveScrollAncestor: Bool = true,
-        revealsTargetOnRefresh: Bool = false
+        includeLiveScrollAncestor: Bool = true
     ) async {
         let scrollContainerPath = TreePath([0])
         let scrollMembership = InterfaceTree.ScrollMembership(
@@ -558,36 +557,6 @@ final class TheBrainsScrollTests: XCTestCase {
                 : [:]
         )
         await installSyntheticObservation(observation)
-        if revealsTargetOnRefresh {
-            let revealedEntry = InterfaceTree.Element(
-                heistId: offscreen.heistId,
-                scrollMembership: scrollMembership,
-                geometry: testGeometry(
-                    for: offscreen.element,
-                    ownerPath: scrollContainerPath,
-                    screen: TheVault.onscreenSpace(for: offscreen.element)
-                ),
-                element: offscreen.element
-            )
-            visibleObservationSource.observation = InterfaceObservation.makeForTests(
-                elements: [revealedEntry.heistId: revealedEntry],
-                hierarchy: [
-                    .container(scrollContainer, children: [
-                        .element(offscreen.element, traversalIndex: 0),
-                    ]),
-                ],
-                containerNamesByPath: [scrollContainerPath: containerName],
-                heistIdsByPath: [scrollContainerPath.appending(0): offscreen.heistId],
-                elementRefs: [
-                    offscreen.heistId: .init(object: retainedLiveObject(), scrollView: offscreen.scrollView),
-                ],
-                containerRefsByPath: [scrollContainerPath: .init(object: offscreen.scrollView)],
-                firstResponderHeistId: nil,
-                scrollableContainerViewsByPath: [
-                    scrollContainerPath: .init(view: offscreen.scrollView),
-                ]
-            )
-        }
     }
 
     // MARK: - Helpers
@@ -829,19 +798,6 @@ final class TheBrainsScrollTests: XCTestCase {
             onSetContentOffset?(self)
             super.setContentOffset(contentOffset, animated: animated)
         }
-    }
-}
-
-private extension UIView {
-    var nearestScrollableSuperviewForTesting: UIScrollView? {
-        var ancestor = superview
-        while let current = ancestor {
-            if let scrollView = current as? UIScrollView {
-                return scrollView
-            }
-            ancestor = current.superview
-        }
-        return nil
     }
 }
 

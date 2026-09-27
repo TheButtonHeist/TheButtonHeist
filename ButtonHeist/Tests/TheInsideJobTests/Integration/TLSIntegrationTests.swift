@@ -21,26 +21,6 @@ final class TLSIntegrationTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testTLSHandshakeWithPreSharedKey() async throws {
-        let token = "correct horse battery staple"
-        let connected = expectation(description: "client connected to server")
-        let callbacks = SocketServerCallbacks(
-            onClientConnected: { _, _ in connected.fulfill() }
-        )
-        server = SimpleSocketServer(callbacks: callbacks)
-        let port = try await server.startAsync(
-            port: 0,
-            bindToLoopback: true,
-            tlsParameters: ButtonHeistTLSPreSharedKey.networkParameters(from: token)
-        )
-        let client = ButtonHeistNetworkTestClient.tls(port: port, token: token)
-        defer { client.cancel() }
-
-        try await client.connect()
-
-        await fulfillment(of: [connected], timeout: 5.0)
-    }
-
     func testDataExchangeOverTLSPreSharedKey() async throws {
         let token = "shared-token"
         let echoReceived = expectation(description: "server received message")

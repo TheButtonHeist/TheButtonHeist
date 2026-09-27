@@ -306,20 +306,3 @@ private struct JSONCodingKey: CodingKey {
         self.intValue = intValue
     }
 }
-
-package func testJSONObject<Value: Encodable>(_ value: Value) throws -> [String: Any] {
-    let encoded = try JSONEncoder().encode(value)
-    guard let object = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] else {
-        throw JSONProbeFailure(path: "$", reason: "Expected encoded object")
-    }
-    return object
-}
-
-package func mutatedTestJSONData<Value: Encodable>(
-    _ value: Value,
-    mutation: (inout [String: Any]) throws -> Void
-) throws -> Data {
-    var object = try testJSONObject(value)
-    try mutation(&object)
-    return try JSONSerialization.data(withJSONObject: object)
-}

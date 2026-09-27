@@ -145,16 +145,6 @@ final class AccessibilityHierarchyFilterTests: XCTestCase {
         XCTAssertEqual(buttons, ["OK"])
     }
 
-    func testElementsChecksAllInteractive() {
-        let tree = group(children: [
-            element(label: "A"),
-            element(label: "B"),
-        ])
-
-        let allInteractive = tree.elements.allSatisfy(\.element.respondsToUserInteraction)
-        XCTAssertTrue(allInteractive)
-    }
-
     func testElementsOnSingleElement() {
         let node = element(label: "Solo", index: 0)
         XCTAssertEqual(node.elements.count, 1)

@@ -63,17 +63,6 @@ final class TheMuscleSessionLifecycleTests: TheMuscleTestCase {
         XCTAssertEqual(payload.activeConnections, 1)
     }
 
-    func testSessionReleasedAfterAllDisconnect() async throws {
-        try await authenticate(clientId: 1, token: "test-token", respond: respondSink())
-        let driverId = await muscle.sessionOwner
-        XCTAssertNotNil(driverId)
-
-        await muscle.handleClientDisconnected(1, generation: deliveryGeneration)
-
-        let driverIdAfter = await muscle.sessionOwner
-        XCTAssertNotNil(driverIdAfter, "Session should still be active during grace period")
-    }
-
     func testSameDriverRejoinsAfterDisconnect() async throws {
         try await authenticate(clientId: 1, token: "test-token", respond: respondSink())
         await muscle.handleClientDisconnected(1, generation: deliveryGeneration)

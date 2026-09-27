@@ -53,7 +53,7 @@ final class TheSafecrackerKeyboardVisibilityTests: XCTestCase {
         XCTAssertFalse(safecracker.isKeyboardVisible)
     }
 
-    func testKeyboardNotVisibleAfterObservationStopped() {
+    func testKeyboardVisibilityDoesNotChangeAfterObservationStops() {
         let screenBounds = UIScreen.main.bounds
         let keyboardFrame = CGRect(
             x: 0,
@@ -71,10 +71,18 @@ final class TheSafecrackerKeyboardVisibilityTests: XCTestCase {
 
         safecracker.stopKeyboardObservation()
 
-        // After stopping observation, the flag retains its last value
-        // but new notifications should not update it.
-        let newSafecracker = TheSafecracker()
-        XCTAssertFalse(newSafecracker.isKeyboardVisible)
+        let hiddenFrame = CGRect(
+            x: 0,
+            y: screenBounds.height,
+            width: screenBounds.width,
+            height: 300
+        )
+        NotificationCenter.default.post(
+            name: UIResponder.keyboardDidChangeFrameNotification,
+            object: nil,
+            userInfo: [UIResponder.keyboardFrameEndUserInfoKey: hiddenFrame]
+        )
+        XCTAssertTrue(safecracker.isKeyboardVisible)
     }
 
     func testKeyboardVisibilityTogglesWithNotifications() {
