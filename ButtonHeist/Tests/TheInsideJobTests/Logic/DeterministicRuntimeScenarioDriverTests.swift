@@ -48,7 +48,7 @@ import UIKit
         #expect(step.path.description == "$.body[0]")
         #expect(expectation.predicate == nil)
         #expect(expectation.terminalCause == .observed)
-        #expect(expectation.observation.events.last == .noChange)
+        #expect(expectation.observation.events == [.noChange])
         #expect(expectation.timing.elapsedMs.milliseconds == 0)
         #expect(completed.report?.summary.expectations?.allMet == true)
         #expect(completed.humanFailureDescription == nil)
