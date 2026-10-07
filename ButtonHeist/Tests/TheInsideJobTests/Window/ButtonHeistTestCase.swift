@@ -230,49 +230,4 @@ extension TheBrains {
     }
 }
 
-/// A test that reads the app through semantic observation.
-///
-/// The same one tripwire and the same ordering as the action runtime — the
-/// difference is only which observer is started, so a test reading committed
-/// observations names this and a test driving actions names the other.
-///
-/// The pulse is off unless a test asks for it. A pulsing display link produces
-/// readings the test did not ask for and cannot place in time, so a test that
-/// stages its own observations gets a stream that only holds what it put there.
-/// A test that means to watch the app move says `pulses`, and then the readings
-/// are the point rather than the interference.
-@MainActor
-class ButtonHeistObservationTestCase: ButtonHeistTestCase {
-
-    /// The runtime this test reads through, already observing.
-    private(set) var brains: TheBrains!
-
-    /// Whether the display link runs for the duration of this test.
-    var pulses: Bool { false }
-
-    /// Builds the runtime for this test.
-    ///
-    /// Override to name an observation source. The tripwire is handed in
-    /// because there is exactly one.
-    func makeBrains(tripwire: TheTripwire) throws -> TheBrains {
-        TheBrains(tripwire: tripwire)
-    }
-
-    final override func startObserving() async throws {
-        brains = try makeBrains(tripwire: TheTripwire())
-        if pulses {
-            brains.tripwire.startPulse()
-        }
-        brains.vault.semanticObservationStream.start()
-    }
-
-    final override func stopObserving() async throws {
-        guard let brains else { return }
-        brains.vault.semanticObservationStream.stop()
-        brains.tripwire.stopPulse()
-        XCTAssertFalse(brains.semanticObservationIsActive)
-        XCTAssertFalse(brains.tripwire.isPulseRunning)
-        self.brains = nil
-    }
-}
 #endif

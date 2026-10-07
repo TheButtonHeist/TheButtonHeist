@@ -1,16 +1,6 @@
 import Testing
 @testable import TheScore
 
-@Test func `uniqued keeps the first occurrence of hashable values`() {
-    struct Value: Hashable {
-        let raw: Int
-    }
-
-    let values = [Value(raw: 2), Value(raw: 1), Value(raw: 2), Value(raw: 3), Value(raw: 1)]
-
-    #expect(values.uniqued() == [Value(raw: 2), Value(raw: 1), Value(raw: 3)])
-}
-
 @Test func `keyed uniqued keeps the first value for each key`() {
     struct Value: Equatable {
         let key: Int

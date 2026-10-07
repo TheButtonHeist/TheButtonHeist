@@ -184,10 +184,6 @@ public struct HeistExecutionPath: Sendable, Equatable, Hashable, Codable,
         return regularChild
     }
 
-    package func childBranch(after parent: Self) -> ChildBranch? {
-        childEdge(after: parent)?.branch
-    }
-
     package func childEdge(after parent: Self) -> ChildEdge? {
         guard isDescendant(of: parent) else { return nil }
         let suffix = Array(components.dropFirst(parent.components.count))

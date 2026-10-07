@@ -210,12 +210,6 @@ extension HeistCanonicalSwiftDSLRenderer {
         return ".init(\(renderIncludeExcludeFields(include: include, exclude: exclude)))"
     }
 
-    private func renderIntegerFields(_ fields: [(String, Int?)]) -> String {
-        fields.compactMap { name, value in
-            value.map { "\(name): \($0)" }
-        }.joined(separator: ", ")
-    }
-
     private func renderIncludeExcludeFields(include: String?, exclude: String?) -> String {
         [
             include.map { "include: \($0)" },

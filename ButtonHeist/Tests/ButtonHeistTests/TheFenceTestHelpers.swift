@@ -254,16 +254,6 @@ func makeBackgroundElementsChangedEvidence(elementCount: Int) -> Observation.Evi
     )
 }
 
-func makeBackgroundScreenChangedEvidence(elementCount: Int) -> Observation.Evidence {
-    makeObservationEvidence(
-        before: makeTestInterface(elementCount: 0, prefix: "before"),
-        after: makeTestInterface(elementCount: elementCount, prefix: "after"),
-        beforeScreenId: "before",
-        afterScreenId: "after",
-        screenChanged: true
-    )
-}
-
 func makeObservationEvidence(
     before: Interface,
     after: Interface? = nil,
