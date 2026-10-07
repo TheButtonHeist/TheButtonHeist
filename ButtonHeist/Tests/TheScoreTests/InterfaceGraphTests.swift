@@ -125,6 +125,32 @@ final class InterfaceGraphTests: XCTestCase {
         }
     }
 
+    func testInterfaceConstructionRejectsMissingElementAnnotations() {
+        let first = makeElement(label: "First")
+        let second = makeElement(label: "Second")
+        let tree: [AccessibilityHierarchy] = [
+            .element(makeTestAccessibilityElement(first), traversalIndex: 0),
+            .element(makeTestAccessibilityElement(second), traversalIndex: 1),
+        ]
+
+        XCTAssertThrowsError(try Interface(
+            timestamp: Date(timeIntervalSince1970: 1),
+            tree: tree,
+            annotations: InterfaceAnnotations(elements: [
+                InterfaceElementAnnotation(
+                    path: TreePath([0]),
+                    actions: [],
+                    geometry: first.geometry
+                ),
+            ])
+        )) { error in
+            XCTAssertEqual(
+                error as? InterfaceGraphValidationError,
+                .missingElementAnnotation(TreePath([1]))
+            )
+        }
+    }
+
     func testAnnotationAndObservationIdentityLookupByPath() throws {
         let save = makeElement(label: "Save")
         let cancel = makeElement(label: "Cancel")
@@ -159,7 +185,7 @@ final class InterfaceGraphTests: XCTestCase {
 
         let saveRecord = graph.elementsInTraversalOrder.first { $0.path == savePath }
         let cancelRecord = graph.elementsInTraversalOrder.first { $0.path == cancelPath }
-        XCTAssertEqual(saveRecord?.annotation?.actions, [.activate])
+        XCTAssertEqual(saveRecord?.annotation.actions, [.activate])
         XCTAssertEqual(saveRecord?.observationIdentity, saveIdentity)
         XCTAssertEqual(cancelRecord?.observationIdentity, cancelIdentity)
     }
@@ -204,8 +230,8 @@ final class InterfaceGraphTests: XCTestCase {
 
         XCTAssertEqual(graph.elementsInTraversalOrder, [first, second])
         XCTAssertEqual(indexedNodes, [first, second])
-        XCTAssertEqual(first.annotation?.actions, [.activate])
-        XCTAssertEqual(second.annotation?.actions, [.custom("Archive")])
+        XCTAssertEqual(first.annotation.actions, [.activate])
+        XCTAssertEqual(second.annotation.actions, [.custom("Archive")])
         XCTAssertEqual(first.observationIdentity, Observation.ElementIdentity("duplicate_first"))
         XCTAssertEqual(second.observationIdentity, Observation.ElementIdentity("duplicate_second"))
         XCTAssertNil(graph.element(at: TreePath([9])))
@@ -217,6 +243,7 @@ final class InterfaceGraphTests: XCTestCase {
             tree: [
                 .container(makeTestAccessibilityContainer(type: .list), children: []),
             ],
+            annotations: .empty,
             observationIdentities: InterfaceElementIdentities([
                 TreePath([0]): Observation.ElementIdentity("container_identity"),
             ])
@@ -245,7 +272,7 @@ final class InterfaceGraphTests: XCTestCase {
         let graph = interface.graph
 
         XCTAssertEqual(graph.node(at: path), interface.tree[0])
-        XCTAssertEqual(graph.elementsInTraversalOrder.first?.annotation?.actions, [.activate])
+        XCTAssertEqual(graph.elementsInTraversalOrder.first?.annotation.actions, [.activate])
         XCTAssertEqual(interface.projectedElements.map(\.semantics.assertable.label), ["Save"])
     }
 
@@ -310,7 +337,7 @@ final class InterfaceGraphTests: XCTestCase {
 
         XCTAssertEqual(decoded, original)
         XCTAssertEqual(decoded.graph.node(at: path), original.tree[0])
-        XCTAssertEqual(decoded.graph.elementsInTraversalOrder.first?.annotation?.actions, [.activate])
+        XCTAssertEqual(decoded.graph.elementsInTraversalOrder.first?.annotation.actions, [.activate])
         XCTAssertEqual(try jsonObject(decoded), try jsonObject(original))
     }
 
@@ -350,6 +377,34 @@ final class InterfaceGraphTests: XCTestCase {
         }
     }
 
+    func testInterfaceDecodeRejectsMissingElementAnnotations() throws {
+        let original = makeTestInterface(
+            elements: [makeElement(label: "First"), makeElement(label: "Second")],
+            timestamp: Date(timeIntervalSince1970: 1)
+        )
+        var payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(original)) as? [String: Any]
+        )
+        var annotations = try XCTUnwrap(payload["annotations"] as? [String: Any])
+        var elements = try XCTUnwrap(annotations["elements"] as? [[String: Any]])
+        elements.removeLast()
+        annotations["elements"] = elements
+        payload["annotations"] = annotations
+
+        XCTAssertThrowsError(try JSONDecoder().decode(
+            Interface.self,
+            from: JSONSerialization.data(withJSONObject: payload)
+        )) { error in
+            guard case DecodingError.dataCorrupted(let context) = error else {
+                return XCTFail("Expected dataCorrupted, got \(error)")
+            }
+            XCTAssertEqual(
+                context.underlyingError as? InterfaceGraphValidationError,
+                .missingElementAnnotation(TreePath([1]))
+            )
+        }
+    }
+
     func testInterfaceConstructionValidatesPathIndexedEvidence() {
         let element = makeElement(label: "Save")
         let tree: [AccessibilityHierarchy] = [
@@ -376,6 +431,7 @@ final class InterfaceGraphTests: XCTestCase {
         XCTAssertThrowsError(try Interface(
             timestamp: Date(timeIntervalSince1970: 1),
             tree: tree,
+            annotations: .empty,
             observationIdentities: InterfaceElementIdentities([
                 TreePath([1]): Observation.ElementIdentity("missing_element"),
             ])
@@ -389,13 +445,26 @@ final class InterfaceGraphTests: XCTestCase {
 
     func testDerivedGraphAndObservationIdentityRemainOutsideWireAndEqualityContracts() throws {
         let path = TreePath([0])
+        let element = makeElement(label: "Save")
         let tree: [AccessibilityHierarchy] = [
-            .element(makeTestAccessibilityElement(makeElement(label: "Save")), traversalIndex: 0),
+            .element(makeTestAccessibilityElement(element), traversalIndex: 0),
         ]
-        let plain = Interface(timestamp: Date(timeIntervalSince1970: 1), tree: tree)
+        let annotations = InterfaceAnnotations(elements: [
+            InterfaceElementAnnotation(
+                path: path,
+                actions: [],
+                geometry: element.geometry
+            ),
+        ])
+        let plain = try Interface(
+            timestamp: Date(timeIntervalSince1970: 1),
+            tree: tree,
+            annotations: annotations
+        )
         let observed = try Interface(
             timestamp: Date(timeIntervalSince1970: 1),
             tree: tree,
+            annotations: annotations,
             observationIdentities: InterfaceElementIdentities([
                 path: Observation.ElementIdentity("save_button"),
             ])
@@ -426,4 +495,5 @@ final class InterfaceGraphTests: XCTestCase {
             JSONSerialization.jsonObject(with: JSONEncoder().encode(interface)) as? NSDictionary
         )
     }
+
 }

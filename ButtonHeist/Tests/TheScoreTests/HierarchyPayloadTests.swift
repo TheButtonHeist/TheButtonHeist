@@ -5,7 +5,7 @@ import TheScore
 final class SnapshotTests: XCTestCase {
 
     func testEmptyPayload() throws {
-        let payload = Interface(timestamp: Date(), tree: [])
+        let payload = makeTestInterface(elements: [], timestamp: Date())
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -52,7 +52,7 @@ final class SnapshotTests: XCTestCase {
 
     func testTimestampPreservation() throws {
         let timestamp = Date(timeIntervalSince1970: 1700000000)
-        let payload = Interface(timestamp: timestamp, tree: [])
+        let payload = makeTestInterface(elements: [], timestamp: timestamp)
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601

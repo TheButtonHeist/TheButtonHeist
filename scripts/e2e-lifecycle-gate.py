@@ -620,7 +620,7 @@ def scenario_active_execution_lifecycle(
         route = run_heist_once(
             cli,
             app,
-            "lifecycle-route-driver",
+            ACTIVE_LIFECYCLE_DRIVER,
             TRANSIENT_FLOW_ROUTE_PLAN,
             connect_timeout=connect_timeout,
         )

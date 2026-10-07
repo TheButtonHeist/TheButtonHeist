@@ -16,6 +16,7 @@ final class TestSocketListenerProvider: Sendable {
     private struct State {
         var invocationCount = 0
         var cancellationCount = 0
+        var listenerReferences: [WeakSocketListenerReference] = []
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -42,20 +43,38 @@ final class TestSocketListenerProvider: Sendable {
         state.withLock { $0.cancellationCount }
     }
 
+    var retainedListenerCount: Int {
+        state.withLock { state in
+            state.listenerReferences.compactMap(\.listener).count
+        }
+    }
+
     var listenerProvider: SocketListenerProvider {
         { [self] _ in
             let invocation = state.withLock { state in
                 state.invocationCount += 1
                 return state.invocationCount
             }
-            return TestSocketListener(
+            let listener = TestSocketListener(
                 start: { [start] in await start(invocation) },
                 onCancel: { [state, onCancel] in
                     state.withLock { $0.cancellationCount += 1 }
                     Task { @MainActor in onCancel() }
                 }
             )
+            state.withLock {
+                $0.listenerReferences.append(WeakSocketListenerReference(listener))
+            }
+            return listener
         }
+    }
+}
+
+private final class WeakSocketListenerReference: @unchecked Sendable {
+    weak var listener: (any SocketListening)?
+
+    init(_ listener: any SocketListening) {
+        self.listener = listener
     }
 }
 
@@ -99,15 +118,18 @@ private final class TestSocketListener: SocketListening, @unchecked Sendable {
         }
     }
 
-    func cancel() {
-        let handler = state.withLock { state -> (@Sendable (NWListener.State) -> Void)? in
-            guard !state.isCancelled else { return nil }
+    func invalidate() {
+        let invalidation = state.withLock { state -> (Bool, (@Sendable (NWListener.State) -> Void)?) in
+            guard !state.isCancelled else { return (false, nil) }
             state.isCancelled = true
-            return state.stateUpdateHandler
+            let handler = state.stateUpdateHandler
+            state.stateUpdateHandler = nil
+            state.newConnectionHandler = nil
+            return (true, handler)
         }
-        guard let handler else { return }
+        guard invalidation.0 else { return }
+        invalidation.1?(.cancelled)
         onCancel()
-        handler(.cancelled)
     }
 
     private func publish(_ outcome: TestSocketListenerOutcome) {

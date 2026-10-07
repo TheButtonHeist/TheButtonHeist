@@ -224,6 +224,9 @@ directly against its `InterfaceTree`; subtree projection happens only after that
 resolution. A delivered `Interface` constructs one validated `InterfaceGraph`
 for client matching and formatting. A flattened element list, screen model, or
 back map is not a second query model.
+Graph admission requires exactly one geometry-and-action annotation for every
+element path, so downstream projections consume total element records instead
+of repairing or trapping on partial wire data.
 A capture-local `HeistId` is not a replay selector or geometry authority.
 The string fields may be a single StringMatch or an array of StringMatch values
 when one property needs multiple checks; every entry for that property must

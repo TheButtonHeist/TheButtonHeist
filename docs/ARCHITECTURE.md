@@ -80,6 +80,9 @@ so client predicates and host resolution cannot drift into separate recursive
 implementations. `InterfaceGraph` remains the validated structural projection
 used for formatting and hierarchy operations. There is no semantic back map,
 alternate flat screen, or second target-matching projection.
+Its admission boundary proves that every element path has one canonical
+geometry-and-action annotation; element records expose that annotation as a
+non-optional value to all later projections.
 
 Parser element actions and custom content are normalized once before any
 consumer sees them. `AccessibilityElement.projectedActionSet` is the sole

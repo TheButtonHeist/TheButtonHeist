@@ -1,7 +1,7 @@
 import Foundation
 import ButtonHeistSupport
 import Network
-import os.log
+import os
 
 import TheScore
 
@@ -15,17 +15,18 @@ enum DeviceDiscoveryBrowserState: Equatable, Sendable {
     case cancelled
 }
 
-protocol DeviceDiscoveryBrowsing: Sendable {
+protocol DeviceDiscoveryBrowsing: AnyObject, Sendable {
     func start(
         queue: DispatchQueue,
         onResultsChanged: @escaping @Sendable (Set<NWBrowser.Result>, Set<NWBrowser.Result.Change>) -> Void,
         onStateChanged: @escaping @Sendable (DeviceDiscoveryBrowserState) -> Void
     )
-    func cancel()
+    func invalidate()
 }
 
 final class NWDeviceDiscoveryBrowser: DeviceDiscoveryBrowsing {
     private let browser: NWBrowser
+    private let isInvalidated = OSAllocatedUnfairLock(initialState: false)
 
     init() {
         let parameters = NWParameters()
@@ -49,7 +50,15 @@ final class NWDeviceDiscoveryBrowser: DeviceDiscoveryBrowsing {
         browser.start(queue: queue)
     }
 
-    func cancel() {
+    func invalidate() {
+        let shouldInvalidate = isInvalidated.withLock { isInvalidated in
+            guard !isInvalidated else { return false }
+            isInvalidated = true
+            return true
+        }
+        guard shouldInvalidate else { return }
+        browser.browseResultsChangedHandler = nil
+        browser.stateUpdateHandler = nil
         browser.cancel()
     }
 
@@ -89,10 +98,11 @@ final class DeviceDiscovery: DeviceDiscovering {
         var reachabilityTask: Task<Void, Never>?
         var browserState: DeviceDiscoveryBrowserState
 
-        func cancelOwnedTasks() {
+        func invalidate() {
             eventStream.finish()
             eventConsumerTask.cancel()
             reachabilityTask?.cancel()
+            browser.invalidate()
         }
     }
 
@@ -150,9 +160,9 @@ final class DeviceDiscovery: DeviceDiscovering {
             reachabilityTask: nil,
             browserState: .setup
         ))
-        let receiveBrowserEvent: @Sendable (DeviceDiscoveryBrowserEvent) -> Void = { [browser, eventStream] event in
+        let receiveBrowserEvent: @Sendable (DeviceDiscoveryBrowserEvent) -> Void = { [weak browser, eventStream] event in
             guard case .overflow = eventStream.yield(event) else { return }
-            browser.cancel()
+            browser?.invalidate()
         }
         browser.start(
             queue: browserQueue,
@@ -168,8 +178,7 @@ final class DeviceDiscovery: DeviceDiscovering {
     func stop() {
         guard case .active(let activeDiscovery) = discoveryPhase else { return }
         discoveryPhase = .idle
-        activeDiscovery.cancelOwnedTasks()
-        activeDiscovery.browser.cancel()
+        activeDiscovery.invalidate()
     }
 
     private func handleBrowserEvent(_ event: DeviceDiscoveryBrowserEvent) {
@@ -199,14 +208,12 @@ final class DeviceDiscovery: DeviceDiscovering {
         case .failed(let description):
             finishTerminalBrowserState(
                 activeDiscovery,
-                failure: .connectionFailed("Bonjour discovery failed: \(description)"),
-                cancelBrowser: true
+                failure: .connectionFailed("Bonjour discovery failed: \(description)")
             )
         case .cancelled:
             finishTerminalBrowserState(
                 activeDiscovery,
-                failure: .connectionFailed("Bonjour discovery was cancelled"),
-                cancelBrowser: false
+                failure: .connectionFailed("Bonjour discovery was cancelled")
             )
         }
     }
@@ -216,21 +223,16 @@ final class DeviceDiscovery: DeviceDiscovering {
               activeDiscovery.id == sessionID else { return }
         finishTerminalBrowserState(
             activeDiscovery,
-            failure: .discoveryBacklogOverflow(capacity: DeviceDiscoveryEventStream.bufferLimit),
-            cancelBrowser: false
+            failure: .discoveryBacklogOverflow(capacity: DeviceDiscoveryEventStream.bufferLimit)
         )
     }
 
     private func finishTerminalBrowserState(
         _ activeDiscovery: ActiveDiscovery,
-        failure: HandoffConnectionError,
-        cancelBrowser: Bool
+        failure: HandoffConnectionError
     ) {
-        activeDiscovery.cancelOwnedTasks()
-        if cancelBrowser {
-            activeDiscovery.browser.cancel()
-        }
         discoveryPhase = .idle
+        activeDiscovery.invalidate()
         onEvent?(.failed(failure))
     }
 

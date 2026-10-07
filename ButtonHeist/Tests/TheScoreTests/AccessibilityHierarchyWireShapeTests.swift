@@ -186,10 +186,13 @@ final class AccessibilityHierarchyWireShapeTests: XCTestCase {
         ]
 
         for node in invalidNodes {
-            XCTAssertNil(Interface(
-                admitting: Date(timeIntervalSince1970: 0),
-                tree: [node]
-            ))
+            XCTAssertThrowsError(try Interface(
+                timestamp: Date(timeIntervalSince1970: 0),
+                tree: [node],
+                annotations: .empty
+            )) { error in
+                XCTAssertTrue(error is InterfaceGeometryAdmissionError)
+            }
         }
     }
 
@@ -202,10 +205,9 @@ final class AccessibilityHierarchyWireShapeTests: XCTestCase {
             ),
             .closeSubpath,
         ]
-        let interface = try XCTUnwrap(Interface(
-            admitting: Date(timeIntervalSince1970: 0),
-            tree: [.element(parsedElement(shape: .path(path)), traversalIndex: 0)]
-        ))
+        let interface = makeTestInterface(nodes: [
+            .parsedElement(parsedElement(shape: .path(path)), actions: [.activate]),
+        ])
 
         let data = try encoder.encode(ResponseEnvelope(message: .interface(interface)))
         let decoded = try decoder.decode(ResponseEnvelope.self, from: data)

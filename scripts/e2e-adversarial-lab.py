@@ -9,12 +9,11 @@ import os
 import subprocess
 import sys
 import time
-import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
-from urllib.parse import urlencode
+from typing import Any, Callable, Iterator
 
 from e2e_runtime import (
     DemoApp,
@@ -27,6 +26,7 @@ from e2e_runtime import (
 
 
 STATISTICAL_SUCCESS_SCENARIO_COUNT = 9
+SIMCTL_CHILD_ADVERSARIAL_ROUTE_ENVIRONMENT_KEY = "SIMCTL_CHILD_BUTTONHEIST_ADVERSARIAL_ROUTE"
 
 
 class ScenarioExpectation(str, Enum):
@@ -466,9 +466,18 @@ def run_heist(
     return result
 
 
-def open_route(simulator: str, route: str) -> None:
-    query = urlencode({"scenario": route, "route_id": str(uuid.uuid4())})
-    run(["xcrun", "simctl", "openurl", simulator, f"buttonheist-demo://adversarial?{query}"], timeout=20)
+@contextmanager
+def adversarial_route_launch_environment(route: str) -> Iterator[None]:
+    key = SIMCTL_CHILD_ADVERSARIAL_ROUTE_ENVIRONMENT_KEY
+    previous = os.environ.get(key)
+    os.environ[key] = route
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = previous
 
 
 def execute_sample(
@@ -478,7 +487,6 @@ def execute_sample(
     iteration: int,
     *,
     app_factory: Callable[..., DemoApp] = DemoApp,
-    route_opener: Callable[[str, str], None] = open_route,
     heist_runner: Callable[[Path, DemoApp, str], subprocess.CompletedProcess[str]] = run_heist,
     monotonic_ns: Callable[[], int] = time.monotonic_ns,
 ) -> dict[str, Any]:
@@ -495,8 +503,8 @@ def execute_sample(
             simulator,
             token_prefix=f"adversarial-{scenario.name}-{iteration}",
         )
-        app.launch()
-        route_opener(simulator, scenario.route)
+        with adversarial_route_launch_environment(scenario.route):
+            app.launch()
         sample["infrastructure"]["status"] = OutcomeStatus.PASSED.value
         started_ns = monotonic_ns()
         try:

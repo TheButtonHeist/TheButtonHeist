@@ -1,6 +1,7 @@
 #if canImport(UIKit)
 #if DEBUG
 import Foundation
+import ButtonHeistTestSupport
 import XCTest
 
 @testable import AccessibilitySnapshotParser
@@ -486,10 +487,7 @@ final class TheVaultStateTests: XCTestCase {
 
     private func snapshot() -> Observation.Snapshot {
         Observation.Snapshot(
-            interface: Interface(
-                timestamp: Date(timeIntervalSince1970: 0),
-                tree: []
-            ),
+            interface: makeTestInterface(elements: [], timestamp: Date(timeIntervalSince1970: 0)),
             context: .empty
         )
     }

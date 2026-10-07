@@ -1106,41 +1106,6 @@ public struct Interface: Codable, Equatable, Sendable {
         graph.elementsInTraversalOrder.map(\.interfaceRecord)
     }
 
-    package init(
-        timestamp: Date,
-        tree: [AccessibilityHierarchy],
-        diagnostics: InterfaceDiagnostics? = nil
-    ) {
-        guard let admitted = Self(
-            admitting: timestamp,
-            tree: tree,
-            diagnostics: diagnostics
-        ) else {
-            preconditionFailure("Interface hierarchy geometry must be admitted before construction")
-        }
-        self = admitted
-    }
-
-    public init?(
-        admitting timestamp: Date,
-        tree: [AccessibilityHierarchy],
-        diagnostics: InterfaceDiagnostics? = nil
-    ) {
-        guard (try? InterfaceGeometryAdmission.validate(tree)) != nil,
-              let graph = try? InterfaceGraph(tree: tree) else {
-            return nil
-        }
-        self.init(
-            validatedTimestamp: timestamp,
-            tree: tree,
-            annotations: .empty,
-            diagnostics: diagnostics,
-            screenActions: [],
-            observationIdentities: .empty,
-            graph: graph
-        )
-    }
-
     public init(
         timestamp: Date,
         tree: [AccessibilityHierarchy],
@@ -1154,21 +1119,6 @@ public struct Interface: Codable, Equatable, Sendable {
             diagnostics: diagnostics,
             screenActions: [],
             observationIdentities: .empty
-        )
-    }
-
-    package init(
-        timestamp: Date,
-        tree: [AccessibilityHierarchy],
-        diagnostics: InterfaceDiagnostics? = nil,
-        observationIdentities: InterfaceElementIdentities
-    ) throws {
-        try self.init(
-            timestamp: timestamp,
-            tree: tree,
-            annotations: .empty,
-            diagnostics: diagnostics,
-            observationIdentities: observationIdentities
         )
     }
 

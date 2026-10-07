@@ -120,7 +120,7 @@ struct InterfaceProjection: Sendable {
     init(interface: Interface, profile: ProjectionProfile) {
         let graph = interface.graph
         let elementRecords = graph.elementsInTraversalOrder
-        let projectedElements = elementRecords.map(\.interfaceProjectionElement)
+        let projectedElements = elementRecords.map(\.projectedElement)
         let screenTitle = InterfaceSummary.screenTitle(forProjectedElements: projectedElements)
         let projectedScreenId = InterfaceSummary.screenId(forProjectedElements: projectedElements)
         let targetContext = PredicateSelectionContext(
@@ -240,7 +240,7 @@ private struct InterfaceProjectionReducer {
         }
         accumulator.recordRenderedElement()
         append(.element(InterfaceElementProjection(
-            element: record.interfaceProjectionElement,
+            element: record.projectedElement,
             detail: detail,
             order: order,
             target: minimumTarget(at: order)
@@ -334,20 +334,6 @@ private struct InterfaceProjectionReducer {
             precondition(!containerFrames.isEmpty, "top-level projection budget must be unbounded")
             containerFrames[containerFrames.count - 1].remainingElementBudget = newValue
         }
-    }
-}
-
-private extension InterfaceGraphElementRecord {
-    var interfaceProjectionElement: HeistElement {
-        let geometry = annotation?.geometry ?? HeistElement.Geometry(
-            screen: .offscreen,
-            view: .invalidated(ownerPath: path.parent ?? .root)
-        )
-        return HeistElement(
-            accessibilityElement: accessibilityElement,
-            actions: annotation?.actions ?? [],
-            geometry: geometry
-        )
     }
 }
 

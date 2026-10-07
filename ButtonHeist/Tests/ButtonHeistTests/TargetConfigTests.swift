@@ -1,3 +1,4 @@
+import ButtonHeistTestSupport
 import XCTest
 import Network
 @_spi(ButtonHeistTooling) @testable import ButtonHeist
@@ -401,7 +402,7 @@ final class TargetConfigTests: XCTestCase {
         mockConn.responseScript = { message in
             switch message {
             case .requestInterface:
-                return .interface(Interface(timestamp: Date(), tree: []))
+                return .interface(makeTestInterface(elements: [], timestamp: Date()))
             default:
                 return .actionResult(ActionResult.success(payload: .activate))
             }

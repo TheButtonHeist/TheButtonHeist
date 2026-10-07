@@ -43,6 +43,7 @@ package struct AccessibilityHierarchyGraph: Equatable, Sendable {
 package enum InterfaceGraphValidationError: Error, Equatable, CustomStringConvertible {
     case duplicateElementAnnotationPath(TreePath)
     case duplicateContainerAnnotationPath(TreePath)
+    case missingElementAnnotation(TreePath)
     case elementAnnotationForMissingPath(TreePath)
     case elementAnnotationForContainerPath(TreePath)
     case containerAnnotationForMissingPath(TreePath)
@@ -56,6 +57,8 @@ package enum InterfaceGraphValidationError: Error, Equatable, CustomStringConver
             return "duplicate element annotation path \(path.diagnosticDescription)"
         case .duplicateContainerAnnotationPath(let path):
             return "duplicate container annotation path \(path.diagnosticDescription)"
+        case .missingElementAnnotation(let path):
+            return "element at path \(path.diagnosticDescription) is missing its annotation"
         case .elementAnnotationForMissingPath(let path):
             return "element annotation references missing path \(path.diagnosticDescription)"
         case .elementAnnotationForContainerPath(let path):
@@ -76,14 +79,14 @@ package struct InterfaceGraphElementRecord: Equatable, Sendable {
     package let path: TreePath
     package let traversalIndex: Int
     package let accessibilityElement: AccessibilityElement
-    package let annotation: InterfaceElementAnnotation?
+    package let annotation: InterfaceElementAnnotation
     package let observationIdentity: Observation.ElementIdentity?
 
     package init(
         path: TreePath,
         traversalIndex: Int,
         accessibilityElement: AccessibilityElement,
-        annotation: InterfaceElementAnnotation?,
+        annotation: InterfaceElementAnnotation,
         observationIdentity: Observation.ElementIdentity?
     ) {
         self.path = path
@@ -94,10 +97,7 @@ package struct InterfaceGraphElementRecord: Equatable, Sendable {
     }
 
     package var projectedElement: HeistElement {
-        guard let annotation else {
-            preconditionFailure("Interface elements require canonical geometry annotations")
-        }
-        return HeistElement(
+        HeistElement(
             accessibilityElement: accessibilityElement,
             actions: annotation.actions,
             geometry: annotation.geometry
@@ -166,7 +166,7 @@ package struct InterfaceGraph: Equatable, Sendable {
 
     package init(
         tree: [AccessibilityHierarchy],
-        annotations: InterfaceAnnotations = .empty,
+        annotations: InterfaceAnnotations,
         observationIdentities: InterfaceElementIdentities = .empty
     ) throws(InterfaceGraphValidationError) {
         let hierarchy = AccessibilityHierarchyGraph(tree: tree)
@@ -178,45 +178,12 @@ package struct InterfaceGraph: Equatable, Sendable {
         try Self.validateContainerAnnotations(containerAnnotationByPath, in: hierarchy)
         try Self.validateObservationIdentities(observationIdentityByPath, in: hierarchy)
 
-        self.init(
+        let nodeRecords = try Self.nodeRecords(
             hierarchy: hierarchy,
             elementAnnotationByPath: elementAnnotationByPath,
             containerAnnotationByPath: containerAnnotationByPath,
             observationIdentityByPath: observationIdentityByPath
         )
-    }
-
-    private init(
-        hierarchy: AccessibilityHierarchyGraph,
-        elementAnnotationByPath: [TreePath: InterfaceElementAnnotation],
-        containerAnnotationByPath: [TreePath: InterfaceContainerAnnotation],
-        observationIdentityByPath: [TreePath: Observation.ElementIdentity]
-    ) {
-        let nodeRecords = hierarchy.nodesInPathOrder.map { record in
-            let kind: InterfaceGraphNodeKind
-            switch record.node {
-            case .element(let element, let traversalIndex):
-                kind = .element(InterfaceGraphElementRecord(
-                    path: record.path,
-                    traversalIndex: traversalIndex,
-                    accessibilityElement: element,
-                    annotation: elementAnnotationByPath[record.path],
-                    observationIdentity: observationIdentityByPath[record.path]
-                ))
-            case .container(let container, _):
-                kind = .container(InterfaceGraphContainerRecord(
-                    path: record.path,
-                    container: container,
-                    annotation: containerAnnotationByPath[record.path]
-                ))
-            }
-            return InterfaceGraphNodeRecord(
-                path: record.path,
-                node: record.node,
-                traversalIndex: record.traversalIndex,
-                kind: kind
-            )
-        }
         let elementRecords = nodeRecords.compactMap { record -> InterfaceGraphElementRecord? in
             guard case .element(let element) = record.kind else { return nil }
             return element
@@ -311,6 +278,45 @@ package struct InterfaceGraph: Equatable, Sendable {
             byPath[annotation.path] = annotation
         }
         return byPath
+    }
+
+    private static func nodeRecords(
+        hierarchy: AccessibilityHierarchyGraph,
+        elementAnnotationByPath: [TreePath: InterfaceElementAnnotation],
+        containerAnnotationByPath: [TreePath: InterfaceContainerAnnotation],
+        observationIdentityByPath: [TreePath: Observation.ElementIdentity]
+    ) throws(InterfaceGraphValidationError) -> [InterfaceGraphNodeRecord] {
+        var nodeRecords: [InterfaceGraphNodeRecord] = []
+        nodeRecords.reserveCapacity(hierarchy.nodesInPathOrder.count)
+        for record in hierarchy.nodesInPathOrder {
+            let kind: InterfaceGraphNodeKind
+            switch record.node {
+            case .element(let element, let traversalIndex):
+                guard let annotation = elementAnnotationByPath[record.path] else {
+                    throw .missingElementAnnotation(record.path)
+                }
+                kind = .element(InterfaceGraphElementRecord(
+                    path: record.path,
+                    traversalIndex: traversalIndex,
+                    accessibilityElement: element,
+                    annotation: annotation,
+                    observationIdentity: observationIdentityByPath[record.path]
+                ))
+            case .container(let container, _):
+                kind = .container(InterfaceGraphContainerRecord(
+                    path: record.path,
+                    container: container,
+                    annotation: containerAnnotationByPath[record.path]
+                ))
+            }
+            nodeRecords.append(InterfaceGraphNodeRecord(
+                path: record.path,
+                node: record.node,
+                traversalIndex: record.traversalIndex,
+                kind: kind
+            ))
+        }
+        return nodeRecords
     }
 
     private static func uniqueContainerAnnotations(

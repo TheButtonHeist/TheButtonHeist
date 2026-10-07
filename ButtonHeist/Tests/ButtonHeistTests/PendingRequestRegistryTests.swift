@@ -1,3 +1,4 @@
+import ButtonHeistTestSupport
 import XCTest
 @_spi(ButtonHeistTooling) @testable import ButtonHeist
 import TheScore
@@ -22,7 +23,7 @@ final class PendingRequestRegistryTests: XCTestCase {
         await fulfillment(of: [registered], timeout: 1)
 
         XCTAssertTrue(registry.resolveTransientResponse(
-            .interface(Interface(timestamp: Date(), tree: [])),
+            .interface(makeTestInterface(elements: [], timestamp: Date())),
             requestId: "req-mismatch"
         ))
 
@@ -117,7 +118,7 @@ final class PendingRequestRegistryTests: XCTestCase {
         )
         registry.resolveTransientFailure(FenceError.actionTimeout, requestId: "req-failure")
         XCTAssertTrue(registry.resolveTransientResponse(
-            .interface(Interface(timestamp: Date(), tree: [])),
+            .interface(makeTestInterface(elements: [], timestamp: Date())),
             requestId: "req-survives"
         ))
 

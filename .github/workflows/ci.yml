@@ -50,6 +50,7 @@ jobs:
           python3 scripts/check-e2e-adversarial-lab-timing.py
           python3 scripts/tests/adversarial-nightly-workflow-test.py
           python3 scripts/tests/ci-workflow-test.py
+          python3 scripts/tests/e2e-adversarial-lab-test.py
           python3 scripts/tests/e2e-lifecycle-gate-test.py
 
       - name: Test portable automation

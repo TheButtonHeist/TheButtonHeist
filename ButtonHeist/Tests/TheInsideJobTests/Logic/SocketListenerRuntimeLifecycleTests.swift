@@ -35,6 +35,18 @@ final class SocketListenerRuntimeLifecycleTests: XCTestCase {
         XCTAssertFalse(acceptsAfterStop)
     }
 
+    func testRepeatedStartStopInvalidatesCallbacksAndReleasesListeners() async throws {
+        let listeners = TestSocketListenerProvider(port: 2468)
+
+        for iteration in 1...3 {
+            let runtime = SocketListenerRuntime()
+            _ = try await Self.start(runtime, with: listeners)
+            await runtime.stop()
+            XCTAssertEqual(listeners.cancellationCount, iteration)
+            XCTAssertEqual(listeners.retainedListenerCount, 0)
+        }
+    }
+
     func testRuntimeRejectsSecondStartWhileStarting() async throws {
         let runtime = SocketListenerRuntime()
         let gate = ListenerRuntimeStartGate()

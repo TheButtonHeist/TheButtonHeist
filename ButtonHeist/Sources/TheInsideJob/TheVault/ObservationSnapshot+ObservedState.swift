@@ -59,13 +59,11 @@ private extension InterfaceGraphElementRecord {
         guard accessibilityElement.hasSameNonGeometricState(
             as: other.accessibilityElement
         ),
-        let annotation,
-        let otherAnnotation = other.annotation,
-        annotation.actions == otherAnnotation.actions
+        annotation.actions == other.annotation.actions
         else { return false }
 
         return annotation.geometry.hasSameObservedState(
-            as: otherAnnotation.geometry,
+            as: other.annotation.geometry,
             geometryTolerance: geometryTolerance
         )
     }

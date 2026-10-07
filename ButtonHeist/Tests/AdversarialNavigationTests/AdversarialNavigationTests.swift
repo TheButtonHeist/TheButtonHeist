@@ -11,6 +11,18 @@ import ButtonHeistTesting
 @MainActor
 final class AdversarialNavigationTests: XCTestCase {
 
+    func testStartupEnvironmentAdmitsOnlyCanonicalAdversarialRoutes() {
+        let route = AdversarialRoute.parseStartupEnvironment([
+            AdversarialRoute.startupEnvironmentKey: AdversarialScenarioCatalog.Route.nestedScroll.rawValue,
+        ])
+
+        XCTAssertEqual(route?.scenario, .nestedScroll)
+        XCTAssertNil(AdversarialRoute.parseStartupEnvironment([
+            AdversarialRoute.startupEnvironmentKey: "/unknown",
+        ]))
+        XCTAssertNil(AdversarialRoute.parseStartupEnvironment([:]))
+    }
+
     func testModalReviewBecomesInteractiveOnlyAfterPresentationCompletes() async throws {
         let heist = try await runAdversarialScenario(
             .modalObstructionPass,
