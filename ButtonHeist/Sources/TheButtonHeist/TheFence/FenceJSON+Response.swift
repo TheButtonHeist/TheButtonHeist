@@ -16,56 +16,82 @@ struct PublicErrorResponse: Encodable {
 }
 
 struct PublicErrorDetails: Encodable {
-    let kind: DiagnosticFailureKind
-    let phase: FailurePhase
-    let retryable: Bool
-    let hint: String?
-    let buildDiagnostics: [PublicHeistBuildDiagnostic]?
+    private let failure: DiagnosticFailure
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case phase
+        case retryable
+        case hint
+        case buildDiagnostics
+    }
 
     init(failure: DiagnosticFailure) {
-        self.kind = failure.details.code.kind
-        self.phase = failure.details.phase
-        self.retryable = failure.details.retryable
-        self.hint = failure.details.hint
-        self.buildDiagnostics = failure.buildDiagnostics.isEmpty
-            ? nil
-            : failure.buildDiagnostics.map(PublicHeistBuildDiagnostic.init)
+        self.failure = failure
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(failure.details.code.kind, forKey: .kind)
+        try container.encode(failure.details.phase, forKey: .phase)
+        try container.encode(failure.details.retryable, forKey: .retryable)
+        try container.encodeIfPresent(failure.details.hint, forKey: .hint)
+        if !failure.buildDiagnostics.isEmpty {
+            var diagnostics = container.nestedUnkeyedContainer(forKey: .buildDiagnostics)
+            try diagnostics.encodePublicHeistBuildDiagnostics(failure.buildDiagnostics)
+        }
     }
 }
 
-struct PublicHeistBuildDiagnostic: Encodable {
-    let code: String
-    let kind: String
-    let phase: String
-    let message: String
-    let hint: String?
-    let path: String?
-    let sourceSpan: PublicHeistBuildSourceSpan?
-
-    init(_ diagnostic: HeistBuildDiagnostic) {
-        self.code = diagnostic.code.rawValue
-        self.kind = diagnostic.kind.rawValue
-        self.phase = diagnostic.phase.rawValue
-        self.message = diagnostic.message
-        self.hint = diagnostic.hint
-        self.path = diagnostic.path
-        self.sourceSpan = diagnostic.sourceSpan.map(PublicHeistBuildSourceSpan.init)
+extension UnkeyedEncodingContainer {
+    mutating func encodePublicHeistBuildDiagnostics(_ diagnostics: [HeistBuildDiagnostic]) throws {
+        for diagnostic in diagnostics {
+            try diagnostic.encodePublic(to: superEncoder())
+        }
     }
 }
 
-struct PublicHeistBuildSourceSpan: Encodable {
-    let sourceName: String
-    let offset: Int
-    let line: Int
-    let column: Int
-    let length: Int?
+private extension HeistBuildDiagnostic {
+    enum PublicCodingKeys: String, CodingKey {
+        case code
+        case kind
+        case phase
+        case message
+        case hint
+        case path
+        case sourceSpan
+    }
 
-    init(_ sourceSpan: HeistBuildSourceSpan) {
-        self.sourceName = sourceSpan.sourceName
-        self.offset = sourceSpan.offset
-        self.line = sourceSpan.line
-        self.column = sourceSpan.column
-        self.length = sourceSpan.length
+    func encodePublic(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: PublicCodingKeys.self)
+        try container.encode(code.rawValue, forKey: .code)
+        try container.encode(kind.rawValue, forKey: .kind)
+        try container.encode(phase.rawValue, forKey: .phase)
+        try container.encode(message, forKey: .message)
+        try container.encodeIfPresent(hint, forKey: .hint)
+        try container.encodeIfPresent(path, forKey: .path)
+        if let sourceSpan {
+            try sourceSpan.encodePublic(to: container.superEncoder(forKey: .sourceSpan))
+        }
+    }
+}
+
+private extension HeistBuildSourceSpan {
+    enum PublicCodingKeys: String, CodingKey {
+        case sourceName
+        case offset
+        case line
+        case column
+        case length
+    }
+
+    func encodePublic(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: PublicCodingKeys.self)
+        try container.encode(sourceName, forKey: .sourceName)
+        try container.encode(offset, forKey: .offset)
+        try container.encode(line, forKey: .line)
+        try container.encode(column, forKey: .column)
+        try container.encodeIfPresent(length, forKey: .length)
     }
 }
 

@@ -71,17 +71,6 @@ enum PrivateStorage {
         return formatter.string(from: Date())
     }
 
-    static func isSafePathSegment(_ identifier: String) -> Bool {
-        guard !identifier.isEmpty,
-              !identifier.hasPrefix("-"),
-              !identifier.contains("/"),
-              !identifier.contains("..") else { return false }
-
-        return !identifier.unicodeScalars.contains {
-            CharacterSet.controlCharacters.contains($0)
-        }
-    }
-
     // MARK: - Private File I/O
 
     static func createPrivateDirectory(at directory: URL) throws {

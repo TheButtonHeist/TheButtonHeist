@@ -14,13 +14,3 @@ func assertRoundTrip<T: Codable & Equatable>(
     XCTAssertEqual(decoded, value, file: file, line: line)
     return decoded
 }
-
-func assertDecodeFailure<T: Decodable>(
-    _ type: T.Type,
-    json: String,
-    decoder: JSONDecoder = JSONDecoder(),
-    file: StaticString = #filePath,
-    line: UInt = #line
-) {
-    XCTAssertThrowsError(try decoder.decode(type, from: Data(json.utf8)), file: file, line: line)
-}

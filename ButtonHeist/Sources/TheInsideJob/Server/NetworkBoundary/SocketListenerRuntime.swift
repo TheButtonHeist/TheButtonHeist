@@ -11,7 +11,7 @@ protocol SocketListening: AnyObject, Sendable {
     var port: NWEndpoint.Port? { get }
 
     func start(queue: DispatchQueue)
-    func cancel()
+    func invalidate()
 }
 
 final class NetworkSocketListener: SocketListening, @unchecked Sendable {
@@ -20,6 +20,7 @@ final class NetworkSocketListener: SocketListening, @unchecked Sendable {
     /// one actor, and callback mutation is limited to the Network listener's
     /// documented queue-driven handlers.
     private let listener: NWListener
+    private let isInvalidated = OSAllocatedUnfairLock(initialState: false)
 
     init(parameters: NWParameters) throws {
         listener = try NWListener(using: parameters)
@@ -43,7 +44,17 @@ final class NetworkSocketListener: SocketListening, @unchecked Sendable {
         listener.start(queue: queue)
     }
 
-    func cancel() {
+    func invalidate() {
+        let shouldInvalidate = isInvalidated.withLock { isInvalidated in
+            guard !isInvalidated else { return false }
+            isInvalidated = true
+            return true
+        }
+        guard shouldInvalidate else { return }
+        let stateUpdateHandler = listener.stateUpdateHandler
+        listener.stateUpdateHandler = nil
+        listener.newConnectionHandler = nil
+        stateUpdateHandler?(.cancelled)
         listener.cancel()
     }
 }
@@ -184,7 +195,7 @@ actor SocketListenerRuntime: Equatable {
         }
         phase = .stopped
         pendingConnections.cancelAll()
-        listeners.forEach { $0.cancel() }
+        listeners.forEach { $0.invalidate() }
         await callbackTasks.drain()
         stopSignal.finish()
     }
@@ -251,7 +262,7 @@ actor SocketListenerRuntime: Equatable {
 
     private func append(_ listener: any SocketListening) throws {
         guard case .starting(var listeners) = phase else {
-            listener.cancel()
+            listener.invalidate()
             throw CancellationError()
         }
         listeners.append(listener)
@@ -287,7 +298,7 @@ actor SocketListenerRuntime: Equatable {
     ) async throws -> UInt16 {
         try await withCheckedThrowingContinuation { continuation in
             let resumed = OSAllocatedUnfairLock(initialState: false)
-            listener.stateUpdateHandler = { state in
+            listener.stateUpdateHandler = { [weak listener] state in
                 switch state {
                 case .ready:
                     let shouldResume = resumed.withLock { flag -> Bool in
@@ -296,7 +307,7 @@ actor SocketListenerRuntime: Equatable {
                         return true
                     }
                     guard shouldResume else { return }
-                    if let port = listener.port?.rawValue {
+                    if let port = listener?.port?.rawValue {
                         continuation.resume(returning: port)
                     } else {
                         continuation.resume(throwing: SimpleSocketServer.StartupError.failedToBindPort)
@@ -308,7 +319,7 @@ actor SocketListenerRuntime: Equatable {
                         return true
                     }
                     guard shouldResume else { return }
-                    listener.cancel()
+                    listener?.invalidate()
                     continuation.resume(throwing: error)
                 case .cancelled:
                     let shouldResume = resumed.withLock { flag -> Bool in

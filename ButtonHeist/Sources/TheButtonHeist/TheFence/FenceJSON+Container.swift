@@ -33,7 +33,6 @@ extension InterfaceContainerProjection: Encodable {
     func encode(to encoder: Encoder) throws {
         let fields = Self.fields(
             for: self.container,
-            children: children,
             observedElementCount: observedElementCount,
             scrollInventory: scrollInventory
         )
@@ -70,8 +69,7 @@ extension InterfaceContainerProjection: Encodable {
 
     private static func fields(
         for container: AccessibilityContainer,
-        children: [InterfaceNodeProjection],
-        observedElementCount: Int?,
+        observedElementCount: Int,
         scrollInventory: ScrollInventory?
     ) -> Fields {
         let facts = container.containerPredicateFacts
@@ -97,7 +95,6 @@ extension InterfaceContainerProjection: Encodable {
             fields.addScrollFields(
                 contentSize: scrollableContentSize,
                 frame: container.frame,
-                children: children,
                 observedElementCount: observedElementCount,
                 scrollInventory: scrollInventory
             )
@@ -150,8 +147,7 @@ extension InterfaceContainerProjection: Encodable {
         mutating func addScrollFields(
             contentSize: AccessibilitySize,
             frame: AccessibilityRect,
-            children: [InterfaceNodeProjection],
-            observedElementCount: Int?,
+            observedElementCount: Int,
             scrollInventory: ScrollInventory?
         ) {
             guard let contentWidth = try? FiniteDimension(validating: contentSize.width),
@@ -172,7 +168,6 @@ extension InterfaceContainerProjection: Encodable {
             pageScrollsY = metrics.verticalPageScrolls > 0 ? metrics.verticalPageScrolls : nil
             self.observedElementCount = scrollInventory?.totalElementCount
                 ?? observedElementCount
-                ?? children.reduce(0) { $0 + $1.elementCount }
         }
     }
 }

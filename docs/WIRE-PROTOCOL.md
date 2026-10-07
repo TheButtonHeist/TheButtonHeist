@@ -349,6 +349,9 @@ target carries an ordered predicate `checks` chain and optional `ordinal`; a
 container target carries `container` and optional `ordinal`; `container` plus
 `target` expresses a descendant-scoped target; `ref` refers to a scoped heist
 target parameter.
+Interface admission requires exactly one element annotation for every element
+path in the tree. Decoding rejects missing or duplicate element annotations,
+annotations for unknown paths, and element annotations that target containers.
 Public target nesting is bounded by the shared public JSON input depth limit.
 Checks include `label`, `identifier`, `value`, `hint`, `traits`, `actions`,
 `customContent`, and `rotors`. Durable replay uses the same target shape.

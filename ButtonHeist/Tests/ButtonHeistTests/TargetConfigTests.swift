@@ -1,3 +1,4 @@
+import ButtonHeistTestSupport
 import XCTest
 import Network
 @_spi(ButtonHeistTooling) @testable import ButtonHeist
@@ -177,26 +178,23 @@ final class TargetConfigTests: XCTestCase {
     // MARK: - TargetConfigResolver.loadConfig
 
     func testLoadConfigFromExplicitPath() throws {
-        let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try withTemporaryDirectory(prefix: "target-config") { directory in
+            let configFile = directory.appendingPathComponent(".buttonheist.json")
+            let json = """
+            {
+                "targets": {
+                    "test": {"device": "127.0.0.1:1455", "token": "test-token"}
+                },
+                "default": "test"
+            }
+            """
+            try json.write(to: configFile, atomically: true, encoding: .utf8)
 
-        let configFile = tmpDir.appendingPathComponent(".buttonheist.json")
-        let json = """
-        {
-            "targets": {
-                "test": {"device": "127.0.0.1:1455", "token": "test-token"}
-            },
-            "default": "test"
+            let config = try TargetConfigResolver.loadConfig(from: configFile.path)
+            XCTAssertEqual(config.targets[targetName("test")]?.device, "127.0.0.1:1455")
+            XCTAssertEqual(config.targets[targetName("test")]?.token, "test-token")
+            XCTAssertEqual(config.defaultTarget, targetName("test"))
         }
-        """
-        try json.write(to: configFile, atomically: true, encoding: .utf8)
-
-        let config = try TargetConfigResolver.loadConfig(from: configFile.path)
-        XCTAssertEqual(config.targets[targetName("test")]?.device, "127.0.0.1:1455")
-        XCTAssertEqual(config.targets[targetName("test")]?.token, "test-token")
-        XCTAssertEqual(config.defaultTarget, targetName("test"))
     }
 
     func testExplicitMissingConfigPathThrowsDiagnosticError() {
@@ -216,42 +214,36 @@ final class TargetConfigTests: XCTestCase {
     }
 
     func testExplicitUnreadableConfigPathThrowsDiagnosticError() throws {
-        let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
-
-        XCTAssertThrowsError(try TargetConfigResolver.loadConfig(from: tmpDir.path)) { error in
-            guard let error = error as? TargetConfigLoadError else {
-                XCTFail("Expected TargetConfigLoadError, got \(type(of: error))")
-                return
+        try withTemporaryDirectory(prefix: "target-config") { directory in
+            XCTAssertThrowsError(try TargetConfigResolver.loadConfig(from: directory.path)) { error in
+                guard let error = error as? TargetConfigLoadError else {
+                    XCTFail("Expected TargetConfigLoadError, got \(type(of: error))")
+                    return
+                }
+                XCTAssertEqual(error.kind, .readFailed)
+                XCTAssertEqual(error.path, directory.path)
+                XCTAssertTrue(error.localizedDescription.contains("Failed to read config"))
+                XCTAssertEqual(error.failureDetails.code, .configReadFailed)
             }
-            XCTAssertEqual(error.kind, .readFailed)
-            XCTAssertEqual(error.path, tmpDir.path)
-            XCTAssertTrue(error.localizedDescription.contains("Failed to read config"))
-            XCTAssertEqual(error.failureDetails.code, .configReadFailed)
         }
     }
 
     func testExplicitMalformedConfigPathThrowsDiagnosticError() throws {
-        let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try withTemporaryDirectory(prefix: "target-config") { directory in
+            let configFile = directory.appendingPathComponent(".buttonheist.json")
+            try "not json".write(to: configFile, atomically: true, encoding: .utf8)
 
-        let configFile = tmpDir.appendingPathComponent(".buttonheist.json")
-        try "not json".write(to: configFile, atomically: true, encoding: .utf8)
-
-        XCTAssertThrowsError(try TargetConfigResolver.loadConfig(from: configFile.path)) { error in
-            guard let error = error as? TargetConfigLoadError else {
-                XCTFail("Expected TargetConfigLoadError, got \(type(of: error))")
-                return
+            XCTAssertThrowsError(try TargetConfigResolver.loadConfig(from: configFile.path)) { error in
+                guard let error = error as? TargetConfigLoadError else {
+                    XCTFail("Expected TargetConfigLoadError, got \(type(of: error))")
+                    return
+                }
+                XCTAssertEqual(error.kind, .decodeFailed)
+                XCTAssertEqual(error.path, configFile.path)
+                XCTAssertTrue(error.localizedDescription.contains("Failed to decode config"))
+                XCTAssertEqual(error.failureDetails.code, .configDecodeFailed)
+                XCTAssertEqual(error.failureDetails.phase, .setup)
             }
-            XCTAssertEqual(error.kind, .decodeFailed)
-            XCTAssertEqual(error.path, configFile.path)
-            XCTAssertTrue(error.localizedDescription.contains("Failed to decode config"))
-            XCTAssertEqual(error.failureDetails.code, .configDecodeFailed)
-            XCTAssertEqual(error.failureDetails.phase, .setup)
         }
     }
 
@@ -264,32 +256,29 @@ final class TargetConfigTests: XCTestCase {
     }
 
     func testDefaultConfigSearchRejectsRemovedCertFingerprintField() throws {
-        let tmpDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: tmpDir) }
-
-        let configFile = tmpDir.appendingPathComponent(".buttonheist.json")
-        let json = """
-        {
-            "targets": {
-                "sim1": {
-                    "device": "127.0.0.1:1455",
-                    "certFingerprint": "stale"
+        try withTemporaryDirectory(prefix: "target-config") { directory in
+            let configFile = directory.appendingPathComponent(".buttonheist.json")
+            let json = """
+            {
+                "targets": {
+                    "sim1": {
+                        "device": "127.0.0.1:1455",
+                        "certFingerprint": "stale"
+                    }
                 }
             }
-        }
-        """
-        try json.write(to: configFile, atomically: true, encoding: .utf8)
+            """
+            try json.write(to: configFile, atomically: true, encoding: .utf8)
 
-        XCTAssertThrowsError(try TargetConfigResolver.loadConfig(searchPaths: [configFile.path])) { error in
-            guard let error = error as? TargetConfigLoadError else {
-                XCTFail("Expected TargetConfigLoadError, got \(type(of: error))")
-                return
+            XCTAssertThrowsError(try TargetConfigResolver.loadConfig(searchPaths: [configFile.path])) { error in
+                guard let error = error as? TargetConfigLoadError else {
+                    XCTFail("Expected TargetConfigLoadError, got \(type(of: error))")
+                    return
+                }
+                XCTAssertEqual(error.kind, .decodeFailed)
+                XCTAssertEqual(error.path, configFile.path)
+                XCTAssertEqual(error.failureDetails.code, .configDecodeFailed)
             }
-            XCTAssertEqual(error.kind, .decodeFailed)
-            XCTAssertEqual(error.path, configFile.path)
-            XCTAssertEqual(error.failureDetails.code, .configDecodeFailed)
         }
     }
 
@@ -401,7 +390,7 @@ final class TargetConfigTests: XCTestCase {
         mockConn.responseScript = { message in
             switch message {
             case .requestInterface:
-                return .interface(Interface(timestamp: Date(), tree: []))
+                return .interface(makeTestInterface(elements: [], timestamp: Date()))
             default:
                 return .actionResult(ActionResult.success(payload: .activate))
             }

@@ -1,5 +1,6 @@
 #if canImport(UIKit)
 import AccessibilitySnapshotModel
+import ButtonHeistTestSupport
 import Foundation
 import XCTest
 
@@ -8,14 +9,11 @@ import TheScore
 
 final class AccessibilitySnapshotMarkerTests: XCTestCase {
     func testMarkersContainOnlyOnscreenElementsInTraversalOrder() throws {
-        let interface = try XCTUnwrap(Interface(
-            admitting: Date(),
-            tree: [
-                element(label: "First visible", visibility: .onscreen, traversalIndex: 0),
-                element(label: "Offscreen", visibility: .offscreen, traversalIndex: 1),
-                element(label: "Second visible", visibility: .onscreen, traversalIndex: 2),
-            ]
-        ))
+        let interface = makeTestInterface(nodes: [
+            .parsedElement(.make(label: "First visible", visibility: .onscreen), actions: []),
+            .parsedElement(.make(label: "Offscreen", visibility: .offscreen), actions: []),
+            .parsedElement(.make(label: "Second visible", visibility: .onscreen), actions: []),
+        ], timestamp: Date())
 
         let markers = TheBrains.accessibilitySnapshotMarkers(in: interface)
         let numberedLabels = markers.enumerated().map { index, marker in
@@ -23,17 +21,6 @@ final class AccessibilitySnapshotMarkerTests: XCTestCase {
         }
 
         XCTAssertEqual(numberedLabels, ["1: First visible", "2: Second visible"])
-    }
-
-    private func element(
-        label: String,
-        visibility: AccessibilityVisibility,
-        traversalIndex: Int
-    ) -> AccessibilityHierarchy {
-        .element(
-            .make(label: label, visibility: visibility),
-            traversalIndex: traversalIndex
-        )
     }
 }
 #endif

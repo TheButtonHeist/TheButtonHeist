@@ -18,34 +18,20 @@ fail() {
 SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
 SEMVER_GREP='[0-9]+\.[0-9]+\.[0-9]+'
 
-single_value() {
-    local label="$1"
-    local value="$2"
-    local count
-
-    count=$(printf '%s\n' "$value" | sed '/^$/d' | wc -l | tr -d '[:space:]')
-    [[ "$count" == "1" ]] || fail "$label must contain exactly one release version, found $count"
-    printf '%s' "$value"
-}
-
-read_version_file() {
-    sed -E 's/[[:space:]]//g' "$BUTTONHEIST_RELEASE_VERSION_FILE" | sed '/^$/d'
-}
-
 extract_formula_version() {
     grep -E '^[[:space:]]*version "[^"]+"' "$BUTTONHEIST_FORMULA_TEMPLATE" \
         | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
 CANONICAL_VERSION=$(buttonheist_code_version)
-RELEASE_VERSION_MIRROR=$(single_value "$BUTTONHEIST_RELEASE_VERSION_FILE" "$(read_version_file || true)")
-FORMULA_VERSION_MIRROR=$(single_value "$BUTTONHEIST_FORMULA_TEMPLATE version" "$(extract_formula_version || true)")
+FORMULA_TEMPLATE_VERSION=$(extract_formula_version || true)
+FORMULA_VERSION_COUNT=$(printf '%s\n' "$FORMULA_TEMPLATE_VERSION" | sed '/^$/d' | wc -l | tr -d '[:space:]')
 
 [[ "$CANONICAL_VERSION" =~ $SEMVER_REGEX ]] || fail "$BUTTONHEIST_CODE_VERSION_FILE ($CANONICAL_VERSION) is not MAJOR.MINOR.PATCH"
-[[ "$RELEASE_VERSION_MIRROR" =~ $SEMVER_REGEX ]] || fail "$BUTTONHEIST_RELEASE_VERSION_FILE ($RELEASE_VERSION_MIRROR) is not MAJOR.MINOR.PATCH"
-[[ "$FORMULA_VERSION_MIRROR" =~ $SEMVER_REGEX ]] || fail "$BUTTONHEIST_FORMULA_TEMPLATE ($FORMULA_VERSION_MIRROR) is not MAJOR.MINOR.PATCH"
-[[ "$RELEASE_VERSION_MIRROR" == "$CANONICAL_VERSION" ]] || fail "$BUTTONHEIST_RELEASE_VERSION_FILE ($RELEASE_VERSION_MIRROR) != canonical $BUTTONHEIST_CODE_VERSION_FILE ($CANONICAL_VERSION)"
-[[ "$FORMULA_VERSION_MIRROR" == "$CANONICAL_VERSION" ]] || fail "$BUTTONHEIST_FORMULA_TEMPLATE ($FORMULA_VERSION_MIRROR) != canonical $BUTTONHEIST_CODE_VERSION_FILE ($CANONICAL_VERSION)"
+[[ "$FORMULA_VERSION_COUNT" == "1" ]] \
+    || fail "$BUTTONHEIST_FORMULA_TEMPLATE must contain exactly one version placeholder, found $FORMULA_VERSION_COUNT"
+[[ "$FORMULA_TEMPLATE_VERSION" == "$BUTTONHEIST_FORMULA_VERSION_PLACEHOLDER" ]] \
+    || fail "$BUTTONHEIST_FORMULA_TEMPLATE version must be $BUTTONHEIST_FORMULA_VERSION_PLACEHOLDER, found $FORMULA_TEMPLATE_VERSION"
 
 if grep -Fq "$CANONICAL_VERSION" "$BUTTONHEIST_API_DOCS_FILE"; then
     fail "$BUTTONHEIST_API_DOCS_FILE must not duplicate release version $CANONICAL_VERSION"

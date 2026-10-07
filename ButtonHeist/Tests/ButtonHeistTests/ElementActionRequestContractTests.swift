@@ -344,14 +344,3 @@ private func canonicalSemanticContainerPredicateKindValues() -> [String] {
         SemanticContainerPredicate.value("sample"),
     ].map(\.wireKindValue)
 }
-
-private func assertArraySchema(
-    _ spec: FenceParameterSpec,
-    file: StaticString = #filePath,
-    line: UInt = #line
-) {
-    guard case .object(let schema) = spec.schema.heistValue else {
-        return XCTFail("Expected array schema", file: file, line: line)
-    }
-    XCTAssertEqual(schema["type"], .string("array"), file: file, line: line)
-}

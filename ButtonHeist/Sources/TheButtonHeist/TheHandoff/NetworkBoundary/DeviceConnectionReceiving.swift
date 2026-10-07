@@ -58,7 +58,7 @@ extension DeviceConnection {
         switch event {
         case .failed(let error):
             deviceConnectionLogger.error("Receive error: \(error)")
-            transitionToDisconnected(.observed(.networkError(NetworkTransportFailure(error))))
+            transitionToDisconnected(.failure(.networkError(NetworkTransportFailure(error))))
         case .content(let content):
             guard appendAndProcess(content, into: &session) else { return }
             receiveNext(connection: connection, sessionID: session.id)
@@ -81,7 +81,7 @@ extension DeviceConnection {
         )
         if overflowed || bufferedByteCount > WireFrameLimits.serverToClientMaxBufferedBytes {
             deviceConnectionLogger.warning("Server exceeded max buffer size, disconnecting")
-            transitionToDisconnected(.cancel(.bufferOverflow))
+            transitionToDisconnected(.failure(.bufferOverflow))
             return false
         }
 
@@ -104,6 +104,6 @@ extension DeviceConnection {
     private func closeForCompletedReceive(_ session: RuntimeSession) {
         guard connectedSession(matching: session.id, connection: session.connection) != nil else { return }
         deviceConnectionLogger.warning("Connection closed by server")
-        transitionToDisconnected(.observed(.serverClosed))
+        transitionToDisconnected(.failure(.serverClosed))
     }
 }

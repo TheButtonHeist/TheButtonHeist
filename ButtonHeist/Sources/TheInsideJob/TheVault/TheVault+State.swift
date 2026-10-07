@@ -24,7 +24,7 @@ extension TheVault {
 
             func snapshot() -> Observation.Snapshot {
                 Observation.Snapshot(
-                    interface: Interface(timestamp: timestamp, tree: []),
+                    interface: InterfaceTree.empty.semanticInterface(timestamp: timestamp),
                     context: context
                 )
             }
@@ -374,10 +374,7 @@ extension TheVault {
             if continuity.isReplacement {
                 let departure = departureEvidence?.snapshot()
                     ?? Observation.Snapshot(
-                        interface: Interface(
-                            timestamp: snapshot.interface.timestamp,
-                            tree: []
-                        ),
+                        interface: InterfaceTree.empty.semanticInterface(timestamp: snapshot.interface.timestamp),
                         context: .empty
                     )
                 return notificationEvents + [

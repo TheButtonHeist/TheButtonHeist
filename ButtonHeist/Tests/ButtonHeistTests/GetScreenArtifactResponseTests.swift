@@ -92,7 +92,7 @@ final class GetScreenArtifactResponseTests: XCTestCase {
                     interface: interface
                 ))
             case .requestInterface:
-                return .interface(Interface(timestamp: Date(), tree: []))
+                return .interface(makeTestInterface(elements: [], timestamp: Date()))
             default:
                 return .actionResult(ActionResult.success(payload: .activate))
             }
@@ -118,7 +118,7 @@ final class GetScreenArtifactResponseTests: XCTestCase {
             pngData: Data([0x89, 0x50, 0x4E, 0x47]).base64EncodedString(),
             width: 393,
             height: 852,
-            interface: Interface(timestamp: Date(), tree: [])
+            interface: makeTestInterface(elements: [], timestamp: Date())
         )
         let (fence, mockConnection) = makeConnectedFence(configuration: .init(
             postActionExpectationTimeoutBuffer: transportHeadroom
@@ -182,7 +182,7 @@ final class GetScreenArtifactResponseTests: XCTestCase {
         let fence = Self.makeFence(
             tempDirectory: tempDirectory,
             pngData: oversizedPayload,
-            interface: Interface(timestamp: Date(), tree: [])
+            interface: makeTestInterface(elements: [], timestamp: Date())
         )
 
         let response = try await fence.execute(command: .getScreen, values: [
@@ -212,7 +212,7 @@ final class GetScreenArtifactResponseTests: XCTestCase {
         let fence = Self.makeFence(
             tempDirectory: tempDirectory,
             pngData: Data([0x89, 0x50, 0x4E, 0x47]).base64EncodedString(),
-            interface: Interface(timestamp: Date(), tree: [])
+            interface: makeTestInterface(elements: [], timestamp: Date())
         )
 
         do {
@@ -238,7 +238,7 @@ final class GetScreenArtifactResponseTests: XCTestCase {
         let fence = Self.makeFence(
             tempDirectory: tempDirectory,
             pngData: "not base64",
-            interface: Interface(timestamp: Date(), tree: [])
+            interface: makeTestInterface(elements: [], timestamp: Date())
         )
 
         do {
@@ -286,7 +286,7 @@ final class GetScreenArtifactResponseTests: XCTestCase {
                     interface: interface
                 ))
             case .requestInterface:
-                return .interface(Interface(timestamp: Date(), tree: []))
+                return .interface(makeTestInterface(elements: [], timestamp: Date()))
             default:
                 return .actionResult(ActionResult.success(payload: .activate))
             }

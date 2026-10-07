@@ -76,7 +76,7 @@ final class TheHandoffTerminalAttemptTests: XCTestCase {
             width: 390,
             height: 844,
             timestamp: Date(timeIntervalSince1970: 200),
-            interface: Interface(timestamp: Date(timeIntervalSince1970: 200), tree: [])
+            interface: makeTestInterface(elements: [], timestamp: Date(timeIntervalSince1970: 200))
         )
         mock.onEvent?(.message(
             .screen(screen),

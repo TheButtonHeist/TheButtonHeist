@@ -23,8 +23,7 @@ enum DeviceConnectionEvent: Sendable {
 final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting {
     enum DisconnectEvent {
         case local
-        case observed(DisconnectReason)
-        case cancel(DisconnectReason)
+        case failure(DisconnectReason)
     }
 
     private let device: DiscoveredDevice
@@ -69,9 +68,11 @@ final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting 
             self.eventStream = eventStream
         }
 
-        func cancelOwnedSidecars() {
+        func invalidate() {
+            connection.stateUpdateHandler = nil
             eventStream.finish()
             eventConsumerTask?.cancel()
+            connection.cancel()
         }
     }
 
@@ -92,8 +93,8 @@ final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting 
         var sessionID: UUID? { session?.id }
         var connection: NWConnection? { session?.connection }
 
-        func cancelOwnedSidecars() {
-            session?.cancelOwnedSidecars()
+        func invalidate() {
+            session?.invalidate()
         }
     }
 
@@ -109,7 +110,7 @@ final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting 
 
         guard let token else {
             deviceConnectionLogger.error("No TLS token available — refusing connection")
-            transitionToDisconnected(.observed(.missingToken))
+            transitionToDisconnected(.failure(.missingToken))
             return
         }
 
@@ -123,7 +124,8 @@ final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting 
         // from a previous attempt.
         let eventStream = DeviceConnectionEventStream()
 
-        conn.stateUpdateHandler = { state in
+        conn.stateUpdateHandler = { [weak conn] state in
+            guard let conn else { return }
             eventStream.yield(.state(state, sessionID: sessionID, connection: conn))
         }
 
@@ -164,22 +166,18 @@ final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting 
 
     private func setRuntimePhase(_ nextPhase: RuntimePhase) {
         let previousPhase = runtimePhase
-        if previousPhase.sessionID != nextPhase.sessionID {
-            previousPhase.cancelOwnedSidecars()
-        }
         runtimePhase = nextPhase
+        if previousPhase.sessionID != nextPhase.sessionID {
+            previousPhase.invalidate()
+        }
     }
 
     func transitionToDisconnected(_ event: DisconnectEvent) {
-        let connection = runtimePhase.connection
         setRuntimePhase(.disconnected)
         switch event {
         case .local:
-            connection?.cancel()
-        case .observed(let reason):
-            onEvent?(.disconnected(reason))
-        case .cancel(let reason):
-            connection?.cancel()
+            break
+        case .failure(let reason):
             onEvent?(.disconnected(reason))
         }
     }
@@ -252,7 +250,7 @@ final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting 
             startReceiving()
         case .failed(let error):
             deviceConnectionLogger.error("Connection failed: \(error)")
-            transitionToDisconnected(.observed(.networkError(NetworkTransportFailure(error))))
+            transitionToDisconnected(.failure(.networkError(NetworkTransportFailure(error))))
         case .cancelled:
             // Client-initiated teardown paths (disconnect(), .failed, buffer overflow,
             // protocol/auth rejection) all set the runtime phase to disconnected before
@@ -260,7 +258,7 @@ final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting 
             // silent. A true wasActive means NWConnection cancelled while we still
             // believed we were live — treat that as an unsolicited server-side close.
             guard runtimePhase.sessionID != nil else { return }
-            transitionToDisconnected(.observed(.serverClosed))
+            transitionToDisconnected(.failure(.serverClosed))
         default:
             break
         }

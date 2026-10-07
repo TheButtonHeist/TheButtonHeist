@@ -1,5 +1,6 @@
 #if canImport(UIKit)
 #if DEBUG
+import Foundation
 import TheScore
 
 /// The brains of the operation — plans the play, sequences the crew.
@@ -148,13 +149,7 @@ final class TheBrains {
     func executeInAppRequest<Value: Sendable>(
         _ operation: @escaping @MainActor @Sendable () async -> Value
     ) async -> InteractionRequestExecutor.Outcome<Value> {
-        await withCheckedContinuation { continuation in
-            requestExecutor.submit(
-                owner: .inApp,
-                operation: operation,
-                completion: { continuation.resume(returning: $0) }
-            )
-        }
+        await requestExecutor.executeInApp(operation)
     }
 
     @discardableResult
@@ -191,11 +186,6 @@ final class InteractionRequestExecutor {
     enum Owner: Equatable, Sendable {
         case inApp
         case transportClient(TransportClientLease)
-
-        var isTransport: Bool {
-            if case .transportClient = self { return true }
-            return false
-        }
     }
 
     enum Rejection: Equatable, Sendable {
@@ -216,7 +206,7 @@ final class InteractionRequestExecutor {
     }
 
     private struct PendingRequest {
-        let id: UInt64
+        let id: UUID
         let owner: Owner
         let operation: @MainActor @Sendable () async -> Void
         let cancel: @MainActor @Sendable () -> Void
@@ -242,8 +232,6 @@ final class InteractionRequestExecutor {
     }
 
     private var phase = Phase.idle
-    private var nextRequestID: UInt64 = 1
-
     convenience init() {
         self.init(cleanupDeadlineScheduler: Self.scheduleCleanupDeadline)
     }
@@ -264,20 +252,53 @@ final class InteractionRequestExecutor {
         }
     }
 
+    func executeInApp<Value: Sendable>(
+        _ operation: @escaping @MainActor @Sendable () async -> Value
+    ) async -> Outcome<Value> {
+        let requestID = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                submit(
+                    requestID: requestID,
+                    owner: .inApp,
+                    operation: operation,
+                    completion: { continuation.resume(returning: $0) }
+                )
+            }
+        } onCancel: { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.cancel(requestID: requestID)
+            }
+        }
+    }
+
     @discardableResult
     func submit<Value: Sendable>(
         owner: Owner,
         operation: @escaping @MainActor @Sendable () async -> Value,
         completion: @escaping @MainActor @Sendable (Outcome<Value>) -> Void
     ) -> Admission {
+        submit(
+            requestID: UUID(),
+            owner: owner,
+            operation: operation,
+            completion: completion
+        )
+    }
+
+    @discardableResult
+    private func submit<Value: Sendable>(
+        requestID: UUID,
+        owner: Owner,
+        operation: @escaping @MainActor @Sendable () async -> Value,
+        completion: @escaping @MainActor @Sendable (Outcome<Value>) -> Void
+    ) -> Admission {
         let resolver = RequestResolver(completion)
-        guard !owner.isTransport || !Task.isCancelled else {
+        guard !Task.isCancelled else {
             resolver.resolve(.cancelled)
             return .accepted
         }
 
-        let requestID = nextRequestID
-        nextRequestID &+= 1
         let request = PendingRequest(
             id: requestID,
             owner: owner,
@@ -298,16 +319,24 @@ final class InteractionRequestExecutor {
     }
 
     func cancel(owner: Owner) {
+        cancel { $0.owner == owner }
+    }
+
+    private func cancel(requestID: UUID) {
+        cancel { $0.id == requestID }
+    }
+
+    private func cancel(where matches: (PendingRequest) -> Bool) {
         let pendingToCancel: [PendingRequest]
         let activeToCancel: ActiveRequest?
         switch phase {
         case .idle:
             return
         case .running(let active, let pending):
-            let cancelled = pending.filter { $0.owner == owner }
-            let retained = pending.filter { $0.owner != owner }
+            let cancelled = pending.filter(matches)
+            let retained = pending.filter { !matches($0) }
             pendingToCancel = cancelled
-            if active.request.owner == owner {
+            if matches(active.request) {
                 beginCancellation(active: active, pending: retained)
                 activeToCancel = active
             } else {
@@ -315,8 +344,8 @@ final class InteractionRequestExecutor {
                 activeToCancel = nil
             }
         case .cancelling(var state):
-            let cancelled = state.pending.filter { $0.owner == owner }
-            state.pending.removeAll { $0.owner == owner }
+            let cancelled = state.pending.filter(matches)
+            state.pending.removeAll(where: matches)
             phase = .cancelling(state)
             pendingToCancel = cancelled
             activeToCancel = nil
@@ -375,7 +404,7 @@ final class InteractionRequestExecutor {
         )
     }
 
-    private func complete(expected requestID: UInt64) {
+    private func complete(expected requestID: UUID) {
         switch phase {
         case .idle:
             return
@@ -447,7 +476,7 @@ final class InteractionRequestExecutor {
         phase = .cancelling(state)
     }
 
-    private func cleanupDeadlineReached(expected requestID: UInt64) {
+    private func cleanupDeadlineReached(expected requestID: UUID) {
         guard case .cancelling(var state) = phase,
               state.active.request.id == requestID,
               !state.deadlineExpired else { return }

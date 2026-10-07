@@ -73,13 +73,31 @@ class CIWorkflowTests(unittest.TestCase):
             "test-without-building HostedBehaviorTests",
             hosted,
         )
-        self.assertIn("scripts/e2e-demo-smoke.sh", hosted)
+        self.assertIn("scripts/e2e-demo-smoke.py", hosted)
 
     def test_tuist_test_jobs_do_not_initialize_the_parser_submodule(self) -> None:
         blocks = job_blocks()
         for name in ("macos-tests", "ios-logic", "ios-hosted", "ios-integration"):
             with self.subTest(job=name):
                 self.assertNotIn("git submodule update", blocks[name])
+
+    def test_xcode_jobs_use_the_canonical_project_generator(self) -> None:
+        blocks = job_blocks()
+        for name in (
+            "macos-tests",
+            "ios-logic",
+            "ios-hosted",
+            "ios-integration",
+        ):
+            with self.subTest(job=name):
+                self.assertEqual(
+                    blocks[name].count(
+                        "./scripts/generate-project.sh --no-binary-cache"
+                    ),
+                    1,
+                )
+                self.assertNotIn("tuist install", blocks[name])
+                self.assertNotIn("--skip-install", blocks[name])
 
     def test_exact_sha_suite_requires_every_main_validation_job(self) -> None:
         aggregate = job_blocks()["exact-sha-suite"]

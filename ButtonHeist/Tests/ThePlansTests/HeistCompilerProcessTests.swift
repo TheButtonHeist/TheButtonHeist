@@ -1,4 +1,5 @@
 import Foundation
+import ButtonHeistTestSupport
 import Testing
 @testable import ThePlans
 
@@ -417,16 +418,11 @@ private enum CompilerProcessTestFailure: Error {
 }
 
 private final class ProcessTestTemporaryDirectory {
-    let url: URL
+    private let fixture: TemporaryDirectoryFixture
+    var url: URL { fixture.url }
 
     init() throws {
-        url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("compiler-process-tests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    }
-
-    deinit {
-        try? FileManager.default.removeItem(at: url)
+        fixture = try TemporaryDirectoryFixture(prefix: "compiler-process-tests")
     }
 
     func writeSwiftSource(_ source: String) throws -> URL {

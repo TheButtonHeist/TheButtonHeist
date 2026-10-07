@@ -3,7 +3,7 @@
 #
 # Performs the full release pipeline from a clean main branch:
 #   1. Validate: must be on main, in sync with origin, clean worktree
-#   2. Prepare parser projections and derive version mirrors from TheScore
+#   2. Prepare parser projections and update the canonical TheScore version
 #   3. Build CLI + MCP (in parallel)
 #   4. Rebase onto latest origin, commit, push source to main, and wait for CI
 #   5. Tag the exact green main commit and wait for release packaging
@@ -228,9 +228,9 @@ if [[ "$DRY_RUN" == true ]]; then
     echo ""
     echo "Would perform:"
     if [[ "$TAG_CURRENT" == true ]]; then
-        echo "  1. Validate current version in RELEASE_VERSION, source, formula, Homebrew rendering, and parser contract"
+        echo "  1. Validate the source version, Homebrew rendering, and parser contract"
     else
-        echo "  1. Bump the canonical source version and derive RELEASE_VERSION and formula mirrors"
+        echo "  1. Bump the canonical source version"
     fi
     echo "  2. Build CLI + MCP (parallel)"
     echo "  3. Require the exact-SHA main CI suite"
@@ -263,7 +263,7 @@ else
     echo "==> Phase 2: Bumping version"
 
     "$SCRIPT_DIR/bump-version.sh" "$NEW_VERSION"
-    echo "  ✓ canonical version and derived mirrors"
+    echo "  ✓ canonical version"
 
     echo ""
 fi
@@ -343,9 +343,7 @@ else
     echo "==> Phase 4: Committing release source"
 
     git add \
-        ButtonHeist/Sources/TheScore/Wire/Messages.swift \
-        "$BUTTONHEIST_RELEASE_VERSION_FILE" \
-        "$BUTTONHEIST_FORMULA_TEMPLATE"
+        ButtonHeist/Sources/TheScore/Wire/Messages.swift
 
     while IFS= read -r parser_projection; do
         [[ -n "$parser_projection" ]] || continue

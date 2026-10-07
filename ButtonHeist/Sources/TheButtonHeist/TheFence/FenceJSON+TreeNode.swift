@@ -49,15 +49,6 @@ extension InterfaceNodeProjection: Encodable {
         }
     }
 
-    var elementCount: Int {
-        switch self {
-        case .element:
-            return 1
-        case .container(let container):
-            return container.children.reduce(0) { $0 + $1.elementCount }
-        }
-    }
-
     private var projectedDetail: InterfaceDetail {
         switch self {
         case .element(let element):

@@ -10,7 +10,7 @@ import ButtonHeistSupport
 final class SocketListenerRuntimeLifecycleTests: XCTestCase {
     func testRuntimeOwnsListenerLifecycle() async throws {
         let runtime = SocketListenerRuntime()
-        let gate = ListenerRuntimeStartGate()
+        let gate = ListenerRuntimeGate()
         let listeners = TestSocketListenerProvider { _ in
             await gate.enterAndWaitForRelease()
             return .ready(2468)
@@ -35,9 +35,21 @@ final class SocketListenerRuntimeLifecycleTests: XCTestCase {
         XCTAssertFalse(acceptsAfterStop)
     }
 
+    func testRepeatedStartStopInvalidatesCallbacksAndReleasesListeners() async throws {
+        let listeners = TestSocketListenerProvider(port: 2468)
+
+        for iteration in 1...3 {
+            let runtime = SocketListenerRuntime()
+            _ = try await Self.start(runtime, with: listeners)
+            await runtime.stop()
+            XCTAssertEqual(listeners.cancellationCount, iteration)
+            XCTAssertEqual(listeners.retainedListenerCount, 0)
+        }
+    }
+
     func testRuntimeRejectsSecondStartWhileStarting() async throws {
         let runtime = SocketListenerRuntime()
-        let gate = ListenerRuntimeStartGate()
+        let gate = ListenerRuntimeGate()
         let listeners = TestSocketListenerProvider { _ in
             await gate.enterAndWaitForRelease()
             return .ready(2468)
@@ -63,7 +75,7 @@ final class SocketListenerRuntimeLifecycleTests: XCTestCase {
 
     func testStopDuringStartPreventsStaleListeningTransition() async {
         let runtime = SocketListenerRuntime()
-        let gate = ListenerRuntimeStartGate()
+        let gate = ListenerRuntimeGate()
         let listeners = TestSocketListenerProvider { _ in
             await gate.enterAndWaitForRelease()
             return .ready(2468)
@@ -164,7 +176,7 @@ final class SocketListenerRuntimeLifecycleTests: XCTestCase {
     }
 
     func testPartialDualListenerStartupFailureCleansPendingCallbacksAndConnections() async {
-        let failureGate = ListenerRuntimeFailureGate()
+        let failureGate = ListenerRuntimeGate()
         let listeners = TestSocketListenerProvider { invocation in
             guard invocation > 1 else { return .ready(24_680) }
             await failureGate.enterAndWaitForRelease()
@@ -231,25 +243,7 @@ final class SocketListenerRuntimeLifecycleTests: XCTestCase {
     }
 }
 
-private final class ListenerRuntimeStartGate: Sendable {
-    private let entered = CompletionSignal()
-    private let released = CompletionSignal()
-
-    func enterAndWaitForRelease() async {
-        entered.finish()
-        await released.wait()
-    }
-
-    func waitUntilEntered() async {
-        await entered.wait()
-    }
-
-    func release() {
-        released.finish()
-    }
-}
-
-private final class ListenerRuntimeFailureGate: Sendable {
+private final class ListenerRuntimeGate: Sendable {
     private let entered = CompletionSignal()
     private let released = CompletionSignal()
 

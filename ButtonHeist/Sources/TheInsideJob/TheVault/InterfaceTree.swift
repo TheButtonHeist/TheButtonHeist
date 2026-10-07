@@ -63,7 +63,7 @@ struct InterfaceTree: Sendable, Equatable {
     }
 
     func findElement(heistId: HeistId) -> Element? {
-        topology.findElement(heistId: heistId)
+        elements[heistId]
     }
 
     /// Where every visible element sits, for asking whether the tree moved.
@@ -167,72 +167,36 @@ struct InterfaceTree: Sendable, Equatable {
 
     /// Ordered semantic ownership admitted once from capture and merge input.
     ///
-    /// `nodes` is the authoritative topology. Its two indexes are admitted
-    /// once for resolution; they do not own parentage or traversal order.
+    /// `nodes` owns parentage and traversal order. The dictionaries own the
+    /// semantic values they already receive at the boundary; topology does not
+    /// copy those values into a second representation.
     private struct Topology: Sendable, Equatable {
         enum NodeIdentity: Hashable, Sendable {
             case element(HeistId)
             case container(TreePath)
         }
 
-        enum Payload: Sendable, Equatable {
-            case element(Element)
-            case container(Container)
-        }
         struct Node: Sendable, Equatable {
             let path: TreePath
             let identity: NodeIdentity
-            let payload: Payload
         }
 
         let nodes: [Node]
-        private let elementNodeOffsetByHeistId: [HeistId: Int]
-        private let containerNodeOffsetByPath: [TreePath: Int]
+        let elements: [HeistId: Element]
+        let containers: [TreePath: Container]
         let projectedContainerPathBySourcePath: [TreePath: TreePath]
-
-        /// Derived lookup projections of the admitted node sequence. Topology
-        /// owns the payloads; these values intentionally own no copies.
-        var elements: [HeistId: Element] {
-            Dictionary(
-                uniqueKeysWithValues: elementNodeOffsetByHeistId.compactMap { heistId, offset in
-                    guard nodes.indices.contains(offset),
-                          case .element(let element) = nodes[offset].payload
-                    else { return nil }
-                    return (heistId, element)
-                }
-            )
-        }
-
-        var containers: [TreePath: Container] {
-            Dictionary(
-                uniqueKeysWithValues: containerNodeOffsetByPath.compactMap { path, offset in
-                    guard nodes.indices.contains(offset),
-                          case .container(let container) = nodes[offset].payload
-                    else { return nil }
-                    return (path, container)
-                }
-            )
-        }
-
-        func findElement(heistId: HeistId) -> Element? {
-            guard let offset = elementNodeOffsetByHeistId[heistId],
-                  nodes.indices.contains(offset),
-                  case .element(let element) = nodes[offset].payload
-            else { return nil }
-            return element
-        }
 
         var orderedElements: [Element] {
             nodes.compactMap { node in
-                guard case .element(let element) = node.payload else { return nil }
-                return element
+                guard case .element(let heistId) = node.identity else { return nil }
+                return elements[heistId]
             }
         }
 
         var orderedContainers: [Container] {
             nodes.compactMap { node in
-                guard case .container(let container) = node.payload else { return nil }
-                return container
+                guard case .container(let path) = node.identity else { return nil }
+                return containers[path]
             }
         }
 
@@ -242,9 +206,9 @@ struct InterfaceTree: Sendable, Equatable {
             preferredOrder: [NodeIdentity]
         ) {
             let candidates = elements.map { heistId, element in
-                Candidate.element(heistId: heistId, element: element)
+                Candidate(identity: .element(heistId), sourcePath: element.path)
             } + containers.map { path, container in
-                Candidate.container(path: path, container: container)
+                Candidate(identity: .container(path), sourcePath: container.path)
             }
             let rank = Self.rank(candidates.map(\.identity), preferredOrder: preferredOrder)
             let children = Dictionary(grouping: candidates) { candidate in
@@ -260,45 +224,30 @@ struct InterfaceTree: Sendable, Equatable {
                     let path = parent.appending(index)
                     admitted.append(Node(
                         path: path,
-                        identity: candidate.identity,
-                        payload: candidate.payload
+                        identity: candidate.identity
                     ))
-                    if case .container(let container) = candidate.payload {
-                        visit(children[container.path] ?? [], parent: path)
+                    if case .container = candidate.identity {
+                        visit(children[candidate.sourcePath] ?? [], parent: path)
                     }
                 }
             }
             visit(children[.root] ?? [], parent: .root)
             nodes = admitted
-            var elementOffsets: [HeistId: Int] = [:]
-            var containerOffsets: [TreePath: Int] = [:]
-            var projectedPaths: [TreePath: TreePath] = [:]
-            for (offset, node) in admitted.enumerated() {
-                switch (node.identity, node.payload) {
-                case (.element(let heistId), .element):
-                    elementOffsets[heistId] = offset
-                case (.container(let path), .container(let container)):
-                    containerOffsets[path] = offset
-                    projectedPaths[container.path] = node.path
-                case (.element, .container), (.container, .element):
-                    continue
+            self.elements = elements
+            self.containers = containers
+            projectedContainerPathBySourcePath = Dictionary(
+                uniqueKeysWithValues: admitted.compactMap { node in
+                    guard case .container(let path) = node.identity,
+                          let container = containers[path]
+                    else { return nil }
+                    return (container.path, node.path)
                 }
-            }
-            elementNodeOffsetByHeistId = elementOffsets
-            containerNodeOffsetByPath = containerOffsets
-            projectedContainerPathBySourcePath = projectedPaths
+            )
         }
 
         struct Candidate {
             let identity: NodeIdentity
-            let payload: Payload
-            static func element(heistId: HeistId, element: Element) -> Self {
-                Self(identity: .element(heistId), payload: .element(element))
-            }
-
-            static func container(path: TreePath, container: Container) -> Self {
-                Self(identity: .container(path), payload: .container(container))
-            }
+            let sourcePath: TreePath
 
             /// Hierarchy ownership is carried by source paths. Scroll membership
             /// is reveal evidence, not topology: an explored off-viewport entry
@@ -311,14 +260,6 @@ struct InterfaceTree: Sendable, Equatable {
                 else { return .root }
                 return parent
             }
-
-            private var sourcePath: TreePath {
-                switch payload {
-                case .element(let element): element.path
-                case .container(let container): container.path
-                }
-            }
-
         }
 
         private static func rank(
@@ -378,8 +319,11 @@ struct InterfaceTree: Sendable, Equatable {
             while index < topology.nodes.count, topology.nodes[index].path.parent == parent {
                 let node = topology.nodes[index]
                 index += 1
-                switch node.payload {
-                case .element(let entry):
+                switch node.identity {
+                case .element(let heistId):
+                    guard let entry = topology.elements[heistId] else {
+                        preconditionFailure("Admitted element must retain its semantic value")
+                    }
                     let ownerPath = entry.geometry.view.ownerPath
                     let projectedOwnerPath: TreePath
                     if ownerPath == .root {
@@ -406,7 +350,10 @@ struct InterfaceTree: Sendable, Equatable {
                     identities[node.path] = entry.heistId.observationElementIdentity
                     result.append(.element(entry.element, traversalIndex: traversalIndex))
                     traversalIndex += 1
-                case .container(let entry):
+                case .container(let sourcePath):
+                    guard let entry = topology.containers[sourcePath] else {
+                        preconditionFailure("Admitted container must retain its semantic value")
+                    }
                     containerAnnotations.append(InterfaceContainerAnnotation(
                         path: node.path,
                         containerName: entry.containerName,

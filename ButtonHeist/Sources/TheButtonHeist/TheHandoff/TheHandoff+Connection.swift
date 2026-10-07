@@ -190,12 +190,19 @@ extension TheHandoff {
     }
 
     private func makeKeepaliveTask(attemptID: UUID) -> Task<Void, Never> {
-        keepalive.makeTask(
-            tick: { [weak self] in self?.tickKeepalive(expectedAttemptID: attemptID) ?? 0 },
-            forceDisconnect: { [weak self] count in
-                handoffConnectionLogger.warning("No pong received for \(count) consecutive pings — forcing disconnect")
-                self?.forceDisconnect(expectedAttemptID: attemptID)
+        Task { @concurrent [weak self] in
+            while !Task.isCancelled {
+                guard await Task.cancellableSleep(for: Self.keepaliveInterval) else { break }
+                guard !Task.isCancelled else { break }
+                let count = await self?.tickKeepalive(expectedAttemptID: attemptID) ?? 0
+                if count >= Self.maxMissedPongs {
+                    handoffConnectionLogger.warning(
+                        "No pong received for \(count) consecutive pings — forcing disconnect"
+                    )
+                    await self?.forceDisconnect(expectedAttemptID: attemptID)
+                    break
+                }
             }
-        )
+        }
     }
 }

@@ -122,6 +122,30 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
     }
 
     @ButtonHeistActor
+    func testDeviceDiscoveryRepeatedStopInvalidatesCallbacksAndReleasesBrowsers() async {
+        weak var browserProbe: FakeDiscoveryBrowser?
+
+        for _ in 0..<3 {
+            do {
+                let browser = FakeDiscoveryBrowser()
+                browserProbe = browser
+                let discovery = DeviceDiscovery(
+                    reachabilityValidationInterval: 60,
+                    makeBrowser: { browser }
+                )
+
+                discovery.start()
+                XCTAssertTrue(browser.hasInstalledCallbacks)
+                discovery.stop()
+
+                XCTAssertEqual(browser.cancelCount, 1)
+                XCTAssertFalse(browser.hasInstalledCallbacks)
+            }
+            XCTAssertNil(browserProbe)
+        }
+    }
+
+    @ButtonHeistActor
     func testDeviceDiscoveryDeliversEventsAtBufferCapacity() async {
         let browser = FakeDiscoveryBrowser()
         let discovery = DeviceDiscovery(

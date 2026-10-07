@@ -313,7 +313,8 @@ class FakeApp:
         self.instances.append(self)
 
     def launch(self) -> None:
-        pass
+        if len(self.instances) == 1:
+            raise RuntimeError("first launch failed")
 
     def terminate(self, *, require_stopped: bool) -> None:
         if len(self.instances) == 1:
@@ -324,22 +325,12 @@ def fake_heist(*_args) -> subprocess.CompletedProcess[str]:
     return subprocess.CompletedProcess(["buttonheist"], 0, run_heist_output(), "")
 
 
-routes = []
-
-
 class FakeMonotonicClock:
     def __init__(self, values: list[int]):
         self.values = iter(values)
 
     def __call__(self) -> int:
         return next(self.values)
-
-
-def flaky_route(*_args) -> None:
-    routes.append(_args)
-    if len(routes) == 1:
-        raise RuntimeError("first route failed")
-
 
 isolated = lab.execute_samples(
     3,
@@ -349,7 +340,6 @@ isolated = lab.execute_samples(
         passing,
         iteration,
         app_factory=FakeApp,
-        route_opener=flaky_route,
         heist_runner=fake_heist,
         monotonic_ns=FakeMonotonicClock([0, 7_000_000]),
     ),

@@ -13,7 +13,9 @@ final class TheHandoff {
     let connectionLifecycle = HandoffConnectionLifecycle()
     let discoveryLifecycle = HandoffDiscoveryLifecycle()
     var serverMessageRouter = HandoffServerMessageRouter()
-    let keepalive = HandoffKeepalive()
+
+    nonisolated static let keepaliveInterval: Duration = .seconds(5)
+    nonisolated static let maxMissedPongs = 36
 
     // MARK: - Derived State
 

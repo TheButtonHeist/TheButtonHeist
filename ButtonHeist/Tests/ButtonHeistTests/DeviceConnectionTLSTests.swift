@@ -137,6 +137,31 @@ final class DeviceConnectionTLSTests: XCTestCase {
         XCTAssertEqual(disconnectReason, .missingToken)
     }
 
+    @ButtonHeistActor
+    func testRepeatedDisconnectInvalidatesTransportCallbacksBeforeRelease() async {
+        let connection = DeviceConnection(device: makeDummyDevice(), token: "token")
+
+        for _ in 0..<3 {
+            let transportConnection = NWConnection(host: "127.0.0.1", port: 1, using: .tcp)
+            var callbackProbe: DeviceConnectionCallbackProbe? = DeviceConnectionCallbackProbe()
+            weak var callbackReference: DeviceConnectionCallbackProbe?
+            callbackReference = callbackProbe
+            transportConnection.stateUpdateHandler = { [callbackProbe] _ in
+                _ = callbackProbe
+            }
+            connection.runtimePhase = .connecting(DeviceConnection.RuntimeSession(
+                connection: transportConnection
+            ))
+            callbackProbe = nil
+
+            connection.disconnect()
+
+            XCTAssertNil(transportConnection.stateUpdateHandler)
+            XCTAssertNil(callbackReference)
+            assertDeviceConnectionDisconnected(connection)
+        }
+    }
+
     // MARK: - Receive Events
 
     @ButtonHeistActor
@@ -309,3 +334,5 @@ final class DeviceConnectionTLSTests: XCTestCase {
         XCTAssertFalse(DeviceConnection.isLoopbackEndpoint(endpoint))
     }
 }
+
+private final class DeviceConnectionCallbackProbe: Sendable {}

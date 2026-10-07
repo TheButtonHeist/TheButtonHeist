@@ -104,17 +104,6 @@ extension TheGetaway {
         insideJobLogger.error("\(failure.description)")
     }
 
-    func logDeliveryOutcome(_ outcome: ResponseDeliveryOutcome) {
-        switch outcome {
-        case .delivered:
-            break
-        case .refused(let failure), .failed(let failure):
-            logDeliveryFailure(failure)
-        case .transportUnavailable:
-            insideJobLogger.error("\(outcome.description)")
-        }
-    }
-
     @discardableResult
     func sendMessage(
         _ message: ServerMessage,

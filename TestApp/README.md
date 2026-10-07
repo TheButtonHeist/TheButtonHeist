@@ -60,6 +60,8 @@ runtime behavior and the diagnostics:
 
 `.github/workflows/adversarial-nightly.yml` repeats the nine statistical success
 scenarios through fresh external CLI/app sessions and records CLI and receipt timing.
+Each session passes its typed route through `BUTTONHEIST_ADVERSARIAL_ROUTE` at
+app launch so a fresh simulator never depends on custom-URL confirmation UI.
 PR CI runs every catalog scenario once.
 
 ## Building and Running

@@ -96,7 +96,7 @@ extension ClientAdmission {
                 return .handled(rateLimitEffects)
             }
 
-            guard let envelope = Authentication.decode(data) else {
+            guard let envelope = try? RequestEnvelope.decoded(from: data) else {
                 let effects = clientRegistry.state(for: clientId)?.isAuthenticated == true
                     ? Rejection.undecodableAuthenticatedMessage(clientId, respond: respond)
                     : Rejection.undecodableUnauthenticatedMessage(clientId, respond: respond)

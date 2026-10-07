@@ -127,6 +127,100 @@ final class TheBrainsInteractionRequestTests: XCTestCase {
     }
 
     @MainActor
+    func testCallerCancellationCancelsActiveInAppRequest() async {
+        let brains = TheBrains(tripwire: TheTripwire())
+        let activeGate = PipelineTestGate()
+        let cancellationObserved = OSAllocatedUnfairLock(initialState: false)
+
+        let request = Task { @MainActor in
+            await brains.executeInAppRequest {
+                await withTaskCancellationHandler {
+                    await activeGate.suspendIgnoringCancellation()
+                    return "completed"
+                } onCancel: {
+                    cancellationObserved.withLock { $0 = true }
+                }
+            }
+        }
+        await activeGate.entered.wait()
+
+        request.cancel()
+        activeGate.release()
+
+        guard case .cancelled = await request.value else {
+            return XCTFail("Expected caller cancellation to cancel the active in-app request")
+        }
+        XCTAssertTrue(cancellationObserved.withLock { $0 })
+        await brains.stopInteractionRequests()
+    }
+
+    @MainActor
+    func testCallerCancellationRemovesOnlyItsQueuedInAppRequest() async {
+        let brains = TheBrains(tripwire: TheTripwire())
+        let activeGate = PipelineTestGate()
+        let cancelledSubmissionStarted = CompletionSignal()
+        let retainedSubmissionStarted = CompletionSignal()
+        let trace = OSAllocatedUnfairLock(initialState: [String]())
+
+        brains.submitTransportRequest(lease: testLease(1)) {
+            trace.withLock { $0.append("active") }
+            await activeGate.suspend()
+        }
+        await activeGate.entered.wait()
+
+        let cancelled = Task { @MainActor in
+            cancelledSubmissionStarted.finish()
+            return await brains.executeInAppRequest {
+                trace.withLock { $0.append("cancelled") }
+                return "cancelled"
+            }
+        }
+        await cancelledSubmissionStarted.wait()
+
+        let retained = Task { @MainActor in
+            retainedSubmissionStarted.finish()
+            return await brains.executeInAppRequest {
+                trace.withLock { $0.append("retained") }
+                return "retained"
+            }
+        }
+        await retainedSubmissionStarted.wait()
+
+        cancelled.cancel()
+        guard case .cancelled = await cancelled.value else {
+            return XCTFail("Expected caller cancellation to remove the queued in-app request")
+        }
+
+        activeGate.release()
+        guard case .completed(let value) = await retained.value else {
+            return XCTFail("Expected the unrelated queued in-app request to complete")
+        }
+        XCTAssertEqual(value, "retained")
+        XCTAssertEqual(trace.withLock { $0 }, ["active", "retained"])
+        await brains.stopInteractionRequests()
+    }
+
+    @MainActor
+    func testAlreadyCancelledCallerDoesNotAdmitInAppRequest() async {
+        let brains = TheBrains(tripwire: TheTripwire())
+        let operationExecuted = OSAllocatedUnfairLock(initialState: false)
+
+        let request = Task { @MainActor in
+            withUnsafeCurrentTask { $0?.cancel() }
+            return await brains.executeInAppRequest {
+                operationExecuted.withLock { $0 = true }
+                return "completed"
+            }
+        }
+
+        guard case .cancelled = await request.value else {
+            return XCTFail("Expected an already-cancelled caller to reject in-app execution")
+        }
+        XCTAssertFalse(operationExecuted.withLock { $0 })
+        await brains.stopInteractionRequests()
+    }
+
+    @MainActor
     func testDrainDeadlineReleasesWaitersAndRejectsAdmissionUntilLateOperationReturns() async {
         let deadline = ManualInteractionCleanupDeadline()
         let executor = InteractionRequestExecutor(

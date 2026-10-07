@@ -1,9 +1,3 @@
-package extension Sequence where Element: Hashable {
-    func uniqued() -> [Element] {
-        uniqued(on: \.self)
-    }
-}
-
 package extension Sequence {
     func uniqued<Key: Hashable>(
         on key: (Element) -> Key,

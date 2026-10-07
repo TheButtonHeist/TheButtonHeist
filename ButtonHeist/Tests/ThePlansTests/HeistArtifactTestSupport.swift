@@ -1,4 +1,5 @@
 import Foundation
+import ButtonHeistTestSupport
 import Testing
 @_spi(ButtonHeistInternals) import ThePlans
 
@@ -94,16 +95,4 @@ func expectArtifactReadError(
     }
 }
 
-final class PlansTemporaryDirectory {
-    let url: URL
-
-    init() throws {
-        url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("theplans-tests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    }
-
-    deinit {
-        try? FileManager.default.removeItem(at: url)
-    }
-}
+typealias PlansTemporaryDirectory = TemporaryDirectoryFixture

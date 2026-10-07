@@ -4,7 +4,6 @@ import TheScore
 
 extension TheFence {
     internal enum DecodeLimits {
-        internal static let maxRunHeistSteps = 100
         internal static let maxRunHeistRequestBytes = PublicJSONInputLimits.maxRequestBytes
         internal static let maxRunHeistNestingDepth = PublicJSONInputLimits.maxNestingDepth
         internal static let maxRunHeistObjectKeys = PublicJSONInputLimits.maxTotalObjectKeys

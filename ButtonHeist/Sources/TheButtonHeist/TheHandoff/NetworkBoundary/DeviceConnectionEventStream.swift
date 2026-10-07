@@ -49,6 +49,6 @@ extension DeviceConnection {
     func handleEventStreamOverflow(connection: NWConnection, sessionID: UUID?) {
         guard isCurrentSession(sessionID, connection: connection) else { return }
         deviceConnectionLogger.error("Connection event backlog exceeded \(DeviceConnectionEventStream.bufferLimit), disconnecting")
-        transitionToDisconnected(.cancel(.eventBacklogOverflow(maxEvents: DeviceConnectionEventStream.bufferLimit)))
+        transitionToDisconnected(.failure(.eventBacklogOverflow(maxEvents: DeviceConnectionEventStream.bufferLimit)))
     }
 }

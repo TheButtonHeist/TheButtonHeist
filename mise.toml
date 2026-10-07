@@ -1,8 +1,5 @@
 [tools]
 tuist = "4.40.0"
 
-[env]
-_.path = ["scripts/shims"]
-
 [hooks]
 postinstall = "git config core.hooksPath scripts"

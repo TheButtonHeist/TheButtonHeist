@@ -50,6 +50,7 @@ jobs:
           python3 scripts/check-e2e-adversarial-lab-timing.py
           python3 scripts/tests/adversarial-nightly-workflow-test.py
           python3 scripts/tests/ci-workflow-test.py
+          python3 scripts/tests/e2e-adversarial-lab-test.py
           python3 scripts/tests/e2e-lifecycle-gate-test.py
 
       - name: Test portable automation
@@ -127,9 +128,7 @@ jobs:
 
       - name: Install dependencies and generate project
         timeout-minutes: 12
-        run: |
-          tuist install
-          ./scripts/generate-project.sh --skip-install --no-binary-cache
+        run: ./scripts/generate-project.sh --no-binary-cache
 
       - name: Run macOS framework tests
         timeout-minutes: 15
@@ -187,9 +186,7 @@ jobs:
 
       - name: Install dependencies and generate project
         timeout-minutes: 12
-        run: |
-          tuist install
-          ./scripts/generate-project.sh --skip-install --no-binary-cache
+        run: ./scripts/generate-project.sh --no-binary-cache
 
       - name: Build deterministic iOS logic
         timeout-minutes: 20
@@ -263,9 +260,7 @@ jobs:
 
       - name: Install dependencies and generate project
         timeout-minutes: 12
-        run: |
-          tuist install
-          ./scripts/generate-project.sh --skip-install --no-binary-cache
+        run: ./scripts/generate-project.sh --no-binary-cache
 
       - name: Build hosted behavior once
         timeout-minutes: 20
@@ -300,7 +295,7 @@ jobs:
           scripts/run-with-heist-results.sh \
             --dir "$BUTTONHEIST_TEST_RESULTS_DIR" \
             --mode "$BUTTONHEIST_RESULTS_MODE" \
-            -- scripts/e2e-demo-smoke.sh \
+            -- scripts/e2e-demo-smoke.py \
             --skip-generate \
             --skip-cli-build \
             --sim-udid "$SIM_UDID" \
@@ -378,9 +373,7 @@ jobs:
 
       - name: Install dependencies and generate project
         timeout-minutes: 12
-        run: |
-          tuist install
-          ./scripts/generate-project.sh --skip-install --no-binary-cache
+        run: ./scripts/generate-project.sh --no-binary-cache
 
       - name: Build integration suite
         timeout-minutes: 20

@@ -495,7 +495,11 @@ extension TheFenceCompactFormattingContractTests {
                 totalElementCount: testCase.totalElementCount,
                 materializedElementCount: testCase.materializedElementCount
             )
-            XCTAssertTrue(interface.annotations.elements.isEmpty, testCase.name)
+            XCTAssertEqual(
+                interface.annotations.elements.count,
+                testCase.materializedElementCount,
+                testCase.name
+            )
             let publicInterface = publicInterfaceProjection(
                 interface: interface,
                 detail: .summary,
@@ -573,7 +577,7 @@ extension TheFenceCompactFormattingContractTests {
             totalElementCount: 2,
             materializedElementCounts: [2, 1]
         )
-        XCTAssertTrue(interface.annotations.elements.isEmpty)
+        XCTAssertEqual(interface.annotations.elements.count, 3)
         let json = try publicInterfaceJSONProbe(publicInterfaceProjection(
             interface: interface,
             detail: .summary,
@@ -633,16 +637,19 @@ extension TheFenceCompactFormattingContractTests {
         let interface = try Interface(
             timestamp: Date(timeIntervalSince1970: 0),
             tree: tree,
-            annotations: InterfaceAnnotations(containers: [
-                InterfaceContainerAnnotation(path: TreePath([0]), containerName: "outer_scroll"),
-                InterfaceContainerAnnotation(
-                    path: TreePath([0, 0]),
-                    containerName: "inner_scroll",
-                    scrollInventory: inventory
-                ),
-            ])
+            annotations: InterfaceAnnotations(
+                elements: explicitOffscreenAnnotations(in: tree),
+                containers: [
+                    InterfaceContainerAnnotation(path: TreePath([0]), containerName: "outer_scroll"),
+                    InterfaceContainerAnnotation(
+                        path: TreePath([0, 0]),
+                        containerName: "inner_scroll",
+                        scrollInventory: inventory
+                    ),
+                ]
+            )
         )
-        XCTAssertTrue(interface.annotations.elements.isEmpty)
+        XCTAssertEqual(interface.annotations.elements.count, 3)
 
         let json = try publicInterfaceJSONProbe(publicInterfaceProjection(
             interface: interface,
@@ -744,13 +751,16 @@ private func scrollInventoryInterface(
     return try Interface(
         timestamp: Date(timeIntervalSince1970: 0),
         tree: tree,
-        annotations: InterfaceAnnotations(containers: [
-            InterfaceContainerAnnotation(
-                path: TreePath([0]),
-                containerName: "inventory_scroll",
-                scrollInventory: inventory
-            ),
-        ])
+        annotations: InterfaceAnnotations(
+            elements: explicitOffscreenAnnotations(in: tree),
+            containers: [
+                InterfaceContainerAnnotation(
+                    path: TreePath([0]),
+                    containerName: "inventory_scroll",
+                    scrollInventory: inventory
+                ),
+            ]
+        )
     )
 }
 
@@ -787,8 +797,26 @@ private func siblingScrollInventoryInterface(
     return try Interface(
         timestamp: Date(timeIntervalSince1970: 0),
         tree: tree,
-        annotations: InterfaceAnnotations(containers: annotations)
+        annotations: InterfaceAnnotations(
+            elements: explicitOffscreenAnnotations(in: tree),
+            containers: annotations
+        )
     )
+}
+
+private func explicitOffscreenAnnotations(
+    in tree: [AccessibilityHierarchy]
+) -> [InterfaceElementAnnotation] {
+    tree.pathIndexedElements.map { record in
+        InterfaceElementAnnotation(
+            path: record.path,
+            actions: [],
+            geometry: HeistElement.Geometry(
+                screen: .offscreen,
+                view: .invalidated(ownerPath: record.path.parent ?? .root)
+            )
+        )
+    }
 }
 
 private func publicInterfaceContractDTO(

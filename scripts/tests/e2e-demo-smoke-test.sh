@@ -8,7 +8,7 @@ FIXTURE_ROOT="$(mktemp -d)"
 FIXTURE_REPO="$FIXTURE_ROOT/repo"
 FAKE_BIN="$FIXTURE_ROOT/bin"
 GIT_LOG="$FIXTURE_ROOT/git.log"
-HARNESS="$FIXTURE_REPO/scripts/e2e-demo-smoke.sh"
+HARNESS="$FIXTURE_REPO/scripts/e2e-demo-smoke.py"
 
 trap 'rm -rf "$FIXTURE_ROOT"' EXIT
 
@@ -18,7 +18,8 @@ fail() {
 }
 
 mkdir -p "$FIXTURE_REPO/scripts" "$FAKE_BIN"
-cp "$REPO_ROOT/scripts/e2e-demo-smoke.sh" "$HARNESS"
+cp "$REPO_ROOT/scripts/e2e-demo-smoke.py" "$HARNESS"
+cp "$REPO_ROOT/scripts/e2e_runtime.py" "$FIXTURE_REPO/scripts/e2e_runtime.py"
 
 cat > "$FAKE_BIN/git" <<'EOF'
 #!/usr/bin/env bash
@@ -31,7 +32,7 @@ cat > "$FAKE_BIN/nc" <<'EOF'
 exit 1
 EOF
 
-for tool in xcrun xcodebuild swift jq; do
+for tool in xcrun xcodebuild swift; do
     cat > "$FAKE_BIN/$tool" <<'EOF'
 #!/usr/bin/env bash
 exit 0

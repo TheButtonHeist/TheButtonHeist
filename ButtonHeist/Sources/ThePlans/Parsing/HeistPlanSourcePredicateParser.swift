@@ -384,10 +384,6 @@ extension HeistPlanSourceParser {
         return matches
     }
 
-    private static var validElementPropertyNames: Set<String> {
-        Set(AssertableProperty.allCases.map(\.rawValue))
-    }
-
     private static var validElementProperties: String {
         AssertableProperty.nameList
     }

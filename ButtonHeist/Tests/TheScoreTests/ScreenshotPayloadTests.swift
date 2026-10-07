@@ -11,7 +11,7 @@ final class ScreenshotPayloadTests: XCTestCase {
             pngData: "data",
             width: 100,
             height: 200,
-            interface: Interface(timestamp: Date(), tree: [])
+            interface: makeTestInterface(elements: [], timestamp: Date())
         )
         let after = Date()
 

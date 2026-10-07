@@ -103,10 +103,6 @@ package enum CanonicalValueDescription {
         "[\(values.map { String(describing: $0) }.joined(separator: ", "))]"
     }
 
-    package static func quotedList(_ values: [String]) -> String {
-        "[\(values.map(quoted).joined(separator: ", "))]"
-    }
-
     package static func call(_ name: String, _ fields: [String]) -> String {
         fields.isEmpty ? "\(name)(*)" : "\(name)(\(fields.joined(separator: " ")))"
     }

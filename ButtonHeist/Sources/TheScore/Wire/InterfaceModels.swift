@@ -1106,41 +1106,6 @@ public struct Interface: Codable, Equatable, Sendable {
         graph.elementsInTraversalOrder.map(\.interfaceRecord)
     }
 
-    package init(
-        timestamp: Date,
-        tree: [AccessibilityHierarchy],
-        diagnostics: InterfaceDiagnostics? = nil
-    ) {
-        guard let admitted = Self(
-            admitting: timestamp,
-            tree: tree,
-            diagnostics: diagnostics
-        ) else {
-            preconditionFailure("Interface hierarchy geometry must be admitted before construction")
-        }
-        self = admitted
-    }
-
-    public init?(
-        admitting timestamp: Date,
-        tree: [AccessibilityHierarchy],
-        diagnostics: InterfaceDiagnostics? = nil
-    ) {
-        guard (try? InterfaceGeometryAdmission.validate(tree)) != nil,
-              let graph = try? InterfaceGraph(tree: tree) else {
-            return nil
-        }
-        self.init(
-            validatedTimestamp: timestamp,
-            tree: tree,
-            annotations: .empty,
-            diagnostics: diagnostics,
-            screenActions: [],
-            observationIdentities: .empty,
-            graph: graph
-        )
-    }
-
     public init(
         timestamp: Date,
         tree: [AccessibilityHierarchy],
@@ -1154,21 +1119,6 @@ public struct Interface: Codable, Equatable, Sendable {
             diagnostics: diagnostics,
             screenActions: [],
             observationIdentities: .empty
-        )
-    }
-
-    package init(
-        timestamp: Date,
-        tree: [AccessibilityHierarchy],
-        diagnostics: InterfaceDiagnostics? = nil,
-        observationIdentities: InterfaceElementIdentities
-    ) throws {
-        try self.init(
-            timestamp: timestamp,
-            tree: tree,
-            annotations: .empty,
-            diagnostics: diagnostics,
-            observationIdentities: observationIdentities
         )
     }
 
@@ -1252,11 +1202,11 @@ public struct Interface: Codable, Equatable, Sendable {
         originalPath: TreePath,
         rootPath: TreePath
     ) -> InterfaceAnnotations {
-        graph.annotationsForSubtree(originalPath: originalPath, rootPath: rootPath)
+        graph.annotationsForSubtree(node, originalPath: originalPath, rootPath: rootPath)
     }
 
     package func selectingSubtree(at originalPath: TreePath) -> Interface {
-        guard let node = graph.node(at: originalPath) else {
+        guard let node = tree.node(at: originalPath) else {
             preconditionFailure("Cannot project missing interface subtree")
         }
         let rootPath = TreePath([0])
@@ -1264,10 +1214,15 @@ public struct Interface: Codable, Equatable, Sendable {
             return try Interface(
                 timestamp: timestamp,
                 tree: [node],
-                annotations: graph.annotationsForSubtree(originalPath: originalPath, rootPath: rootPath),
+                annotations: graph.annotationsForSubtree(
+                    node,
+                    originalPath: originalPath,
+                    rootPath: rootPath
+                ),
                 diagnostics: diagnostics,
                 screenActions: [],
                 observationIdentities: graph.observationIdentitiesForSubtree(
+                    node,
                     originalPath: originalPath,
                     rootPath: rootPath
                 )

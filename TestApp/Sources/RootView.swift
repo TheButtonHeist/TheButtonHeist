@@ -4,6 +4,9 @@ import UIKit
 
 struct RootView: View {
     @EnvironmentObject private var settings: AppSettings
+    private let startupRoute = AdversarialRoute.parseStartupEnvironment(
+        ProcessInfo.processInfo.environment
+    )
     @State private var adversarialRoute: AdversarialRoute?
 
     var body: some View {
@@ -164,6 +167,9 @@ struct RootView: View {
             AdversarialLabRoute.installPresenter { route in
                 adversarialRoute = route
             }
+            if let startupRoute {
+                try? await AdversarialLabRoute.present(startupRoute)
+            }
         }
         .onDisappear {
             AdversarialLabRoute.uninstallPresenter()
@@ -188,8 +194,19 @@ struct RootView: View {
 }
 
 struct AdversarialRoute: Identifiable, Hashable {
+    static let startupEnvironmentKey = "BUTTONHEIST_ADVERSARIAL_ROUTE"
+
     let id: UUID
     let scenario: AdversarialScenarioCatalog.Route
+
+    static func parseStartupEnvironment(
+        _ environment: [String: String]
+    ) -> AdversarialRoute? {
+        guard let rawRoute = environment[startupEnvironmentKey],
+              let route = AdversarialScenarioCatalog.Route(rawValue: rawRoute)
+        else { return nil }
+        return AdversarialRoute(id: UUID(), scenario: route)
+    }
 }
 
 @MainActor

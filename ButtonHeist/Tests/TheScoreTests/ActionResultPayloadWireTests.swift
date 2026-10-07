@@ -16,7 +16,7 @@ final class ActionResultPayloadWireTests: XCTestCase {
             width: 390,
             height: 844,
             timestamp: Date(timeIntervalSince1970: 0),
-            interface: Interface(timestamp: Date(timeIntervalSince1970: 0), tree: [])
+            interface: makeTestInterface(elements: [], timestamp: Date(timeIntervalSince1970: 0))
         )
         let result = ActionResult.success(payload: .screenshot(screen))
 

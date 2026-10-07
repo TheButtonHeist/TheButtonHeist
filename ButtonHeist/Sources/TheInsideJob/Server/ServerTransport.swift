@@ -181,17 +181,6 @@ final class ServerTransport {
         await stopOperation.task.value
     }
 
-    /// Await completion of any in-flight stop operation.
-    @MainActor
-    func waitForStopped() async {
-        if case .start = operation {
-            await stop()
-        }
-        if case .stop(let attempt) = operation {
-            await attempt.task.value
-        }
-    }
-
     @MainActor
     private func finishStarting(_ startOperation: StartOperation) {
         startOperation.completion.finish()

@@ -29,9 +29,7 @@ private extension Interface {
         guard previousNodes.count == currentNodes.count else { return false }
 
         return zip(previousNodes, currentNodes).allSatisfy { previous, current in
-            guard previous.path == current.path,
-                  previous.traversalIndex == current.traversalIndex
-            else { return false }
+            guard previous.path == current.path else { return false }
 
             return switch (previous.kind, current.kind) {
             case let (.element(previousElement), .element(currentElement)):
@@ -56,16 +54,15 @@ private extension InterfaceGraphElementRecord {
         as other: InterfaceGraphElementRecord,
         geometryTolerance: CGFloat
     ) -> Bool {
-        guard accessibilityElement.hasSameNonGeometricState(
+        guard traversalIndex == other.traversalIndex,
+              accessibilityElement.hasSameNonGeometricState(
             as: other.accessibilityElement
         ),
-        let annotation,
-        let otherAnnotation = other.annotation,
-        annotation.actions == otherAnnotation.actions
+        annotation.actions == other.annotation.actions
         else { return false }
 
         return annotation.geometry.hasSameObservedState(
-            as: otherAnnotation.geometry,
+            as: other.annotation.geometry,
             geometryTolerance: geometryTolerance
         )
     }

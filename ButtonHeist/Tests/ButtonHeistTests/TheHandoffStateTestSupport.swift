@@ -44,9 +44,11 @@ final class HandoffTestSignal {
 
 final class FakeDiscoveryBrowser: DeviceDiscoveryBrowsing {
     private struct State {
+        var onResultsChanged: (@Sendable (Set<NWBrowser.Result>, Set<NWBrowser.Result.Change>) -> Void)?
         var onStateChanged: (@Sendable (DeviceDiscoveryBrowserState) -> Void)?
         var startCount = 0
         var cancelCount = 0
+        var isInvalidated = false
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -59,19 +61,30 @@ final class FakeDiscoveryBrowser: DeviceDiscoveryBrowsing {
         state.withLock { $0.cancelCount }
     }
 
+    var hasInstalledCallbacks: Bool {
+        state.withLock { $0.onResultsChanged != nil || $0.onStateChanged != nil }
+    }
+
     func start(
         queue: DispatchQueue,
         onResultsChanged: @escaping @Sendable (Set<NWBrowser.Result>, Set<NWBrowser.Result.Change>) -> Void,
         onStateChanged: @escaping @Sendable (DeviceDiscoveryBrowserState) -> Void
     ) {
         state.withLock { state in
+            state.onResultsChanged = onResultsChanged
             state.onStateChanged = onStateChanged
             state.startCount += 1
         }
     }
 
-    func cancel() {
-        state.withLock { $0.cancelCount += 1 }
+    func invalidate() {
+        state.withLock { state in
+            guard !state.isInvalidated else { return }
+            state.isInvalidated = true
+            state.onResultsChanged = nil
+            state.onStateChanged = nil
+            state.cancelCount += 1
+        }
     }
 
     func emit(_ browserState: DeviceDiscoveryBrowserState) {

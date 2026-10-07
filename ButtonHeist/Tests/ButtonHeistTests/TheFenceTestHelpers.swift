@@ -200,9 +200,9 @@ func makeConnectedFence(configuration: TheFence.Configuration = .init()) -> (The
                 serverTimestampMs: 1_700_000_000_000
             ))
         case .requestInterface:
-            return .interface(Interface(timestamp: Date(), tree: []))
+            return .interface(makeTestInterface(elements: [], timestamp: Date()))
         case .requestScreen:
-            return .screen(ScreenPayload(pngData: "", width: 393, height: 852, interface: Interface(timestamp: Date(), tree: [])))
+            return .screen(ScreenPayload(pngData: "", width: 393, height: 852, interface: makeTestInterface(elements: [], timestamp: Date())))
         case .heistPlan:
             return scriptedHeistResponse()
         default:
@@ -251,16 +251,6 @@ func makeBackgroundElementsChangedEvidence(elementCount: Int) -> Observation.Evi
         events: [.elementsChanged(after)],
         current: after,
         coverage: .incomplete(.historyUnavailable)
-    )
-}
-
-func makeBackgroundScreenChangedEvidence(elementCount: Int) -> Observation.Evidence {
-    makeObservationEvidence(
-        before: makeTestInterface(elementCount: 0, prefix: "before"),
-        after: makeTestInterface(elementCount: elementCount, prefix: "after"),
-        beforeScreenId: "before",
-        afterScreenId: "after",
-        screenChanged: true
     )
 }
 

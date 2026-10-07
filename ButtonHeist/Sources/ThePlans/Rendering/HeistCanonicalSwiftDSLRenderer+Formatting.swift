@@ -1,9 +1,4 @@
 extension HeistCanonicalSwiftDSLRenderer {
-    func renderTraits(_ label: String, _ traits: [HeistTrait]) -> String? {
-        guard !traits.isEmpty else { return nil }
-        return "\(label): [\(traits.map { ".\($0.rawValue)" }.joined(separator: ", "))]"
-    }
-
     func renderTimeout(_ timeout: WaitTimeout) -> String {
         timeout == defaultWaitTimeout ? "" : ", timeout: \(decimal(timeout.seconds))"
     }
