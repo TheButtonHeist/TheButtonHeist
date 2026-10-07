@@ -55,10 +55,6 @@ ACTIVE_LIFECYCLE_PROBE_DRIVER = "lifecycle-active-probe"
 TRANSIENT_FLOW_ROUTE_FACT = "Transient Flow"
 
 
-def write_report(path: Path, report: dict[str, Any]) -> None:
-    write_json_report(path, report)
-
-
 def lifecycle_failure_kind(error: BaseException, *, scenario_started: bool) -> str:
     return failure_kind(
         error,
@@ -720,14 +716,14 @@ def main() -> None:
         sim = choose_simulator(args.sim_udid)
         report["simulator"] = sim
         report["status"] = "booting-simulator"
-        write_report(report_path, report)
+        write_json_report(report_path, report)
         boot_simulator(sim)
         app = prepare_app(sim, args.app, args.demo_zip, work_dir)
         report["demo_app"] = str(app)
         version = run([str(cli), "--version"]).stdout.strip()
         report["version"] = version
         report["status"] = "running"
-        write_report(report_path, report)
+        write_json_report(report_path, report)
 
         scenarios = [
             ("session_lock", lambda: scenario_session_lock(cli, sim, args.connect_timeout)),
@@ -741,7 +737,7 @@ def main() -> None:
         ]
         for name, run_scenario in scenarios:
             report["current_scenario"] = name
-            write_report(report_path, report)
+            write_json_report(report_path, report)
             try:
                 report["scenarios"][name] = run_scenario()
             except Exception as exc:
@@ -752,14 +748,14 @@ def main() -> None:
                     "status": "failed",
                     "error": error_summary(exc),
                 }
-                write_report(report_path, report)
+                write_json_report(report_path, report)
                 raise
-            write_report(report_path, report)
+            write_json_report(report_path, report)
 
         report.pop("current_scenario", None)
         report["status"] = "passed"
         report["failureKind"] = "none"
-        write_report(report_path, report)
+        write_json_report(report_path, report)
         print(json.dumps(report, indent=2, sort_keys=True))
     except Exception as exc:
         report["status"] = "failed"
@@ -768,7 +764,7 @@ def main() -> None:
             lifecycle_failure_kind(exc, scenario_started="current_scenario" in report),
         )
         report["error"] = error_summary(exc)
-        write_report(report_path, report)
+        write_json_report(report_path, report)
         raise
 
 

@@ -34,10 +34,6 @@ extension TheFence {
         var objectValue: HeistValue {
             .object(values)
         }
-
-        var keySet: Set<String> {
-            Set(values.keys)
-        }
     }
 }
 
@@ -49,7 +45,7 @@ extension HeistValue {
         case .int(let value):
             return "integer \(value)"
         case .double(let value):
-            return "number \(Self.schemaFormatNumber(value))"
+            return "number \(SchemaValidationError.formatNumber(value))"
         case .bool(let value):
             return "boolean \(value)"
         case .array(let values):
@@ -57,13 +53,6 @@ extension HeistValue {
         case .object:
             return "object"
         }
-    }
-
-    private static func schemaFormatNumber(_ value: Double) -> String {
-        if value.rounded(.towardZero) == value {
-            return String(format: "%.1f", value)
-        }
-        return String(value)
     }
 
     var integerValue: Int? {

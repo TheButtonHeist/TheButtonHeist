@@ -310,7 +310,6 @@ enum ObjCRuntime {
 extension ObjCRuntime.ClassName {
     static let uiKeyboardImpl = ObjCRuntime.ClassName("UIKeyboardImpl")
     static let uiHitTestContext = ObjCRuntime.ClassName("_UIHitTestContext")
-    static let uiViewAnimationState = ObjCRuntime.ClassName("UIViewAnimationState")
 }
 
 extension ObjCRuntime.ObjectMethod where Arguments == ObjCRuntime.ObjectArgument<NSObject> {

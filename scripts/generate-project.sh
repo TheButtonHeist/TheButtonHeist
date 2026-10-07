@@ -34,7 +34,7 @@ if [[ "$install_dependencies" == true ]]; then
 fi
 
 set +e
-BUTTONHEIST_TUIST_SKIP_AUTO_CLEAN=1 run_tuist generate "${generate_arguments[@]}"
+run_tuist generate "${generate_arguments[@]}"
 generate_status=$?
 set -e
 

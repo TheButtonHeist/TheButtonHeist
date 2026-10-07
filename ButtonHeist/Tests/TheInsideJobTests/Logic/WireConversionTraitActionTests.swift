@@ -128,28 +128,6 @@ final class WireConverterTests: XCTestCase {
         )
     }
 
-    /// Build a test tree container node with a fixed containerName.
-    func wireContainer(
-        containerName: ContainerName,
-        type: AccessibilityContainer.ContainerType = .list,
-        frame: CGRect = .zero,
-        children: [TestInterfaceNode]
-    ) -> TestInterfaceNode {
-        .container(
-            AccessibilityContainer(
-                type: type,
-                frame: AccessibilityRect(
-                    x: frame.origin.x,
-                    y: frame.origin.y,
-                    width: frame.size.width,
-                    height: frame.size.height
-                )
-            ),
-            containerName: containerName,
-            children: children
-        )
-    }
-
     func makeInterface(
         nodes: [TestInterfaceNode],
         timestamp: Date

@@ -466,13 +466,6 @@ actor TheMuscle {
 
     // MARK: - Helpers
 
-    func encodeEnvelope(
-        _ message: ServerMessage,
-        requestId: RequestID? = nil
-    ) -> Result<Data, ResponseEncodingFailure> {
-        ResponseEnvelopeDelivery.encodeEnvelope(message, requestId: requestId)
-    }
-
     private enum ResponseDestination: Sendable {
         case response(ClientAdmission.ResponseHandler)
         case client(Int)
@@ -485,7 +478,7 @@ actor TheMuscle {
         to destination: ResponseDestination,
         generation: ClientDelivery.Generation
     ) async -> ResponseDeliveryOutcome {
-        switch encodeEnvelope(message, requestId: requestId) {
+        switch ResponseEnvelopeDelivery.encodeEnvelope(message, requestId: requestId) {
         case .success(let data):
             let sendOutcome: ServerSendOutcome
             switch destination {

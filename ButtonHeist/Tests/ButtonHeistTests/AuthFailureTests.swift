@@ -1,5 +1,5 @@
+import ButtonHeistTestSupport
 import XCTest
-import Network
 import TheScore
 @_spi(ButtonHeistTooling) @testable import ButtonHeist
 
@@ -25,24 +25,11 @@ private final class CallOrder: @unchecked Sendable {
 /// Tests for auth failure handling using direct message injection.
 /// Validates that the auth-failure error fires correctly and isn't swallowed by the subsequent disconnect.
 final class AuthFailureTests: XCTestCase {
-
-    private func makeDummyDevice() -> DiscoveredDevice {
-        DiscoveredDevice(
-            id: "mock",
-            name: "MockApp#test",
-            endpoint: DiscoveredDeviceEndpoint.hostPort(host: "::1", port: 1)
-        )
-    }
-
-    private func encode(_ message: ServerMessage) throws -> Data {
-        try JSONEncoder().encode(ResponseEnvelope(message: message))
-    }
-
     // MARK: - Tests
 
     @ButtonHeistActor
     func testAuthFailedCallbackFires() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
+        let conn = DeviceConnection(device: TheFenceFixtures.testDevice)
         conn.simulateConnected()
 
         var authFailedReason: String?
@@ -53,7 +40,7 @@ final class AuthFailureTests: XCTestCase {
             }
         }
 
-        try conn.handleMessage(encode(
+        try conn.handleMessage(testResponseEnvelopeData(
             .error(ServerError(kind: .authFailure, message: "Invalid token. Retry without a token to request a fresh session."))
         ))
 
@@ -63,7 +50,7 @@ final class AuthFailureTests: XCTestCase {
 
     @ButtonHeistActor
     func testAuthFailedDoesNotDisconnectTransport() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
+        let conn = DeviceConnection(device: TheFenceFixtures.testDevice)
         conn.simulateConnected()
 
         let callOrder = CallOrder()
@@ -78,7 +65,7 @@ final class AuthFailureTests: XCTestCase {
             }
         }
 
-        try conn.handleMessage(encode(
+        try conn.handleMessage(testResponseEnvelopeData(
             .error(ServerError(kind: .authFailure, message: "Invalid token. Retry without a token to request a fresh session."))
         ))
 

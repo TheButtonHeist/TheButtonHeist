@@ -29,7 +29,7 @@ final class TheMuscleWireTests: TheMuscleTestCase {
 
     func testExplicitErrorEnvelopeStillEncodes() async throws {
         let requestID: RequestID = "explicit-error"
-        let result = await muscle.encodeEnvelope(
+        let result = ResponseEnvelopeDelivery.encodeEnvelope(
             .error(ServerError(kind: .general, message: "Explicit failure")),
             requestId: requestID
         )

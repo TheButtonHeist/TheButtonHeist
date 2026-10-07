@@ -208,8 +208,8 @@ final class TheGetaway {
             )
         case .runtimeAction(let command):
             let actionResult = await executeDirectRuntimeAction(command)
-            await sendActionResult(
-                actionResult: actionResult,
+            await sendMessage(
+                .actionResult(actionResult),
                 requestId: requestId,
                 respond: respond,
                 generation: generation
@@ -247,20 +247,6 @@ final class TheGetaway {
             return brains.runtimeInactiveResult(payload: command.actionResultPayload)
         }
         return await brains.executeRuntimeAction(command)
-    }
-
-    private func sendActionResult(
-        actionResult: ActionResult,
-        requestId: RequestID?,
-        respond: @escaping SocketResponseHandler,
-        generation: ClientDelivery.Generation
-    ) async {
-        await sendMessage(
-            .actionResult(actionResult),
-            requestId: requestId,
-            respond: respond,
-            generation: generation
-        )
     }
 
     func sendInterface(

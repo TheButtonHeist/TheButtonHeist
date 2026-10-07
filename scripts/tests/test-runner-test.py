@@ -186,11 +186,10 @@ class TestRunnerTests(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ValueError,
-            "--retain-simulator requires a simulator-using test mode",
+            "cleanup does not accept --retain-simulator",
         ):
             RUNNER["parse_args"]([
-                "collect",
-                "TheScoreTests",
+                "cleanup",
                 "--retain-simulator",
             ])
 
@@ -218,26 +217,6 @@ class TestRunnerTests(unittest.TestCase):
 
         self.assertIsNone(selected)
         run.assert_not_called()
-
-    def test_too_new_selector_result_is_deleted_before_returning(self) -> None:
-        delete = mock.Mock(return_value=False)
-        with mock.patch.object(RUNNER["subprocess"], "run"), mock.patch.object(
-            Path, "read_text",
-            return_value=SELECTOR_OUTPUT.replace("TEST-UDID", "TOO-NEW").replace("26.3", "27.0"),
-        ), mock.patch.dict(
-            RUNNER["select_simulator"].__globals__, {"delete_simulator": delete}
-        ), self.assertRaisesRegex(
-            RuntimeError, "runtime 27.0 exceeds active SDK 26.5; cleanup failed"
-        ):
-            RUNNER["select_simulator"](
-                "run",
-                SUITES["TheInsideJobLogicTests"],
-                None,
-                None,
-            )
-
-        delete.assert_called_once()
-        self.assertEqual(delete.call_args.args[0]["udid"], "TOO-NEW")
 
     def test_prepare_simulator_publishes_the_resolved_ci_environment(self) -> None:
         prepare = mock.Mock(return_value=SIMULATOR)

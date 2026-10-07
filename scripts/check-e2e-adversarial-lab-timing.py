@@ -238,7 +238,7 @@ assert timed["ceilingHits"] == [{
     "status": "passed",
 }]
 try:
-    lab.parse_run_heist_evidence(json.dumps({"status": "ok", "report": {"nodes": []}}))
+    lab.parse_successful_run_heist_report(json.dumps({"status": "ok", "report": {"nodes": []}}))
 except ValueError as error:
     assert str(error) == "successful run_heist report must contain metrics"
 else:

@@ -7,7 +7,6 @@ import argparse
 import json
 import math
 import os
-import runpy
 import signal
 import shutil
 import subprocess
@@ -25,7 +24,6 @@ WRAPPER = ROOT / "scripts/run-with-heist-results.sh"
 COLLECTOR = ROOT / "scripts/collect-ios-heist-results.sh"
 SELECTOR = ROOT / "scripts/select-ios-ci-simulator.py"
 IOS_DEVICE = "iPhone 16 Pro"
-VERSION_KEY = runpy.run_path(str(SELECTOR))["version_key"]
 
 # The only test-driving catalog: public name, scheme, platform, and CI behavior.
 SUITES = {
@@ -266,13 +264,6 @@ def prepare_simulator(
         "os": values["sim_os"],
         "sdk": values["sim_sdk"],
     }
-    sdk_version = simulator["sdk"]
-    if VERSION_KEY(simulator["os"]) > VERSION_KEY(sdk_version):
-        cleanup_failed = not delete_simulator(simulator)
-        raise RuntimeError(
-            f"selected iOS simulator runtime {simulator['os']} exceeds active SDK {sdk_version}"
-            + ("; cleanup failed to delete selected simulator" if cleanup_failed else "")
-        )
     return simulator
 
 
@@ -532,10 +523,6 @@ def execute(
 ) -> int:
     suite = SUITES[name]
     paths = suite_paths(name)
-    if args.mode == "collect":
-        publish(paths, None)
-        collect(suite, paths, include_diagnostics=True)
-        return 0
     simulator = select_simulator(args.mode, suite, args.simulator_name, args.simulator_runtime)
     if simulator is not None and selected_simulators is not None:
         selected_simulators.append(simulator)
@@ -618,7 +605,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "run",
             "build-for-testing",
             "test-without-building",
-            "collect",
             "prepare-simulator",
             "cleanup",
             "catalog",
@@ -668,11 +654,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             raise ValueError("--test and --focus both select tests; use one")
         if len(args.suites) != 1:
             raise ValueError("--test requires exactly one suite")
-    simulator_modes = ("run", "build-for-testing", "test-without-building")
-    if args.retain_simulator and args.mode not in simulator_modes:
-        raise ValueError(
-            "--retain-simulator requires a simulator-using test mode"
-        )
     selected_suites = args.suites or tuple(focus_runs(args.focus))
     if args.retain_simulator and not any(
         SUITES[name]["platform"] == "ios"

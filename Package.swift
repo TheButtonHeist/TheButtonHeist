@@ -31,14 +31,12 @@ let package = Package(
         .target(
             name: "ButtonHeistSupport",
             dependencies: [],
-            path: "ButtonHeist/Sources/ButtonHeistSupport",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/ButtonHeistSupport"
         ),
         .target(
             name: "ThePlans",
             dependencies: [],
-            path: "ButtonHeist/Sources/ThePlans",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/ThePlans"
         ),
         .target(
             name: "TheScore",
@@ -46,8 +44,7 @@ let package = Package(
                 "ThePlans",
                 .product(name: "AccessibilitySnapshotModel", package: "AccessibilitySnapshotBH"),
             ],
-            path: "ButtonHeist/Sources/TheScore",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/TheScore"
         ),
         .executableTarget(
             name: "HeistPlanTool",
@@ -55,8 +52,7 @@ let package = Package(
                 "ThePlans",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
-            path: "ButtonHeist/Sources/HeistPlanTool",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/HeistPlanTool"
         ),
         .target(
             name: "HeistDoctorCore",
@@ -64,8 +60,7 @@ let package = Package(
                 "ThePlans",
                 "TheScore",
             ],
-            path: "ButtonHeist/Sources/HeistDoctorCore",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/HeistDoctorCore"
         ),
         .executableTarget(
             name: "HeistDoctorTool",
@@ -74,8 +69,7 @@ let package = Package(
                 "TheScore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
-            path: "ButtonHeist/Sources/HeistDoctorTool",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/HeistDoctorTool"
         ),
         // Swift implementation of TheInsideJob
         .target(
@@ -101,8 +95,7 @@ let package = Package(
                     condition: .when(platforms: [.iOS])
                 ),
             ],
-            path: "ButtonHeist/Sources/TheInsideJob",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/TheInsideJob"
         ),
         // Objective-C loader that triggers auto-start via +load
         .target(
@@ -117,8 +110,7 @@ let package = Package(
                 "TheInsideJob",
                 "ThePlans",
             ],
-            path: "ButtonHeist/Sources/ButtonHeistTesting",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/ButtonHeistTesting"
         ),
         .target(
             name: "ButtonHeist",
@@ -128,8 +120,7 @@ let package = Package(
                 "TheScore",
                 .product(name: "AccessibilitySnapshotModel", package: "AccessibilitySnapshotBH"),
             ],
-            path: "ButtonHeist/Sources/TheButtonHeist",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Sources/TheButtonHeist"
         ),
         .target(
             name: "ButtonHeistTestSupport",
@@ -138,8 +129,7 @@ let package = Package(
                 "TheScore",
                 .product(name: "AccessibilitySnapshotModel", package: "AccessibilitySnapshotBH"),
             ],
-            path: "ButtonHeist/Tests/TestSupport",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Tests/TestSupport"
         ),
         .testTarget(
             name: "TheScoreTests",
@@ -149,20 +139,17 @@ let package = Package(
                 "TheScore",
                 .product(name: "AccessibilitySnapshotModel", package: "AccessibilitySnapshotBH"),
             ],
-            path: "ButtonHeist/Tests/TheScoreTests",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Tests/TheScoreTests"
         ),
         .testTarget(
             name: "ButtonHeistSupportTests",
             dependencies: ["ButtonHeistSupport"],
-            path: "ButtonHeist/Tests/ButtonHeistSupportTests",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Tests/ButtonHeistSupportTests"
         ),
         .testTarget(
             name: "ThePlansTests",
             dependencies: ["ButtonHeistTestSupport", "ThePlans"],
-            path: "ButtonHeist/Tests/ThePlansTests",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Tests/ThePlansTests"
         ),
         .testTarget(
             name: "HeistDoctorCoreTests",
@@ -171,8 +158,7 @@ let package = Package(
                 "HeistDoctorCore",
                 "TheScore",
             ],
-            path: "ButtonHeist/Tests/HeistDoctorCoreTests",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Tests/HeistDoctorCoreTests"
         ),
         .testTarget(
             name: "ButtonHeistTests",
@@ -184,8 +170,7 @@ let package = Package(
                 "TheScore",
                 .product(name: "AccessibilitySnapshotModel", package: "AccessibilitySnapshotBH"),
             ],
-            path: "ButtonHeist/Tests/ButtonHeistTests",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Tests/ButtonHeistTests"
         ),
         .testTarget(
             name: "TheInsideJobTests",
@@ -198,8 +183,7 @@ let package = Package(
                 "TheScore",
                 .product(name: "AccessibilitySnapshotModel", package: "AccessibilitySnapshotBH"),
             ],
-            path: "ButtonHeist/Tests/TheInsideJobTests",
-            swiftSettings: [.swiftLanguageMode(.v6)]
+            path: "ButtonHeist/Tests/TheInsideJobTests"
         )
     ]
 )

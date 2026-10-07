@@ -33,7 +33,7 @@ public struct SchemaValidationError: Error, LocalizedError, Equatable, Sendable 
         "enum one of \(values.joined(separator: ", "))"
     }
 
-    private static func formatNumber(_ value: Double) -> String {
+    static func formatNumber(_ value: Double) -> String {
         if value.rounded(.towardZero) == value {
             return String(format: "%.1f", value)
         }

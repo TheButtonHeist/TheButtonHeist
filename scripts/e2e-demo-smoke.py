@@ -20,7 +20,6 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from e2e_runtime import (  # noqa: E402
-    BUNDLE_ID,
     DemoApp,
     boot_simulator,
     delete_simulator,

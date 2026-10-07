@@ -59,7 +59,6 @@ while [[ $# -gt 0 ]]; do
         --tag-current) TAG_CURRENT=true; shift ;;
         --major)      BUMP_TYPE="major"; shift ;;
         --minor)      BUMP_TYPE="minor"; shift ;;
-        --patch)      BUMP_TYPE="patch"; shift ;;
         -*)           echo "Error: unknown flag '$1'"; exit 1 ;;
         *)            break ;;
     esac

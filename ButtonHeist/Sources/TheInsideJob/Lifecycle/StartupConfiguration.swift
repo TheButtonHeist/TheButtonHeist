@@ -319,7 +319,10 @@ struct StartupConfiguration: Equatable, Sendable {
             plist: plist,
             warnings: &warnings
         )
-        let fingerprintsEnabled = resolveFingerprintsEnabled(
+        let fingerprintsEnabled = resolveBool(
+            envKey: .fingerprintsEnabled,
+            plistKey: .fingerprintsEnabled,
+            defaultValue: true,
             env: env,
             plist: plist,
             warnings: &warnings
@@ -583,36 +586,6 @@ struct StartupConfiguration: Equatable, Sendable {
             return parseBool(string)
         }
         return nil
-    }
-
-    private static func resolveFingerprintsEnabled(
-        env: StartupEnvironment,
-        plist: StartupInfoPlist,
-        warnings: inout [StartupConfigurationWarning]
-    ) -> ResolvedStartupValue<Bool> {
-        if let envValue = env[.fingerprintsEnabled] {
-            if let parsed = parseBool(envValue) {
-                return ResolvedStartupValue(value: parsed, source: .environment)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: StartupEnvironmentKey.fingerprintsEnabled.rawValue,
-                source: .environment,
-                value: envValue
-            ))
-        }
-
-        if let plistValue = plist[.fingerprintsEnabled] {
-            if let parsed = parseBool(plistValue) {
-                return ResolvedStartupValue(value: parsed, source: .infoPlist)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: StartupInfoPlistKey.fingerprintsEnabled.rawValue,
-                source: .infoPlist,
-                value: String(describing: plistValue)
-            ))
-        }
-
-        return ResolvedStartupValue(value: true, source: .defaultValue)
     }
 
     private static func resolveFailureEvidencePolicy(

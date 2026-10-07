@@ -76,7 +76,7 @@ final class InsideJobLifecycleReducerTests: XCTestCase {
             ),
             .changed(
                 to: .running(fixture.resources),
-                effects: [.activateRuntime(fixture.resources)]
+                effects: [.activateRuntime]
             )
         )
         XCTAssertEqual(
@@ -287,7 +287,7 @@ final class InsideJobLifecycleReducerTests: XCTestCase {
             ),
             .changed(
                 to: .running(fixture.resources),
-                effects: [.activateRuntime(fixture.resources)]
+                effects: [.activateRuntime]
             )
         )
         XCTAssertEqual(

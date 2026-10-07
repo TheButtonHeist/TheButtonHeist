@@ -24,7 +24,6 @@ let package = Package(
             ],
             path: "Sources",
             swiftSettings: [
-                .swiftLanguageMode(.v6),
                 .unsafeFlags(["-parse-as-library", "-warnings-as-errors"])
             ]
         ),
@@ -37,7 +36,7 @@ let package = Package(
                 .product(name: "TheScore", package: "ButtonHeist"),
             ],
             path: "Tests",
-            swiftSettings: [.swiftLanguageMode(.v6), .unsafeFlags(["-warnings-as-errors"])]
+            swiftSettings: [.unsafeFlags(["-warnings-as-errors"])]
         )
     ]
 )

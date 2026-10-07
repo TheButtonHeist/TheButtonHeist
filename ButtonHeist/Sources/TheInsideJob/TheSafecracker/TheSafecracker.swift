@@ -19,7 +19,6 @@ final class TheSafecracker {
     private let keyboardInput: SafecrackerKeyboardInput
     private let fingerprints: TheFingerprints
     private let touchInjection: SafecrackerTouchInjection
-    private let editActions = SafecrackerEditActions()
 
     init(
         fingerprintsEnabled: Bool = true,
@@ -71,19 +70,32 @@ final class TheSafecracker {
     }
 
     func performEditAction(_ action: EditAction, on object: NSObject) -> Bool {
-        editActions.perform(action, on: object)
+        UIApplication.shared.sendAction(action.selector, to: object, from: nil, for: nil)
     }
 
+    /// Resign first responder, dismissing the keyboard if visible.
+    /// Routes through the responder chain — no view hierarchy walk needed.
     func dismissKeyboard() -> Bool {
-        editActions.resignFirstResponder()
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
+    /// Ask an element for focus directly, as the responder it is.
+    ///
+    /// What a VoiceOver user's double-tap goes through is
+    /// `accessibilityActivate`, so that is what a heist tries first. A text
+    /// field can refuse it while answering `canBecomeFirstResponder` yes, and
+    /// then focus the moment it is asked plainly — the activation declines on
+    /// the field's behalf without ever consulting the responder chain. Asking
+    /// it directly is what remains.
     func focusFirstResponder(_ object: NSObject) -> Bool {
-        editActions.becomeFirstResponder(object)
+        guard let responder = object as? UIResponder,
+              responder.canBecomeFirstResponder else { return false }
+        return responder.becomeFirstResponder()
     }
 
     func dismissKeyboard(_ object: NSObject) -> Bool {
-        editActions.resignFirstResponder(object)
+        guard let responder = object as? UIResponder else { return false }
+        return responder.resignFirstResponder()
     }
 
     func showFingerprint(at point: CGPoint) {
@@ -116,6 +128,19 @@ final class TheSafecracker {
         duration: GestureDuration = .dragDefault
     ) async -> Bool {
         await touchInjection.drag(from: start, to: end, duration: duration)
+    }
+}
+
+private extension EditAction {
+    var selector: Selector {
+        switch self {
+        case .copy: #selector(UIResponderStandardEditActions.copy(_:))
+        case .paste: #selector(UIResponderStandardEditActions.paste(_:))
+        case .cut: #selector(UIResponderStandardEditActions.cut(_:))
+        case .select: #selector(UIResponderStandardEditActions.select(_:))
+        case .selectAll: #selector(UIResponderStandardEditActions.selectAll(_:))
+        case .delete: #selector(UIResponderStandardEditActions.delete(_:))
+        }
     }
 }
 

@@ -28,20 +28,11 @@ private final class SendContentRecorder: @unchecked Sendable {
 /// Tests for the auth flow using direct message injection.
 /// Exercises the auth paths without real TCP connections.
 final class AuthFlowTests: XCTestCase {
-
-    private func makeDummyDevice() -> DiscoveredDevice {
-        DiscoveredDevice(
-            id: "mock",
-            name: "MockApp#test",
-            endpoint: DiscoveredDeviceEndpoint.hostPort(host: "::1", port: 1)
-        )
-    }
-
     // MARK: - Tests
 
     @ButtonHeistActor
     func testProtocolMismatchEmitsPayloadWithoutDisconnectingTransport() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
+        let conn = DeviceConnection(device: TheFenceFixtures.testDevice)
         conn.simulateConnected()
 
         var protocolMismatchPayload: ProtocolMismatchPayload?
@@ -67,7 +58,7 @@ final class AuthFlowTests: XCTestCase {
 
     @ButtonHeistActor
     func testInfoConnectsWithoutAuthApprovalMessage() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
+        let conn = DeviceConnection(device: TheFenceFixtures.testDevice)
         conn.simulateConnected()
 
         var connectedFired = false
@@ -103,7 +94,7 @@ final class AuthFlowTests: XCTestCase {
 
     @ButtonHeistActor
     func testAuthDeniedEmitsErrorWithoutDisconnectingTransport() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
+        let conn = DeviceConnection(device: TheFenceFixtures.testDevice)
         conn.simulateConnected()
 
         var authFailedReason: String?
@@ -130,7 +121,7 @@ final class AuthFlowTests: XCTestCase {
 
     @ButtonHeistActor
     func testAuthRequiredDoesNotSendFromConnection() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
+        let conn = DeviceConnection(device: TheFenceFixtures.testDevice)
         conn.simulateConnected()
 
         var receivedAuthRequired = false

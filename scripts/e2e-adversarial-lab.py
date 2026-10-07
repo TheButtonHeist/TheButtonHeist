@@ -241,10 +241,6 @@ def parse_successful_run_heist_report(output: str) -> dict[str, Any]:
     return report
 
 
-def parse_run_heist_evidence(output: str) -> tuple[EvidenceFact, ...]:
-    return evidence_facts_from_report(parse_successful_run_heist_report(output))
-
-
 def evidence_facts_from_report(report: dict[str, Any]) -> tuple[EvidenceFact, ...]:
     nodes = report["nodes"]
     facts: list[EvidenceFact] = []

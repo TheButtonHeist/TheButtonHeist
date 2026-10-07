@@ -217,13 +217,14 @@ struct InsideJobLifecycleReducer: @MainActor StateReducer {
         case cleanupTransport(ServerTransport)
         case releaseResources(policy: TheInsideJob.RuntimeReleasePolicy, idleTimerBaseline: Bool)
         case cancelResume(TheInsideJob.InsideJobResumeAttempt)
-        case activateRuntime(TheInsideJob.InsideJobRuntimeResources)
+        case activateRuntime
         case tearDownRuntimeServices
 
         static func == (lhs: Effect, rhs: Effect) -> Bool {
             switch (lhs, rhs) {
             case (.scheduleSuspend, .scheduleSuspend),
                  (.scheduleStop, .scheduleStop),
+                 (.activateRuntime, .activateRuntime),
                  (.tearDownRuntimeServices, .tearDownRuntimeServices):
                 return true
             case (
@@ -242,8 +243,6 @@ struct InsideJobLifecycleReducer: @MainActor StateReducer {
                 return lhsPolicy == rhsPolicy && lhsIdleTimerBaseline == rhsIdleTimerBaseline
             case (.cancelResume(let lhsAttempt), .cancelResume(let rhsAttempt)):
                 return lhsAttempt == rhsAttempt
-            case (.activateRuntime(let lhsResources), .activateRuntime(let rhsResources)):
-                return lhsResources == rhsResources
             default:
                 return false
             }
@@ -325,7 +324,7 @@ struct InsideJobLifecycleReducer: @MainActor StateReducer {
         guard case .starting(let request) = state, request.id == id else {
             return .rejected(.staleStartAttempt, stayingIn: state)
         }
-        return .changed(to: .running(resources), effects: [.activateRuntime(resources)])
+        return .changed(to: .running(resources), effects: [.activateRuntime])
     }
 
     private func startFailed(_ state: State, id: UUID) -> Transition {
@@ -468,7 +467,7 @@ struct InsideJobLifecycleReducer: @MainActor StateReducer {
         guard case .resuming(let attempt) = state, attempt.id == id else {
             return .rejected(.staleResumeAttempt, stayingIn: state)
         }
-        return .changed(to: .running(resources), effects: [.activateRuntime(resources)])
+        return .changed(to: .running(resources), effects: [.activateRuntime])
     }
 
     private func resumeFailed(_ state: State, id: UUID) -> Transition {

@@ -32,11 +32,6 @@ final class TheBrains {
         vault.state.notifications
     }
 
-    enum InterfaceQueryResult {
-        case success(Interface)
-        case failure(InterfaceQueryFailure)
-    }
-
     enum InterfaceQueryFailure: Error, Equatable {
         case rootViewUnavailable
         case inactiveRuntime
@@ -111,7 +106,7 @@ final class TheBrains {
         )
     }
 
-    func observeInterface(_ query: InterfaceQuery) async -> InterfaceQueryResult {
+    func observeInterface(_ query: InterfaceQuery) async -> Result<Interface, InterfaceQueryFailure> {
         guard semanticObservationIsActive else {
             return .failure(.inactiveRuntime)
         }

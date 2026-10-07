@@ -1,28 +1,15 @@
+import ButtonHeistTestSupport
 import XCTest
-import Network
 import TheScore
 @_spi(ButtonHeistTooling) @testable import ButtonHeist
 
 /// Tests for session locking behavior using direct message injection.
 final class SessionLockTests: XCTestCase {
-
-    private func makeDummyDevice() -> DiscoveredDevice {
-        DiscoveredDevice(
-            id: "mock",
-            name: "MockApp#test",
-            endpoint: DiscoveredDeviceEndpoint.hostPort(host: "::1", port: 1)
-        )
-    }
-
-    private func encode(_ message: ServerMessage) throws -> Data {
-        try JSONEncoder().encode(ResponseEnvelope(message: message))
-    }
-
     // MARK: - Tests
 
     @ButtonHeistActor
     func testSessionLockedEmitsPayloadWithoutDisconnectingTransport() async throws {
-        let conn = DeviceConnection(device: makeDummyDevice())
+        let conn = DeviceConnection(device: TheFenceFixtures.testDevice)
         conn.simulateConnected()
 
         var receivedPayload: SessionLockedPayload?
@@ -42,7 +29,7 @@ final class SessionLockTests: XCTestCase {
             message: "Session held by another driver; owner driver id: driver-a; active connections: 1; remaining timeout: 5s.",
             activeConnections: 1
         )
-        try conn.handleMessage(encode(.sessionLocked(payload)))
+        try conn.handleMessage(testResponseEnvelopeData(.sessionLocked(payload)))
 
         assertDeviceConnectionConnected(conn)
         XCTAssertEqual(receivedPayload?.message, payload.message)

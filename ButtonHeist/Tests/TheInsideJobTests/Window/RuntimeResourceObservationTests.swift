@@ -50,7 +50,7 @@ final class RuntimeResourceObservationTests: XCTestCase {
         XCTAssertTrue(job.lifecycleObservationIsInstalled)
         assertIdleTimerProtection(on: job, retainedBaseline: idleTimerBaseline)
 
-        await job.performLifecycleEffect(.activateRuntime(resources))
+        await job.performLifecycleEffect(.activateRuntime)
 
         XCTAssertTrue(job.brains.semanticObservationIsActive)
         XCTAssertTrue(job.brains.vault.semanticObservationStream.isActive)
@@ -87,7 +87,7 @@ final class RuntimeResourceObservationTests: XCTestCase {
         )
         XCTAssertFalse(job.tripwire.isPulseRunning)
 
-        await job.activateRuntime(resources)
+        job.activateRuntime()
         XCTAssertTrue(job.tripwire.isPulseRunning)
     }
 
