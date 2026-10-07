@@ -15,8 +15,6 @@ CLI_ARCHIVE="${BUTTONHEIST_CLI_ARCHIVE:-}"
 MCP_ARCHIVE="${BUTTONHEIST_MCP_ARCHIVE:-}"
 EXPECTED_VERSION="${BUTTONHEIST_EXPECTED_VERSION:-}"
 SUPPORTED_HOST_ARCH="arm64"
-SUPPORTED_THEPLANS_TRIPLE="arm64-apple-macosx"
-THEPLANS_TRIPLE="${BUTTONHEIST_THEPLANS_TRIPLE:-$SUPPORTED_THEPLANS_TRIPLE}"
 COMMAND_TIMEOUT="${BUTTONHEIST_INSTALLED_SMOKE_TIMEOUT:-60}"
 MCP_TIMEOUT="${BUTTONHEIST_MCP_SMOKE_TIMEOUT:-5}"
 REQUIRE_INSTALLED=false
@@ -35,8 +33,6 @@ Options:
   --cli-archive PATH       Release CLI archive to stage before smoking.
   --mcp-archive PATH       Release MCP archive to stage before smoking.
   --expected-version VER   Expected buttonheist --version output.
-  --theplans-triple TRIPLE Installed ThePlans artifact triple. Defaults to arm64-apple-macosx.
-                         Homebrew distribution is Apple Silicon / arm64 only.
   --timeout SECONDS        Timeout for CLI/heist-plan invocations. Defaults to 60.
   --mcp-timeout SECONDS    Timeout for buttonheist-mcp protocol smoke. Defaults to 5.
   --require-installed      Fail instead of skipping when no install is found.
@@ -90,11 +86,6 @@ while [[ $# -gt 0 ]]; do
             [[ -n "$EXPECTED_VERSION" ]] || fail "--expected-version requires a value"
             shift 2
             ;;
-        --theplans-triple)
-            THEPLANS_TRIPLE="${2:-}"
-            [[ -n "$THEPLANS_TRIPLE" ]] || fail "--theplans-triple requires a value"
-            shift 2
-            ;;
         --timeout)
             COMMAND_TIMEOUT="${2:-}"
             [[ -n "$COMMAND_TIMEOUT" ]] || fail "--timeout requires a value"
@@ -123,10 +114,6 @@ HOST_ARCH="$(uname -m)"
 if [[ "$HOST_ARCH" != "$SUPPORTED_HOST_ARCH" ]]; then
     fail "installed Button Heist artifacts are arm64-only; unsupported host architecture: $HOST_ARCH"
 fi
-if [[ "$THEPLANS_TRIPLE" != "$SUPPORTED_THEPLANS_TRIPLE" ]]; then
-    fail "installed Button Heist artifacts are arm64-only; unsupported ThePlans triple: $THEPLANS_TRIPLE"
-fi
-
 case "$COMMAND_TIMEOUT" in
     ''|*[!0-9.]*)
         fail "--timeout must be numeric"
@@ -481,7 +468,7 @@ PREFIX="$(cd "$PREFIX" 2>/dev/null && pwd -P)" \
 BUTTONHEIST="$PREFIX/bin/buttonheist"
 HEIST_PLAN="$PREFIX/bin/heist-plan"
 BUTTONHEIST_MCP="$PREFIX/bin/buttonheist-mcp"
-THEPLANS_BUILD_DIR="$PREFIX/lib/ThePlans/$THEPLANS_TRIPLE/release"
+THEPLANS_BUILD_DIR="$PREFIX/lib/ThePlans/arm64-apple-macosx/release"
 # heist-doctor is intentionally excluded from installed-artifact smoke: it is
 # an alpha Swift package executable, not part of the current Homebrew/release
 # install surface. Add it here when the release archives and formula install it.

@@ -128,9 +128,7 @@ jobs:
 
       - name: Install dependencies and generate project
         timeout-minutes: 12
-        run: |
-          tuist install
-          ./scripts/generate-project.sh --skip-install --no-binary-cache
+        run: ./scripts/generate-project.sh --no-binary-cache
 
       - name: Run macOS framework tests
         timeout-minutes: 15
@@ -188,9 +186,7 @@ jobs:
 
       - name: Install dependencies and generate project
         timeout-minutes: 12
-        run: |
-          tuist install
-          ./scripts/generate-project.sh --skip-install --no-binary-cache
+        run: ./scripts/generate-project.sh --no-binary-cache
 
       - name: Build deterministic iOS logic
         timeout-minutes: 20
@@ -264,9 +260,7 @@ jobs:
 
       - name: Install dependencies and generate project
         timeout-minutes: 12
-        run: |
-          tuist install
-          ./scripts/generate-project.sh --skip-install --no-binary-cache
+        run: ./scripts/generate-project.sh --no-binary-cache
 
       - name: Build hosted behavior once
         timeout-minutes: 20
@@ -379,9 +373,7 @@ jobs:
 
       - name: Install dependencies and generate project
         timeout-minutes: 12
-        run: |
-          tuist install
-          ./scripts/generate-project.sh --skip-install --no-binary-cache
+        run: ./scripts/generate-project.sh --no-binary-cache
 
       - name: Build integration suite
         timeout-minutes: 20

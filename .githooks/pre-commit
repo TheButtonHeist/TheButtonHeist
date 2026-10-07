@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# Delegate to the canonical pre-commit script so local and CI stay in sync.
-exec "$(git rev-parse --show-toplevel)/scripts/pre-commit"
