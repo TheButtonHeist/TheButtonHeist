@@ -104,7 +104,7 @@ package extension TimedOneShot {
     ) async -> Value {
         let result = await withTaskCancellationHandler(
             operation: {
-                await withCheckedContinuation { (continuation: CheckedContinuation<Value, Never>) in
+                await withCheckedContinuation(isolation: isolation) { (continuation: CheckedContinuation<Value, Never>) in
                     if Task.isCancelled {
                         continuation.resume(returning: cancellationValue())
                         return

@@ -1,4 +1,5 @@
 import Foundation
+import ThePlans
 import TheScore
 
 /// A named connection target: device address + optional auth token.
@@ -17,7 +18,7 @@ public struct TargetConfig: Codable, Sendable, Equatable {
     }
 
     public init(from decoder: Decoder) throws {
-        try decoder.rejectUnknownFields(allowed: CodingKeys.self)
+        try decoder.rejectUnknownKeys(allowed: CodingKeys.self, typeName: "config")
         let container = try decoder.container(keyedBy: CodingKeys.self)
         device = try container.decode(String.self, forKey: .device)
         token = try container.decodeIfPresent(String.self, forKey: .token)
@@ -64,7 +65,7 @@ struct ButtonHeistFileConfig: Codable, Sendable, Equatable {
     }
 
     init(from decoder: Decoder) throws {
-        try decoder.rejectUnknownFields(allowed: CodingKeys.self)
+        try decoder.rejectUnknownKeys(allowed: CodingKeys.self, typeName: "config")
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let targetContainer = try container.nestedContainer(keyedBy: TargetNameCodingKey.self, forKey: .targets)
         targets = try Dictionary(uniqueKeysWithValues: targetContainer.allKeys.map { key in
@@ -234,34 +235,5 @@ enum TargetConfigResolver {
         }
         return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent(expanded)
-    }
-}
-
-private struct UnknownConfigField: CodingKey {
-    let stringValue: String
-    let intValue: Int?
-
-    init?(stringValue: String) {
-        self.stringValue = stringValue
-        intValue = nil
-    }
-
-    init?(intValue: Int) {
-        stringValue = "\(intValue)"
-        self.intValue = intValue
-    }
-}
-
-private extension Decoder {
-    func rejectUnknownFields<K: CodingKey & CaseIterable>(allowed: K.Type) throws where K.AllCases: Collection {
-        let allowedNames = Set(allowed.allCases.map(\.stringValue))
-        let container = try container(keyedBy: UnknownConfigField.self)
-        if let unknown = container.allKeys.first(where: { !allowedNames.contains($0.stringValue) }) {
-            throw DecodingError.dataCorruptedError(
-                forKey: unknown,
-                in: container,
-                debugDescription: "Unknown config field \"\(unknown.stringValue)\""
-            )
-        }
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import ButtonHeistTestSupport
 import Testing
 @testable import ThePlans
 
@@ -812,16 +813,11 @@ private func buildDiagnostics<Value>(
 }
 
 private final class CompilerTemporaryDirectory {
-    let url: URL
+    private let fixture: TemporaryDirectoryFixture
+    var url: URL { fixture.url }
 
     init() throws {
-        url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("heist-compiler-tests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-    }
-
-    deinit {
-        try? FileManager.default.removeItem(at: url)
+        fixture = try TemporaryDirectoryFixture(prefix: "heist-compiler-tests")
     }
 
     func writeSwiftSource(named fileName: String, _ source: String) throws -> URL {

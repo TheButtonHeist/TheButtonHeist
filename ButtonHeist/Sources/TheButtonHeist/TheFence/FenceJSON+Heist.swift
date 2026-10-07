@@ -22,98 +22,122 @@ struct PublicHeistDescriptionResponse: Encodable {
 }
 
 struct PublicHeistValidationResponse: Encodable {
-    let status = PublicResponseStatus.ok
-    let admissible: Bool
-    let plan: PublicHeistPlanValidation
-    let invocation: PublicHeistInvocationValidation
-    let lint: PublicHeistLintReport
-    let buildDiagnostics: [PublicHeistBuildDiagnostic]
-    let canonicalPlan: String?
+    private let report: HeistValidation.Report
+
+    private enum CodingKeys: String, CodingKey {
+        case status
+        case admissible
+        case plan
+        case invocation
+        case lint
+        case buildDiagnostics
+        case canonicalPlan
+    }
+
+    private enum PlanCodingKeys: String, CodingKey {
+        case valid
+        case version
+        case name
+        case parameter
+        case definitionCount
+        case topLevelStepCount
+    }
+
+    private enum InvocationCodingKeys: String, CodingKey {
+        case status
+        case argumentProvided
+        case diagnostics
+    }
+
+    private enum LintCodingKeys: String, CodingKey {
+        case mode
+        case status
+        case findings
+    }
 
     init(report: HeistValidation.Report) {
-        admissible = report.admissible
-        plan = PublicHeistPlanValidation(report.plan)
-        invocation = PublicHeistInvocationValidation(report.invocation, argumentProvided: report.argumentProvided)
-        lint = PublicHeistLintReport(report.lint)
-        buildDiagnostics = report.plan.diagnostics.map(PublicHeistBuildDiagnostic.init)
-        canonicalPlan = report.canonicalPlan
+        self.report = report
     }
-}
 
-struct PublicHeistPlanValidation: Encodable {
-    let valid: Bool
-    let version: Int?
-    let name: String?
-    let parameter: HeistParameter?
-    let definitionCount: Int?
-    let topLevelStepCount: Int?
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(PublicResponseStatus.ok, forKey: .status)
+        try container.encode(report.admissible, forKey: .admissible)
+        try encodePlan(to: container.nestedContainer(keyedBy: PlanCodingKeys.self, forKey: .plan))
+        try encodeInvocation(to: container.nestedContainer(
+            keyedBy: InvocationCodingKeys.self,
+            forKey: .invocation
+        ))
+        try encodeLint(to: container.nestedContainer(keyedBy: LintCodingKeys.self, forKey: .lint))
+        var diagnostics = container.nestedUnkeyedContainer(forKey: .buildDiagnostics)
+        try diagnostics.encodePublicHeistBuildDiagnostics(report.plan.diagnostics)
+        try container.encodeIfPresent(report.canonicalPlan, forKey: .canonicalPlan)
+    }
 
-    init(_ validation: HeistValidation.Result<HeistValidation.PlanSummary>) {
-        switch validation {
+    private func encodePlan(
+        to container: KeyedEncodingContainer<PlanCodingKeys>
+    ) throws {
+        var container = container
+        switch report.plan {
         case .valid(let summary):
-            valid = true
-            version = summary.version
-            name = summary.name?.description
-            parameter = summary.parameter
-            definitionCount = summary.definitionCount
-            topLevelStepCount = summary.topLevelStepCount
+            try container.encode(true, forKey: .valid)
+            try container.encode(summary.version, forKey: .version)
+            try container.encodeIfPresent(summary.name?.description, forKey: .name)
+            try container.encode(summary.parameter, forKey: .parameter)
+            try container.encode(summary.definitionCount, forKey: .definitionCount)
+            try container.encode(summary.topLevelStepCount, forKey: .topLevelStepCount)
         case .invalid:
-            valid = false
-            version = nil
-            name = nil
-            parameter = nil
-            definitionCount = nil
-            topLevelStepCount = nil
+            try container.encode(false, forKey: .valid)
         }
     }
-}
 
-struct PublicHeistInvocationValidation: Encodable {
-    let status: String
-    let argumentProvided: Bool
-    let diagnostics: [PublicHeistBuildDiagnostic]
-
-    init(
-        _ validation: HeistValidation.Evaluation<HeistValidation.InvocationSummary>,
-        argumentProvided: Bool
-    ) {
-        status = switch validation {
+    private func encodeInvocation(
+        to container: KeyedEncodingContainer<InvocationCodingKeys>
+    ) throws {
+        var container = container
+        let status = switch report.invocation {
         case .evaluated(.valid): "valid"
         case .evaluated(.invalid): "invalid"
         case .notEvaluated: "not_evaluated"
         }
-        self.argumentProvided = argumentProvided
-        diagnostics = validation.diagnostics.map(PublicHeistBuildDiagnostic.init)
+        try container.encode(status, forKey: .status)
+        try container.encode(report.argumentProvided, forKey: .argumentProvided)
+        var diagnostics = container.nestedUnkeyedContainer(forKey: .diagnostics)
+        try diagnostics.encodePublicHeistBuildDiagnostics(report.invocation.diagnostics)
     }
-}
 
-struct PublicHeistLintReport: Encodable {
-    let mode: String
-    let status: String
-    let findings: [PublicHeistLintFinding]
-
-    init(_ report: HeistValidation.Lint) {
-        mode = report.mode.rawValue
-        status = switch report {
+    private func encodeLint(
+        to container: KeyedEncodingContainer<LintCodingKeys>
+    ) throws {
+        var container = container
+        let status = switch report.lint {
         case .notEvaluated: "not_evaluated"
         case .passed: "passed"
         case .findings: "findings"
         }
-        findings = report.findings.map(PublicHeistLintFinding.init)
+        try container.encode(report.lint.mode.rawValue, forKey: .mode)
+        try container.encode(status, forKey: .status)
+        var findings = container.nestedUnkeyedContainer(forKey: .findings)
+        for finding in report.lint.findings {
+            try finding.encodePublic(to: findings.superEncoder())
+        }
     }
 }
 
-struct PublicHeistLintFinding: Encodable {
-    let severity: String
-    let path: String
-    let message: String
-    let suggestion: String?
+private extension HeistPlanLintFinding {
+    enum PublicCodingKeys: String, CodingKey {
+        case severity
+        case path
+        case message
+        case suggestion
+    }
 
-    init(_ finding: HeistPlanLintFinding) {
-        severity = finding.severity.rawValue
-        path = finding.path.description
-        message = finding.message
-        suggestion = finding.suggestion
+    func encodePublic(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: PublicCodingKeys.self)
+        try container.encode(severity.rawValue, forKey: .severity)
+        try container.encode(path.description, forKey: .path)
+        try container.encode(message, forKey: .message)
+        try container.encodeIfPresent(suggestion, forKey: .suggestion)
     }
 }
 

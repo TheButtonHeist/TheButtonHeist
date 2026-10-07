@@ -1,5 +1,22 @@
 import Foundation
 
+/// A scratch directory for tests that need to retain files across several operations.
+public final class TemporaryDirectoryFixture {
+    public let url: URL
+
+    public init(
+        prefix: String = "buttonheist-tests",
+        rootDirectory: URL = FileManager.default.temporaryDirectory
+    ) throws {
+        url = rootDirectory.appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: url)
+    }
+}
+
 /// Runs `body` with a per-test scratch directory under `rootDirectory`.
 @discardableResult
 public func withTemporaryDirectory<Result>(

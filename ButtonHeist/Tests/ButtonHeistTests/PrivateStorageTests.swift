@@ -1,3 +1,4 @@
+import ButtonHeistTestSupport
 import XCTest
 @_spi(ButtonHeistTooling) @testable import ButtonHeist
 
@@ -29,7 +30,7 @@ final class PrivateStorageTests: XCTestCase {
     }
 
     func testWritePrivateDataReplacesExistingFileWithPrivatePermissions() throws {
-        try withTemporaryDirectory { directory in
+        try withTemporaryDirectory(prefix: "private-storage") { directory in
             let url = directory.appendingPathComponent("driver-id")
             try PrivateStorage.writePrivateData(Data("old".utf8), to: url)
 
@@ -41,7 +42,7 @@ final class PrivateStorageTests: XCTestCase {
     }
 
     func testWritePrivateDataPreservesExistingFileWhenReplacementFails() throws {
-        try withTemporaryDirectory { directory in
+        try withTemporaryDirectory(prefix: "private-storage") { directory in
             let url = directory.appendingPathComponent("driver-id")
             try PrivateStorage.writePrivateData(Data("old".utf8), to: url)
             var replacementURL: URL?
@@ -62,14 +63,6 @@ final class PrivateStorageTests: XCTestCase {
 
     private func environment(_ values: [StorageEnvironmentKey: String]) -> StorageEnvironment {
         StorageEnvironment(testValues: values)
-    }
-
-    private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
-        let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("private-storage-tests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        try body(directory)
     }
 
     private func permissions(at url: URL) throws -> Int {

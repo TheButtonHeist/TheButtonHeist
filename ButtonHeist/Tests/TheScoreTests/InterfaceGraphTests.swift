@@ -61,11 +61,11 @@ final class InterfaceGraphTests: XCTestCase {
             TreePath([0]),
             TreePath([0, 1]),
         ])
-        XCTAssertEqual(graph.node(at: TreePath([0, 1, 0])), tree[0].node(at: TreePath([1, 0])))
-        XCTAssertNil(graph.node(at: TreePath([9])))
+        XCTAssertEqual(graph.element(at: TreePath([0, 1, 0]))?.accessibilityElement, makeTestAccessibilityElement(first))
+        XCTAssertNil(graph.element(at: TreePath([9])))
     }
 
-    func testHierarchyGraphRetainsEmptyContainersAndDuplicateSemanticNodes() {
+    func testInterfaceGraphRetainsEmptyContainersAndDuplicateSemanticNodes() throws {
         let duplicate = makeTestAccessibilityElement(makeElement(label: "Duplicate"))
         let empty = makeTestAccessibilityContainer(type: .semanticGroup(label: "Empty", value: nil))
         let nested = makeTestAccessibilityContainer(type: .landmark)
@@ -80,7 +80,22 @@ final class InterfaceGraphTests: XCTestCase {
             ]),
         ]
 
-        let graph = AccessibilityHierarchyGraph(tree: tree)
+        let graph = try Interface(
+            timestamp: Date(timeIntervalSince1970: 1),
+            tree: tree,
+            annotations: InterfaceAnnotations(elements: [
+                InterfaceElementAnnotation(
+                    path: TreePath([0, 1]),
+                    actions: [],
+                    geometry: makeElement(label: "Duplicate").geometry
+                ),
+                InterfaceElementAnnotation(
+                    path: TreePath([0, 2, 0]),
+                    actions: [],
+                    geometry: makeElement(label: "Duplicate").geometry
+                ),
+            ])
+        ).graph
 
         XCTAssertEqual(graph.nodesInPathOrder.map(\.path), [
             TreePath([0]),
@@ -89,7 +104,12 @@ final class InterfaceGraphTests: XCTestCase {
             TreePath([0, 2]),
             TreePath([0, 2, 0]),
         ])
-        XCTAssertEqual(graph.node(at: TreePath([0, 0])), .container(empty, children: []))
+        guard case .container(let emptyRecord)? = graph.nodesInPathOrder.first(where: {
+            $0.path == TreePath([0, 0])
+        })?.kind else {
+            return XCTFail("Expected empty container record")
+        }
+        XCTAssertEqual(emptyRecord.container, empty)
     }
 
     func testDuplicateAnnotationPathsRejected() {
@@ -271,7 +291,7 @@ final class InterfaceGraphTests: XCTestCase {
 
         let graph = interface.graph
 
-        XCTAssertEqual(graph.node(at: path), interface.tree[0])
+        XCTAssertEqual(graph.element(at: path)?.accessibilityElement, makeTestAccessibilityElement(element))
         XCTAssertEqual(graph.elementsInTraversalOrder.first?.annotation.actions, [.activate])
         XCTAssertEqual(interface.projectedElements.map(\.semantics.assertable.label), ["Save"])
     }
@@ -336,7 +356,7 @@ final class InterfaceGraphTests: XCTestCase {
         let decoded = try JSONDecoder().decode(Interface.self, from: encoded)
 
         XCTAssertEqual(decoded, original)
-        XCTAssertEqual(decoded.graph.node(at: path), original.tree[0])
+        XCTAssertEqual(decoded.graph.element(at: path)?.accessibilityElement, makeTestAccessibilityElement(element))
         XCTAssertEqual(decoded.graph.elementsInTraversalOrder.first?.annotation.actions, [.activate])
         XCTAssertEqual(try jsonObject(decoded), try jsonObject(original))
     }

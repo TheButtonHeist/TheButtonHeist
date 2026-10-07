@@ -56,7 +56,7 @@ extension TheVault {
         switch resolution {
         case .resolved(.element(let element)):
             let identity = element.heistId.observationElementIdentity
-            guard let path = projection.interface.graph.observationIdentityByPath.first(where: { $0.value == identity })?.key else {
+            guard let path = projection.interface.graph.path(for: identity) else {
                 throw .subtreeNotFound
             }
             return path

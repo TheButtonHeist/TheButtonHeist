@@ -48,7 +48,7 @@ final class TheHandoffKeepaliveStateTests: XCTestCase {
         _ = connectMockHandoff(handoff)
 
         let sixtySecondPauseTicks = 12
-        XCTAssertLessThan(sixtySecondPauseTicks, handoff.keepalive.maxMissedPongs)
+        XCTAssertLessThan(sixtySecondPauseTicks, TheHandoff.maxMissedPongs)
 
         for count in 1...sixtySecondPauseTicks {
             XCTAssertEqual(handoff.tickKeepalive(), count)

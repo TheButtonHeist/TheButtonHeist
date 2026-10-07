@@ -157,6 +157,7 @@ final class TheHandoffConnectionWaitIsolationTests: XCTestCase {
         await Task.yield()
 
         mock.onEvent?(.disconnected(.missingToken))
+        assertDisconnected(handoff.connectionPhase)
 
         for waitTask in [firstWaitTask, secondWaitTask] {
             do {
