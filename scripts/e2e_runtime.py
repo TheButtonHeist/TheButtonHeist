@@ -20,11 +20,21 @@ def run(
     cmd: list[str],
     *,
     env: dict[str, str] | None = None,
+    cwd: str | Path | None = None,
+    input: str | None = None,
     timeout: float = 60,
     check: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     try:
-        result = subprocess.run(cmd, env=env, timeout=timeout, text=True, capture_output=True)
+        result = subprocess.run(
+            cmd,
+            cwd=cwd,
+            env=env,
+            input=input,
+            timeout=timeout,
+            text=True,
+            capture_output=True,
+        )
     except subprocess.TimeoutExpired as error:
         if check:
             raise
@@ -47,6 +57,14 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+def port_is_open(port: int, *, timeout: float = 0.25) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def wait_port(port: int, *, open_expected: bool = True, timeout: float = 20) -> None:
     deadline = time.time() + timeout
     last_error: OSError | None = None
@@ -63,6 +81,47 @@ def wait_port(port: int, *, open_expected: bool = True, timeout: float = 20) -> 
     if open_expected:
         raise TimeoutError(f"port {port} did not open: {last_error}")
     raise TimeoutError(f"port {port} did not close")
+
+
+def resolve_ios_runtime(requested: str | None = None) -> str:
+    data = json.loads(run(["xcrun", "simctl", "list", "runtimes", "-j"]).stdout)
+    runtimes = [
+        runtime
+        for runtime in data.get("runtimes", [])
+        if runtime.get("platform") == "iOS" and runtime.get("isAvailable") is True
+    ]
+    if requested:
+        for runtime in runtimes:
+            if requested in (runtime.get("identifier"), runtime.get("name"), runtime.get("version")):
+                return str(runtime["identifier"])
+        raise RuntimeError(f"iOS runtime not found: {requested}")
+    if not runtimes:
+        raise RuntimeError("iOS runtime not found: latest available")
+
+    def version(runtime: dict[str, Any]) -> tuple[int, ...]:
+        return tuple(int(component) for component in str(runtime.get("version", "0")).split("."))
+
+    return str(max(runtimes, key=version)["identifier"])
+
+
+def simulator_ids_named(name: str) -> list[str]:
+    data = json.loads(run(["xcrun", "simctl", "list", "devices", "-j"]).stdout)
+    return [
+        str(device["udid"])
+        for devices in data.get("devices", {}).values()
+        for device in devices
+        if device.get("name") == name
+    ]
+
+
+def delete_simulator(sim: str) -> None:
+    run(["xcrun", "simctl", "shutdown", sim], check=False, timeout=30)
+    run(["xcrun", "simctl", "delete", sim], check=False, timeout=30)
+
+
+def delete_simulators_named(name: str) -> None:
+    for sim in simulator_ids_named(name):
+        delete_simulator(sim)
 
 
 def boot_simulator(sim: str) -> None:

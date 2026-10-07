@@ -301,7 +301,7 @@ jobs:
           scripts/run-with-heist-results.sh \
             --dir "$BUTTONHEIST_TEST_RESULTS_DIR" \
             --mode "$BUTTONHEIST_RESULTS_MODE" \
-            -- scripts/e2e-demo-smoke.sh \
+            -- scripts/e2e-demo-smoke.py \
             --skip-generate \
             --skip-cli-build \
             --sim-udid "$SIM_UDID" \

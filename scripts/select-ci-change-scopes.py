@@ -68,7 +68,7 @@ IOS_AUTOMATION_PATHS = {
     "scripts/check-e2e-adversarial-lab-timing.py",
     "scripts/collect-ios-heist-results.sh",
     "scripts/e2e-adversarial-lab.py",
-    "scripts/e2e-demo-smoke.sh",
+    "scripts/e2e-demo-smoke.py",
     "scripts/e2e-lifecycle-gate.py",
     "scripts/e2e_runtime.py",
     "scripts/select-ios-ci-simulator.py",

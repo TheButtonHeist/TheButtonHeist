@@ -73,7 +73,7 @@ class CIWorkflowTests(unittest.TestCase):
             "test-without-building HostedBehaviorTests",
             hosted,
         )
-        self.assertIn("scripts/e2e-demo-smoke.sh", hosted)
+        self.assertIn("scripts/e2e-demo-smoke.py", hosted)
 
     def test_tuist_test_jobs_do_not_initialize_the_parser_submodule(self) -> None:
         blocks = job_blocks()
