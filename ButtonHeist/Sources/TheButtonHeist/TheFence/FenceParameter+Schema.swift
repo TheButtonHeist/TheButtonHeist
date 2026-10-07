@@ -411,14 +411,6 @@ private extension FenceParameterSpec.ParamType {
         Set(objectProperties.map(\.key))
     }
 
-    static func jsonSchemaProperties(from specs: [FenceParameterSpec]) -> [String: HeistValue] {
-        var properties: [String: HeistValue] = [:]
-        for spec in specs where properties[spec.key] == nil {
-            properties[spec.key] = spec.schema.heistValue
-        }
-        return properties
-    }
-
     static func jsonInputSchema(
         parameters: [FenceParameterSpec]
     ) -> HeistValue {
