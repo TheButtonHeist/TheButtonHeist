@@ -9,7 +9,7 @@ private enum PublicHeistExecutionResponseKey: String, CodingKey {
 }
 
 private enum PublicHeistReportCodingKey: String, CodingKey {
-    case summary, metrics, nodes
+    case summary, metrics, nodes, diagnostics
 }
 
 private enum PublicHeistReportSummaryCodingKey: String, CodingKey {
@@ -27,6 +27,10 @@ private enum PublicHeistReportNodeCodingKey: String, CodingKey {
 
 private enum PublicHeistReportFailureCodingKey: String, CodingKey {
     case category, contract, observed, expected, code, kind, phase, retryable, hint
+}
+
+private enum PublicHeistReportDiagnosticsCodingKey: String, CodingKey {
+    case failureScreenshotSummary, failureScreenshotFailureKind, failureInterface
 }
 
 /// The sole public JSON projection of the canonical `HeistReport`.
@@ -52,6 +56,9 @@ struct PublicHeistExecutionResponse: Encodable {
         var nodes = container.nestedUnkeyedContainer(forKey: .nodes)
         for node in report.nodes {
             try encode(node, to: nodes.superEncoder())
+        }
+        if report.diagnostics.failureScreenshotSummary != nil || report.diagnostics.failureInterface != nil {
+            try encodeDiagnostics(to: container.superEncoder(forKey: .diagnostics))
         }
     }
 
@@ -111,6 +118,36 @@ struct PublicHeistExecutionResponse: Encodable {
         try container.encode(diagnostic.details.phase.rawValue, forKey: .phase)
         try container.encode(diagnostic.details.retryable, forKey: .retryable)
         try container.encodeIfPresent(diagnostic.details.hint, forKey: .hint)
+    }
+
+    private func encodeDiagnostics(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: PublicHeistReportDiagnosticsCodingKey.self)
+        try container.encodeIfPresent(
+            report.diagnostics.failureScreenshotSummary,
+            forKey: .failureScreenshotSummary
+        )
+        try container.encodeIfPresent(
+            report.diagnostics.failureScreenshotFailureKind?.rawValue,
+            forKey: .failureScreenshotFailureKind
+        )
+        if let interface = report.diagnostics.failureInterface {
+            let failureElementLimit = profile.limits.failureInterfaceElements
+            let limits = ProjectionLimits(
+                visibleElementBudget: failureElementLimit,
+                totalNodeBudget: min(profile.limits.totalNodeBudget, failureElementLimit),
+                deltaElementsPerBucket: profile.limits.deltaElementsPerBucket,
+                screenPreviewElements: profile.limits.screenPreviewElements,
+                caseResults: profile.limits.caseResults,
+                failureInterfaceElements: failureElementLimit
+            )
+            try container.encode(
+                InterfaceProjection(
+                    interface: interface,
+                    profile: ProjectionProfile(kind: .summary, limits: limits)
+                ),
+                forKey: .failureInterface
+            )
+        }
     }
 }
 

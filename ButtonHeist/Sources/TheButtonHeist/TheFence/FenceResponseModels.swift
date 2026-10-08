@@ -42,24 +42,20 @@ import TheScore
 }
 
 @_spi(ButtonHeistTooling) public struct SessionFailurePayload: Sendable, Equatable {
-    public let code: String
-    public let phase: FailurePhase
-    public let retryable: Bool
+    private let details: FailureDetails
     public let message: String?
-    public let hint: String?
+
+    public var code: String { details.errorCode }
+    public var phase: FailurePhase { details.phase }
+    public var retryable: Bool { details.retryable }
+    public var hint: String? { details.hint }
 
     package init(
-        code: String,
-        phase: FailurePhase,
-        retryable: Bool,
-        message: String?,
-        hint: String?
+        details: FailureDetails,
+        message: String?
     ) {
-        self.code = code
-        self.phase = phase
-        self.retryable = retryable
+        self.details = details
         self.message = message
-        self.hint = hint
     }
 }
 
@@ -136,39 +132,14 @@ extension DiagnosticFailure {
     }
 
     init(failureKind: ActionFailure.Kind, message: String) {
-        self.init(message: message, details: Self.failureDetails(for: failureKind))
+        self.init(message: message, details: failureKind.failureDetails)
     }
 
     init(reportFailure: HeistFailureDetail, message: String? = nil) {
         self.init(
             message: message ?? reportFailure.observed,
-            details: Self.failureDetails(for: reportFailure)
+            details: reportFailure.category.actionFailureKind.failureDetails
         )
-    }
-
-    private static func failureDetails(for failureKind: ActionFailure.Kind) -> FailureDetails {
-        failureKind.failureDetails
-    }
-
-    private static func failureDetails(for reportFailure: HeistFailureDetail) -> FailureDetails {
-        switch reportFailure.category {
-        case .internalInvariant:
-            return FailureDetails(code: .requestActionFailed)
-        case .validation:
-            return FailureDetails(code: .requestValidationError)
-        case .runtimeUnavailable:
-            return FailureDetails(code: .connectionNotConnected)
-        case .targetResolution:
-            return FailureDetails(code: .requestElementNotFound)
-        case .wait, .timeout:
-            return FailureDetails(code: .requestTimeout)
-        case .action,
-             .expectation,
-             .invocation,
-             .loop,
-             .explicitFailure:
-            return FailureDetails(code: .requestActionFailed)
-        }
     }
 
     private init(missingAccessibilityTargetCommand command: TheFence.Command) {

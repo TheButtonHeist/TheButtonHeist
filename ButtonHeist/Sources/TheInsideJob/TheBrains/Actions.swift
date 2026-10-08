@@ -29,7 +29,7 @@ struct Actions {
         .failure(
             payload,
             message: staleness.message,
-            failureKind: .targetUnavailable
+            failureKind: .elementNotFound
         )
     }
 }

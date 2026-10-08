@@ -118,7 +118,7 @@ extension ElementInflationProductTests {
             return XCTFail("Expected removed selected identity to fail closed, got \(state)")
         }
         XCTAssertEqual(failure.failedStep, .staleRefresh)
-        XCTAssertEqual(failure.failureKind, .targetUnavailable)
+        XCTAssertEqual(failure.failureKind, .elementNotFound)
 
         XCTAssertEqual(fixture.first.activationCount, 0)
         XCTAssertEqual(fixture.second.activationCount, 0)

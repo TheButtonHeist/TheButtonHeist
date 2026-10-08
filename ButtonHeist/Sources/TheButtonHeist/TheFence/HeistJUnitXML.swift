@@ -112,6 +112,9 @@ extension HeistJUnitXML {
             lines.append("kind: \(diagnostic.details.code.kind.rawValue)")
             lines.append("phase: \(diagnostic.details.phase.rawValue)")
             lines.append("retryable: \(diagnostic.details.retryable)")
+            if let hint = diagnostic.details.hint {
+                lines.append("hint: \(hint)")
+            }
         }
         if node.path == report.summary.abortedAtPath {
             if let screenshot = report.diagnostics.failureScreenshotSummary {

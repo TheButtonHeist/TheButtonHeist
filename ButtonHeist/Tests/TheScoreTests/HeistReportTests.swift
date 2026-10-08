@@ -41,6 +41,8 @@ import TheScore
 
         #expect(node.invocationDisplayName == #"RunHeist("Cart.checkout", "Milk")"#)
         #expect(node.evidence == nil)
+        #expect(node.failure?.actionKind == .accessibilityTreeUnavailable)
+        #expect(report.failure?.actionKind == .accessibilityTreeUnavailable)
     }
 
     @Test func `report reducer derives summary from the admitted result tree`() throws {

@@ -32,7 +32,7 @@ extension TheBrainsActionTests {
 
         XCTAssertFalse(result.success)
         XCTAssertEqual(
-            TheBrains.actionFailureKind(for: try XCTUnwrap(result.failureKind)),
+            try XCTUnwrap(result.failureKind),
             ActionFailure.Kind.actionFailed
         )
         XCTAssertEqual(liveObject.activationCount, 0)
@@ -59,7 +59,7 @@ extension TheBrainsActionTests {
 
         XCTAssertFalse(result.success)
         XCTAssertEqual(
-            TheBrains.actionFailureKind(for: try XCTUnwrap(result.failureKind)),
+            try XCTUnwrap(result.failureKind),
             ActionFailure.Kind.timeout
         )
         XCTAssertEqual(liveObject.activationCount, 0)

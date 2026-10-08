@@ -85,8 +85,17 @@ extension TheFenceCompactFormattingContractTests {
         XCTAssertEqual(try json.string("phase"), "request")
         XCTAssertEqual(try json.bool("retryable"), false)
         try json.assertMissing("expectation")
-        XCTAssertEqual(response.compactFormatted(), "activate: error[request.element_not_found]: button disabled")
-        XCTAssertEqual(response.humanFormatted(), "Error: button disabled")
+        XCTAssertTrue(
+            response.compactFormatted().contains(
+                "activate: error[request.element_not_found request retryable=false]: button disabled"
+            )
+        )
+        XCTAssertTrue(response.compactFormatted().contains("hint: Refresh the interface"))
+        XCTAssertTrue(
+            response.humanFormatted().contains(
+                "Error[request.element_not_found request retryable=false]: button disabled"
+            )
+        )
         XCTAssertTrue(response.isFailure)
     }
 
@@ -137,7 +146,12 @@ extension TheFenceCompactFormattingContractTests {
         XCTAssertEqual(try json.string("kind"), "request")
         XCTAssertEqual(try json.string("phase"), "request")
         XCTAssertEqual(try json.bool("retryable"), true)
-        XCTAssertEqual(response.compactFormatted(), "activate: error[request.timeout]: timed out after 2s")
+        XCTAssertTrue(
+            response.compactFormatted().contains(
+                "activate: error[request.timeout request retryable=true]: timed out after 2s"
+            )
+        )
+        XCTAssertTrue(response.compactFormatted().contains("hint: The request timed out"))
     }
 
     func testActionFailureCodeAndClassAgreeAcrossPublicFormats() throws {
@@ -160,7 +174,10 @@ extension TheFenceCompactFormattingContractTests {
         XCTAssertEqual(try json.string("kind"), "request")
         XCTAssertEqual(try json.string("phase"), "request")
         XCTAssertEqual(try json.bool("retryable"), true)
-        XCTAssertTrue(compact.contains("error[request.accessibility_tree_unavailable]"), compact)
+        XCTAssertTrue(
+            compact.contains("error[request.accessibility_tree_unavailable request retryable=true]"),
+            compact
+        )
     }
 
     func testScreenExpectationFailureHintUsesTypedElementChangesRegardlessOfActualText() throws {

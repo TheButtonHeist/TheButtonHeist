@@ -158,7 +158,7 @@ final class FirstResponderEvidenceInvariantTests: XCTestCase {
         }
 
         XCTAssertEqual(failure.failedStep, .staleRefresh)
-        XCTAssertEqual(failure.failureKind, .targetUnavailable)
+        XCTAssertEqual(failure.failureKind, .elementNotFound)
         XCTAssertEqual(
             failure.message,
             "element inflation failed [staleRefresh]: first responder no longer matches captured HeistId "
@@ -223,7 +223,7 @@ final class FirstResponderEvidenceInvariantTests: XCTestCase {
         }
 
         XCTAssertEqual(failure.failedStep, .staleRefresh)
-        XCTAssertEqual(failure.failureKind, .targetUnavailable)
+        XCTAssertEqual(failure.failureKind, .elementNotFound)
         XCTAssertEqual(
             failure.message,
             "element inflation failed [staleRefresh]: first responder no longer matches captured HeistId "

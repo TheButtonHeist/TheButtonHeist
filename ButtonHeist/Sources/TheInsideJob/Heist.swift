@@ -248,18 +248,7 @@ public extension Heist {
         }
 
         private static func expectationEvidence(_ node: HeistReport.Node) -> HeistExpectationEvidence? {
-            switch node.evidence {
-            case .action(_, let evidence, _): evidence.expectationEvidence
-            case .wait(let evidence, _, _): evidence
-            case .caseSelection,
-                 .forEachString,
-                 .forEachElement,
-                 .repeatUntil,
-                 .invocation,
-                 .warning,
-                 nil:
-                nil
-            }
+            node.evidence?.expectationEvidence
         }
 
         private static func screenChangeDescription(_ observation: Observation.Evidence) -> String {

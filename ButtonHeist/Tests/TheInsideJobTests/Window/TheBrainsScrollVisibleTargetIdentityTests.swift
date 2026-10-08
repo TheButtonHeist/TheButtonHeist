@@ -200,7 +200,7 @@ extension TheBrainsScrollTests {
             return XCTFail("Expected uncommitted live identities to fail closed, got \(result)")
         }
         XCTAssertEqual(failure.failedStep, .ambiguous)
-        XCTAssertEqual(failure.failureKind, .targetUnavailable)
+        XCTAssertEqual(failure.failureKind, .elementNotFound)
         XCTAssertTrue(failure.message.contains("[ambiguous]"))
     }
 

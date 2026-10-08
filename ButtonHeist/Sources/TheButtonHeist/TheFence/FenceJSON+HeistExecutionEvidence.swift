@@ -9,18 +9,18 @@ extension HeistReport.Evidence {
     func encode(to encoder: Encoder, profile: ProjectionProfile) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .action(let command, let evidence, let expectation):
+        case .action(let command, let evidence, _):
             try encode(
                 command,
                 evidence: evidence,
-                expectation: expectation?.success,
+                expectation: expectationResult,
                 to: container.superEncoder(forKey: .action),
                 profile: profile
             )
-        case .wait(let evidence, let expectation, let outcome):
+        case .wait(let evidence, _, let outcome):
             try encode(
                 evidence: evidence,
-                expectation: expectation.success,
+                expectation: expectationResult,
                 outcome: outcome,
                 to: container.superEncoder(forKey: .wait),
                 profile: profile
@@ -219,12 +219,5 @@ extension HeistReport.Evidence {
             forKey: .argument
         )
         try container.encodeIfPresent(evidence.childFailedPath?.description, forKey: .childFailedPath)
-    }
-}
-
-private extension Result {
-    var success: Success? {
-        guard case .success(let value) = self else { return nil }
-        return value
     }
 }

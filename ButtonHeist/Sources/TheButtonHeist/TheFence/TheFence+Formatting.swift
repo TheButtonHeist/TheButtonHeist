@@ -14,7 +14,7 @@ extension FenceResponse {
         case .ok(let message):
             return message
         case .error(let failure):
-            return "Error: \(failure.message)"
+            return Self.diagnosticText(failure, headline: "Error")
         case .status(let connected, let deviceName):
             if connected, let name = deviceName {
                 return "Connected to \(name)"
@@ -111,6 +111,28 @@ extension FenceResponse {
         }
         if let expectations = report.summary.expectations {
             text += " [expectations: \(expectations.met)/\(expectations.checked) met]"
+        }
+        if let failedNode = report.failedNode,
+           let failure = failedNode.failure {
+            text += "\n" + Self.diagnosticText(
+                failure.diagnosticFailure,
+                headline: "Error at \(failedNode.path) "
+            )
+            if !failure.detail.contract.isEmpty,
+               failure.detail.contract != failure.diagnosticMessage {
+                text += "\ncontract: \(failure.detail.contract)"
+            }
+            if let expected = failure.detail.expected, !expected.isEmpty {
+                text += "\nexpected: \(expected)"
+            }
+        }
+        if let screenshot = report.diagnostics.failureScreenshotSummary {
+            text += "\n\(screenshot)"
+        }
+        if let interface = report.diagnostics.failureInterfaceDump(
+            elementLimit: HeistFailureDiagnostics.defaultElementLimit
+        ) {
+            text += "\n\(interface)"
         }
         return text
     }
@@ -395,8 +417,8 @@ extension FenceResponse {
     private func formatActionResult(command: TheFence.Command, result: ActionResult) -> String {
         let methodName = command.rawValue
         let projection = ActionProjection(method: command.rawValue, result: result, profile: .summary)
-        guard projection.failure == nil else {
-            return "Error: \(projection.message ?? methodName)"
+        if let failure = projection.failure {
+            return Self.diagnosticText(failure, headline: "Error")
         }
         var output = "✓ \(methodName)"
         if case .value(let value) = projection.payload {

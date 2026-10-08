@@ -147,7 +147,7 @@ extension FenceResponse {
         guard let failure = projection.failure else {
             return "\(projection.method): ok"
         }
-        var text = "\(projection.method): error[\(failure.details.errorCode)]: \(failure.message)"
+        var text = diagnosticText(failure, headline: "\(projection.method): error")
         if let screenId = projection.screenId {
             text = "\(screenId) | \(text)"
         }

@@ -57,7 +57,7 @@ extension Actions {
                 return .failure(.failure(
                     payload,
                     message: "No target specified",
-                    failureKind: .targetUnavailable
+                    failureKind: .elementNotFound
                 ))
             }
             return .success(ResolvedGesturePoint(
@@ -69,7 +69,7 @@ extension Actions {
                 return .failure(.failure(
                     payload,
                     message: "No target specified",
-                    failureKind: .targetUnavailable
+                    failureKind: .elementNotFound
                 ))
             }
             return .success(ResolvedGesturePoint(
@@ -102,7 +102,7 @@ extension Actions {
                         return .failure(.failure(
                             payload,
                             message: "\(payload.method.rawValue) failed: \(message)",
-                            failureKind: .inputValidation
+                            failureKind: .validationError
                         ))
                     }
                     point = CGPoint(
@@ -142,7 +142,7 @@ extension Actions {
         return .failure(
             payload,
             message: "\(payload.method.rawValue) failed: \(message)",
-            failureKind: .inputValidation
+            failureKind: .validationError
         )
     }
 
@@ -155,7 +155,7 @@ extension Actions {
         return .failure(
             payload,
             message: "\(payload.method.rawValue) failed: \(message)",
-            failureKind: .inputValidation
+            failureKind: .validationError
         )
     }
 

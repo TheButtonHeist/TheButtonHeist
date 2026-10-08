@@ -61,44 +61,53 @@ struct ButtonHeistMCPServer {
     }
 
     static func renderResponse(_ response: FenceResponse) -> CallTool.Result {
+        renderResponse(response, structuredContent: structuredContent(for: response))
+    }
+
+    static func renderResponse(
+        _ response: FenceResponse,
+        structuredContent: MCPValueBridge.StructuredContent
+    ) -> CallTool.Result {
+        let renderedResponse = structuredContent.failure.map(FenceResponse.error) ?? response
         var content: [Tool.Content] = []
 
         // Screenshots: embed as image content. File-based screenshots fall through
         // to the compact text below.
-        if case .screenshotData(let payload, _) = response {
+        if case .screenshotData(let payload, _) = renderedResponse {
             content.append(.image(data: payload.pngData, mimeType: "image/png", annotations: nil, _meta: nil))
         }
 
-        content.append(.text(text: response.compactFormatted(profile: .mcp), annotations: nil, _meta: nil))
-        let structuredContent: Value? = structuredContent(for: response)
+        content.append(.text(
+            text: renderedResponse.compactFormatted(profile: .mcp),
+            annotations: nil,
+            _meta: nil
+        ))
         return .init(
             content: content,
-            structuredContent: structuredContent,
-            isError: response.isFailure
+            structuredContent: Optional.some(structuredContent.value),
+            isError: renderedResponse.isFailure
         )
     }
 
     private static func structuredContent(
         for response: FenceResponse
-    ) -> Value {
+    ) -> MCPValueBridge.StructuredContent {
         do {
             return try MCPValueBridge.structuredContent(for: response)
         } catch {
-            return structuredEncodingFailureValue(error)
+            let failure = DiagnosticFailure(
+                message: "Failed to encode structured tool response: \(error.localizedDescription)",
+                details: FailureDetails(code: .formattingJSONEncodingFailed)
+            )
+            let value = try? MCPValueBridge.structuredContent(for: .error(failure)).value
+            return .fallback(
+                value ?? .object([
+                    "status": .string("error"),
+                    "message": .string(failure.message),
+                ]),
+                failure
+            )
         }
-    }
-
-    static func structuredEncodingFailureValue(_ error: Error) -> Value {
-        let failure = DiagnosticFailure(
-            message: "Failed to encode structured tool response: \(error.localizedDescription)",
-            details: FailureDetails(code: .formattingJSONEncodingFailed)
-        )
-        return (try? MCPValueBridge.structuredContent(
-            for: .error(failure)
-        )) ?? .object([
-            "status": .string("error"),
-            "message": .string(failure.message),
-        ])
     }
 
 }

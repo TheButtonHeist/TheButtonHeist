@@ -13,7 +13,8 @@ import TheScore
 final class TheBrains {
 
     // User-facing copy for the typed accessibility-tree-unavailable result.
-    nonisolated static let treeUnavailableMessage = "Could not access accessibility tree: no traversable app windows"
+    nonisolated static let accessibilityTreeUnavailableMessage =
+        "Could not access accessibility tree: no traversable app windows"
     nonisolated static let runtimeInactiveMessage = "ButtonHeist runtime is not active; start TheInsideJob before executing commands"
 
     let vault: TheVault

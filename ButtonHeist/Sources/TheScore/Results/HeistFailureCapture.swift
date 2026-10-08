@@ -61,4 +61,9 @@ package enum HeistFailureCapture: Codable, Sendable, Equatable {
         guard case .unavailable(_, let message) = self else { return nil }
         return message
     }
+
+    package var failureKind: ActionFailure.Kind? {
+        guard case .unavailable(let kind, _) = self else { return nil }
+        return kind
+    }
 }

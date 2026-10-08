@@ -257,7 +257,7 @@ internal final class ElementInflation {
             guard let current = vault.interfaceElement(heistId: target.heistId) else {
                 return .failed(.staleRefresh(
                     "committed target \(target.heistId) disappeared before \(method.rawValue) refresh",
-                    failureKind: .targetUnavailable
+                    failureKind: .elementNotFound
                 ))
             }
             treeElement = current

@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-@_spi(ButtonHeistTooling) import ButtonHeist
+@_spi(ButtonHeistInternals) @_spi(ButtonHeistTooling) import ButtonHeist
 import TheScore
 
 @testable import ButtonHeistCLIExe
@@ -58,7 +58,7 @@ final class GetScreenCommandTests: XCTestCase {
         XCTAssertEqual(renderedFailure, failure)
         XCTAssertEqual(
             CLIRunner.renderedOutput(for: result, format: .human),
-            .failedText("Error: screenshot failed")
+            .failedText("Error[request.action_failed request retryable=false]: screenshot failed")
         )
         XCTAssertTrue(failureResponse.isFailure)
     }
@@ -72,7 +72,15 @@ final class GetScreenCommandTests: XCTestCase {
         let rendered = CLIRunner.renderedOutput(
             for: result,
             format: .json,
-            jsonRenderer: { _, _ in fallbackJSON }
+            jsonRenderer: { _, _ in
+                .fallback(
+                    fallbackJSON,
+                    DiagnosticFailure(
+                        message: "encoding failed",
+                        details: FailureDetails(code: .formattingJSONEncodingFailed)
+                    )
+                )
+            }
         )
 
         XCTAssertEqual(rendered, .failedText(fallbackText))

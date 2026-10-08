@@ -29,7 +29,7 @@ final class ActivationPolicyTests: XCTestCase {
 
         XCTAssertFalse(result.success)
         XCTAssertEqual(result.method, .activate)
-        XCTAssertEqual(result.failureKind, .targetUnavailable)
+        XCTAssertEqual(result.failureKind, .elementNotFound)
         XCTAssertEqual(result.message, "element inflation failed [notFound]: no such element")
     }
 
@@ -233,7 +233,7 @@ final class ActivationPolicyTests: XCTestCase {
         ).apply()
 
         XCTAssertFalse(result.success)
-        XCTAssertEqual(result.failureKind, .targetUnavailable)
+        XCTAssertEqual(result.failureKind, .elementNotFound)
         XCTAssertEqual(
             result.message,
             "Live target semantic has no current UIKit object at dispatch"

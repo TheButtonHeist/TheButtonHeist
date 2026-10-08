@@ -2,6 +2,22 @@ import Foundation
 
 import TheScore
 
+@_spi(ButtonHeistInternals) public enum PublicJSONRendering: Sendable {
+    case rendered(Data)
+    case fallback(Data, DiagnosticFailure)
+
+    public var data: Data {
+        switch self {
+        case .rendered(let data), .fallback(let data, _): data
+        }
+    }
+
+    public var failure: DiagnosticFailure? {
+        guard case .fallback(_, let failure) = self else { return nil }
+        return failure
+    }
+}
+
 extension FenceResponse {
 
     // MARK: - JSON Encoding
@@ -16,10 +32,17 @@ extension FenceResponse {
         profile: ProjectionProfile,
         outputFormatting: JSONEncoder.OutputFormatting = [.sortedKeys]
     ) throws -> Data {
-        try PublicJSONSerializer.data(
+        try jsonRendering(profile: profile, outputFormatting: outputFormatting).data
+    }
+
+    @_spi(ButtonHeistInternals) public func jsonRendering(
+        profile: ProjectionProfile,
+        outputFormatting: JSONEncoder.OutputFormatting = [.sortedKeys]
+    ) throws -> PublicJSONRendering {
+        try PublicJSONSerializer.render(
             encoding: PublicResponseModel(response: self, profile: profile),
             outputFormatting: outputFormatting,
-            encodingFailureResponse: Self.jsonEncodingFailureResponse()
+            encodingFailure: Self.jsonEncodingFailure()
         )
     }
 
@@ -27,18 +50,25 @@ extension FenceResponse {
         requestId: PublicRequestId?,
         outputFormatting: JSONEncoder.OutputFormatting = [.sortedKeys]
     ) throws -> Data {
-        try PublicJSONSerializer.data(
+        try jsonRendering(requestId: requestId, outputFormatting: outputFormatting).data
+    }
+
+    @_spi(ButtonHeistInternals) public func jsonRendering(
+        requestId: PublicRequestId?,
+        outputFormatting: JSONEncoder.OutputFormatting = [.sortedKeys]
+    ) throws -> PublicJSONRendering {
+        try PublicJSONSerializer.render(
             encoding: PublicResponseModel(response: self, profile: .summary),
             requestId: requestId,
             outputFormatting: outputFormatting,
-            encodingFailureResponse: Self.jsonEncodingFailureResponse()
+            encodingFailure: Self.jsonEncodingFailure()
         )
     }
 
-    static func jsonEncodingFailureResponse() -> PublicErrorResponse {
-        PublicErrorResponse(failure: DiagnosticFailure(
+    static func jsonEncodingFailure() -> DiagnosticFailure {
+        DiagnosticFailure(
             message: PublicJSONSerializer.encodingFailureMessage,
             details: FailureDetails(code: .formattingJSONEncodingFailed)
-        ))
+        )
     }
 }

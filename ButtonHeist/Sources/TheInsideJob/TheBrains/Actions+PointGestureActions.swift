@@ -157,7 +157,7 @@ extension Actions {
                 return GestureResolution<(CGPoint, CGPoint)>.failure(.failure(
                         .swipe,
                         message: "swipe failed: \(message)",
-                        failureKind: .inputValidation
+                        failureKind: .validationError
                     ))
             }
             let startPoint = CGPoint(

@@ -27,7 +27,7 @@ extension Navigation {
             return .failure(
                 .scroll,
                 message: "scroll failed: no committed visible observation was available",
-                failureKind: .targetUnavailable
+                failureKind: .elementNotFound
             )
         }
         let axis = Self.requiredAxis(for: direction)
@@ -63,7 +63,7 @@ extension Navigation {
             return .failure(
                 failure.command.payload,
                 message: failure.message,
-                failureKind: .targetUnavailable
+                failureKind: .elementNotFound
             )
         }
     }
@@ -88,7 +88,7 @@ extension Navigation {
             return .failure(
                 .scrollToEdge,
                 message: "scroll_to_edge failed: no committed visible observation was available",
-                failureKind: .targetUnavailable
+                failureKind: .elementNotFound
             )
         }
         let axis = Self.requiredAxis(for: edge)
@@ -123,7 +123,7 @@ extension Navigation {
             return .failure(
                 failure.command.payload,
                 message: failure.message,
-                failureKind: .targetUnavailable
+                failureKind: .elementNotFound
             )
         }
     }

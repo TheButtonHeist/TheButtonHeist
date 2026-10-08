@@ -31,13 +31,9 @@ extension TheBrains {
         }
 
         var actionFailureKind: ActionFailure.Kind {
-            TheBrains.actionFailureKind(for: dispatchFailureKind)
-        }
-
-        var dispatchFailureKind: TheSafecracker.FailureKind {
             switch self {
             case .inactiveRuntime, .accessibilityTreeUnavailable:
-                return .treeUnavailable
+                return .accessibilityTreeUnavailable
             case .appWindowUnavailable, .accessibilitySnapshotRenderingFailed, .pngEncodingFailed,
                  .invalidScreenDimensions:
                 return .actionFailed
@@ -105,7 +101,7 @@ extension TheBrains {
             return .failure(
                 .screenshot(nil),
                 message: failure.message,
-                failureKind: failure.dispatchFailureKind
+                failureKind: failure.actionFailureKind
             )
         }
     }
