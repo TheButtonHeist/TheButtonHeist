@@ -7,6 +7,10 @@ import TheScore
 
 extension Navigation {
 
+    /// Below this there is no point starting a viewport transition: the move
+    /// would not have time to be read before the budget ran out.
+    private static let viewportTransitionMinimumBudget: Duration = .milliseconds(32)
+
     @MainActor enum ViewportRestorationTarget {
         case semantic(ScrollableTarget)
         case original(UIScrollView)
@@ -236,8 +240,7 @@ extension Navigation {
         }
         guard !Task.isCancelled else { return false }
         return deadline.map {
-            $0.remainingSeconds()
-                >= Double(SemanticObservationTiming.viewportTransitionMinimumBudgetMs) / 1_000
+            $0.remainingDuration() >= Self.viewportTransitionMinimumBudget
         } ?? true
     }
 

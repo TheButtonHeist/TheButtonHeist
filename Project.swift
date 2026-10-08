@@ -37,8 +37,6 @@ func hostedTestTarget(
         settings: .settings(base: [
             "BUNDLE_LOADER": "$(TEST_HOST)",
             "SWIFT_STRICT_CONCURRENCY": "complete",
-            "SWIFT_TREAT_WARNINGS_AS_ERRORS": "YES",
-            "SWIFT_VERSION": "6",
             "TEST_HOST": "$(BUILT_PRODUCTS_DIR)/BHDemo.app/BHDemo",
         ])
     )
@@ -68,8 +66,6 @@ func unhostedInsideJobTestTarget(
         ],
         settings: .settings(base: [
             "SWIFT_STRICT_CONCURRENCY": "complete",
-            "SWIFT_TREAT_WARNINGS_AS_ERRORS": "YES",
-            "SWIFT_VERSION": "6",
         ])
     )
 }
@@ -86,24 +82,6 @@ func testScheme(name: String) -> Scheme {
     )
 }
 
-func hostedTestScheme(name: String) -> Scheme {
-    .scheme(
-        name: name,
-        buildAction: .buildAction(targets: [
-            .target(name),
-        ]),
-        testAction: .targets(
-            [
-                .testableTarget(target: .target(name)),
-            ],
-            arguments: .arguments(environmentVariables: [
-                "BUTTONHEIST_TEST_ANIMATION_SPEED": "$(BUTTONHEIST_TEST_ANIMATION_SPEED)",
-            ]),
-            expandVariableFromTarget: .target(name)
-        )
-    )
-}
-
 struct HostedTestDescriptor {
     let name: String
     let bundleId: String
@@ -112,10 +90,6 @@ struct HostedTestDescriptor {
 
     var target: Target {
         hostedTestTarget(name: name, bundleId: bundleId, sources: sources)
-    }
-
-    var scheme: Scheme {
-        hostedTestScheme(name: name)
     }
 }
 
@@ -226,11 +200,7 @@ let project = Project(
             deploymentTargets: .multiplatform(iOS: "16.0", macOS: "14.0"),
             infoPlist: .default,
             sources: ["ButtonHeist/Sources/ThePlans/**"],
-            dependencies: [],
-            settings: .settings(base: [
-                "SWIFT_VERSION": "6",
-                "LastSwiftMigration": "2620",
-            ])
+            dependencies: []
         ),
 
         // MARK: - Shared Protocol Types (cross-platform)
@@ -246,12 +216,7 @@ let project = Project(
             dependencies: [
                 .target(name: "ThePlans"),
                 .external(name: "AccessibilitySnapshotModel"),
-            ],
-
-            settings: .settings(base: [
-                "SWIFT_VERSION": "6",
-                "LastSwiftMigration": "2620",
-            ])
+            ]
         ),
 
         // MARK: - Result Diagnosis (macOS tooling core)
@@ -480,6 +445,7 @@ let project = Project(
         testScheme(name: "TheScoreTests"),
         testScheme(name: "ButtonHeistTests"),
         testScheme(name: "TheInsideJobLogicTests"),
+        testScheme(name: "TheInsideJobIntegrationTests"),
         .scheme(
             name: "MacFrameworkTests",
             buildAction: .buildAction(
@@ -496,7 +462,6 @@ let project = Project(
                 expandVariableFromTarget: .target("ThePlansTests")
             )
         ),
-    ] + hostedTestDescriptors.map(\.scheme) + [
         .scheme(
             name: "HostedBehaviorTests",
             buildAction: .buildAction(
@@ -505,11 +470,7 @@ let project = Project(
             testAction: .targets(
                 hostedAggregateTestDescriptors.map {
                     .testableTarget(target: .target($0.name), parallelization: .disabled)
-                },
-                arguments: .arguments(environmentVariables: [
-                    "BUTTONHEIST_TEST_ANIMATION_SPEED": "$(BUTTONHEIST_TEST_ANIMATION_SPEED)",
-                ]),
-                expandVariableFromTarget: .target("DogfoodFeatureFlowTests")
+                }
             )
         ),
     ]

@@ -6,7 +6,6 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RESULTS_DIR="${BUTTONHEIST_RESULTS_DIR:-}"
 RESULTS_MODE="${BUTTONHEIST_RESULTS_MODE:-failures}"
-SUITE_NAME=""
 IOS_SANDBOX=false
 
 usage() {
@@ -17,7 +16,6 @@ Options:
   --dir DIR       Directory for host-side result artifacts.
   --ios-sandbox  Use the process temp-directory sentinel for simulator-hosted tests.
   --mode MODE    Recording mode: failures, all, or off.
-  --suite NAME   Derive the default directory from .rp1/work/heist-results/NAME.
   -h, --help     Show this help.
 
 The wrapper sets BUTTONHEIST_RESULTS_DIR and BUTTONHEIST_RESULTS_MODE.
@@ -52,14 +50,6 @@ while [[ $# -gt 0 ]]; do
             }
             shift 2
             ;;
-        --suite)
-            SUITE_NAME="${2:-}"
-            [[ -n "$SUITE_NAME" ]] || {
-                echo "Error: --suite requires a value" >&2
-                exit 2
-            }
-            shift 2
-            ;;
         -h|--help)
             usage
             exit 0
@@ -82,11 +72,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 if [[ -z "$RESULTS_DIR" ]]; then
-    if [[ -n "$SUITE_NAME" ]]; then
-        RESULTS_DIR="$REPO_ROOT/.rp1/work/heist-results/$SUITE_NAME"
-    else
-        RESULTS_DIR="$REPO_ROOT/.rp1/work/heist-results/manual"
-    fi
+    RESULTS_DIR="$REPO_ROOT/.rp1/work/heist-results/manual"
 fi
 
 if [[ "$RESULTS_DIR" != "process-temporary-directory" ]]; then

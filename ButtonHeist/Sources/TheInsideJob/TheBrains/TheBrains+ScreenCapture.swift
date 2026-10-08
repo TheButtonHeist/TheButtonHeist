@@ -5,7 +5,7 @@ import UIKit
 import TheScore
 
 extension TheBrains {
-    enum ScreenCaptureFailure: Equatable, Sendable {
+    enum ScreenCaptureFailure: Error, Equatable, Sendable {
         case inactiveRuntime
         case accessibilityTreeUnavailable
         case appWindowUnavailable
@@ -45,15 +45,10 @@ extension TheBrains {
         }
     }
 
-    enum ScreenCaptureGatewayResult {
-        case success(ScreenPayload)
-        case failure(ScreenCaptureFailure)
-    }
-
     func captureScreenPayload(
         mode: ScreenCaptureMode = .raw,
         observationBoundary: SemanticObservationWaitBoundary
-    ) async -> ScreenCaptureGatewayResult {
+    ) async -> Result<ScreenPayload, ScreenCaptureFailure> {
         guard semanticObservationIsActive else {
             return .failure(.inactiveRuntime)
         }

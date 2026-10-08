@@ -48,7 +48,7 @@ extension TheInsideJob {
             "addressFamily=\(runtimeConfiguration.addressFamily.rawValue)",
             "sessionTimeout=\(runtimeConfiguration.sessionReleaseTimeout.value)s(\(runtimeConfiguration.sessionReleaseTimeout.source.label))",
             "fingerprints=\(runtimeConfiguration.fingerprintsEnabled.value)(\(runtimeConfiguration.fingerprintsEnabled.source.label))",
-            "failureEvidence=\(runtimeConfiguration.failureEvidencePolicy.value.label)(\(runtimeConfiguration.failureEvidencePolicy.source.label))",
+            "failureEvidence=\(runtimeConfiguration.failureEvidencePolicy.value.rawValue)(\(runtimeConfiguration.failureEvidencePolicy.source.label))",
             "tls=psk",
             bonjourDescription
         ].joined(separator: " ")

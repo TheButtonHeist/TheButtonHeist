@@ -367,16 +367,6 @@ public struct HeistResult: Codable, Sendable, Equatable {
 
 }
 
-private extension Sequence {
-    func count(where isIncluded: (Element) throws -> Bool) rethrows -> Int {
-        try reduce(into: 0) { count, element in
-            if try isIncluded(element) {
-                count += 1
-            }
-        }
-    }
-}
-
 public enum HeistExecutionOutcome: Sendable, Equatable {
     case passed
     case failed(abortedAtPath: HeistExecutionPath)

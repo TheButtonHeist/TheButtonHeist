@@ -49,11 +49,6 @@ internal final class Stream {
         var isDelivering: Bool
     }
 
-    internal struct EventInstallation {
-        internal let subscription: SemanticObservationSubscription
-        internal let replay: Result<[Event], History.ReadError>
-    }
-
     internal struct PositionedEventInstallation {
         internal let subscription: SemanticObservationSubscription
         internal let replay: Result<[Publication.Entry], History.ReadError>
@@ -163,26 +158,6 @@ internal final class Stream {
         let id = scopePressure.addSubscription(scope: scope)
         updateCycleDemand()
         return SemanticObservationSubscription(id: id, scope: scope, stream: self)
-    }
-
-    /// Raises the scope and atomically installs live delivery beside retained
-    /// replay. The caller owns replay delivery after constructing its consumer.
-    internal func subscribe(
-        scope: SemanticObservationScope,
-        replayingAfter historyIndex: Int,
-        delivery: EventDelivery = .all,
-        receive: @escaping @MainActor (Event) -> Void
-    ) -> EventInstallation {
-        let installation = subscribePositioned(
-            scope: scope,
-            replayingAfter: historyIndex,
-            delivery: delivery,
-            receive: { receive($0.event) }
-        )
-        return .init(
-            subscription: installation.subscription,
-            replay: installation.replay.map { $0.map(\.event) }
-        )
     }
 
     /// Raises the scope and atomically installs positioned live delivery beside

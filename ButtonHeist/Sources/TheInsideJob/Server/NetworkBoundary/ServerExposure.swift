@@ -37,8 +37,4 @@ struct ServerExposure: Equatable, Sendable {
     var bindsToLoopbackOnly: Bool {
         allowedScopes == [.simulator]
     }
-
-    var bonjourDisabledReason: String? {
-        publishesBonjour ? nil : "network-scope-not-enabled"
-    }
 }

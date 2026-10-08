@@ -811,14 +811,6 @@ import ThePlans
         }
     }
 
-    private func failureDetail(observed: String) -> HeistFailureDetail {
-        HeistFailureDetail(
-            category: .explicitFailure,
-            contract: "explicit heist failure",
-            observed: observed
-        )
-    }
-
     private func invocationFailureDetail(observed: String) -> HeistFailureDetail {
         HeistFailureDetail(
             category: .invocation,

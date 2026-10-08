@@ -4,7 +4,7 @@ import UIKit
 
 @MainActor
 extension TheInsideJob {
-    func activateRuntime(_ resources: InsideJobRuntimeResources) async {
+    func activateRuntime() {
         getaway.identity.tlsActive = true
 
         installLifecycleObservationIfNeeded()

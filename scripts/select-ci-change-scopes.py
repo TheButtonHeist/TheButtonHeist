@@ -174,11 +174,6 @@ def parse_args() -> argparse.Namespace:
         help="Repository-relative changed paths; stdin is used when none are supplied",
     )
     parser.add_argument(
-        "--stdin",
-        action="store_true",
-        help="Also read newline-delimited changed paths from stdin",
-    )
-    parser.add_argument(
         "--github-output",
         type=Path,
         help="Also append the key/value results to a GitHub Actions output file",
@@ -189,7 +184,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     paths = list(args.paths)
-    if args.stdin or not paths:
+    if not paths:
         paths.extend(sys.stdin.read().splitlines())
 
     output = format_outputs(select_scopes(paths))

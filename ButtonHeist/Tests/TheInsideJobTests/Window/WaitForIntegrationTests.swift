@@ -44,7 +44,7 @@ final class WaitForIntegrationTests: XCTestCase {
             idleTimerBaseline: UIApplication.shared.isIdleTimerDisabled
         )
         self.runtimeResources = runtimeResources
-        await insideJob.activateRuntime(runtimeResources)
+        insideJob.activateRuntime()
     }
 
     override func tearDown() async throws {

@@ -19,7 +19,6 @@ final class TheSafecracker {
     private let keyboardInput: SafecrackerKeyboardInput
     private let fingerprints: TheFingerprints
     private let touchInjection: SafecrackerTouchInjection
-    private let editActions = SafecrackerEditActions()
 
     init(
         fingerprintsEnabled: Bool = true,
@@ -71,19 +70,29 @@ final class TheSafecracker {
     }
 
     func performEditAction(_ action: EditAction, on object: NSObject) -> Bool {
-        editActions.perform(action, on: object)
+        UIApplication.shared.sendAction(action.selector, to: object, from: nil, for: nil)
     }
 
+    /// Resign first responder, dismissing the keyboard if visible.
+    /// Routes through the responder chain — no view hierarchy walk needed.
     func dismissKeyboard() -> Bool {
-        editActions.resignFirstResponder()
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
+    /// Focus a responder directly when accessibility activation declines.
+    ///
+    /// Heists try `accessibilityActivate()` first to mirror a VoiceOver
+    /// double-tap. Some text fields return `false` even though they can become
+    /// first responder, so this fallback calls `becomeFirstResponder()`.
     func focusFirstResponder(_ object: NSObject) -> Bool {
-        editActions.becomeFirstResponder(object)
+        guard let responder = object as? UIResponder,
+              responder.canBecomeFirstResponder else { return false }
+        return responder.becomeFirstResponder()
     }
 
     func dismissKeyboard(_ object: NSObject) -> Bool {
-        editActions.resignFirstResponder(object)
+        guard let responder = object as? UIResponder else { return false }
+        return responder.resignFirstResponder()
     }
 
     func showFingerprint(at point: CGPoint) {
@@ -116,6 +125,19 @@ final class TheSafecracker {
         duration: GestureDuration = .dragDefault
     ) async -> Bool {
         await touchInjection.drag(from: start, to: end, duration: duration)
+    }
+}
+
+private extension EditAction {
+    var selector: Selector {
+        switch self {
+        case .copy: #selector(UIResponderStandardEditActions.copy(_:))
+        case .paste: #selector(UIResponderStandardEditActions.paste(_:))
+        case .cut: #selector(UIResponderStandardEditActions.cut(_:))
+        case .select: #selector(UIResponderStandardEditActions.select(_:))
+        case .selectAll: #selector(UIResponderStandardEditActions.selectAll(_:))
+        case .delete: #selector(UIResponderStandardEditActions.delete(_:))
+        }
     }
 }
 

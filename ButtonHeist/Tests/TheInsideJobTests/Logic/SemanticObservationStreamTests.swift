@@ -105,13 +105,13 @@ final class SemanticObservationStreamTests: XCTestCase {
         let before = beforeReceipt.publication
         var received: [Observation.Event] = []
 
-        let installation = stream.subscribe(
+        let installation = stream.subscribePositioned(
             scope: .visible,
             replayingAfter: 0,
-            receive: { received.append($0) }
+            receive: { received.append($0.event) }
         )
         let subscription = installation.subscription
-        received.append(contentsOf: try installation.replay.get())
+        received.append(contentsOf: try installation.replay.get().map(\.event))
         stream.discardCurrentObservation()
         let duringReceipt = await capturePublication(in: vault) {
             await stream.commitVisibleObservationForTesting(.empty)

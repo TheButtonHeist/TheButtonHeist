@@ -19,7 +19,7 @@ extension TheGetaway {
             return .refused(failure)
         }
         let data: Data
-        switch encodeEnvelope(message) {
+        switch ResponseEnvelopeDelivery.encodeEnvelope(message) {
         case .success(let envelopeData):
             data = envelopeData
         case .failure(let failure):

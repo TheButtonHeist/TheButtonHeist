@@ -89,13 +89,6 @@ enum ResponseEnvelopeDelivery {
 extension TheGetaway {
     // MARK: - Encode / Decode
 
-    func encodeEnvelope(
-        _ message: ServerMessage,
-        requestId: RequestID? = nil
-    ) -> Result<Data, ResponseEncodingFailure> {
-        ResponseEnvelopeDelivery.encodeEnvelope(message, requestId: requestId)
-    }
-
     func logEncodingFailure(_ failure: ResponseEncodingFailure) {
         insideJobLogger.error("\(failure.description)")
     }

@@ -35,13 +35,6 @@ final class InterfaceTreeTests: XCTestCase {
         )
     }
 
-    func updateViewport(
-        of tree: InterfaceTree,
-        with observation: InterfaceObservation
-    ) -> InterfaceTree {
-        tree.updatingViewport(with: observation.tree)
-    }
-
     func testEmptyHasNoElements() {
         XCTAssertTrue(InterfaceObservation.empty.tree.elements.isEmpty)
     }

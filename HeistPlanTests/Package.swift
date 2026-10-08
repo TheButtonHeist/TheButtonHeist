@@ -16,7 +16,7 @@ let package = Package(
                 .product(name: "ThePlans", package: "ButtonHeist"),
             ],
             path: "Tests/HeistPlanToolTests",
-            swiftSettings: [.swiftLanguageMode(.v6), .unsafeFlags(["-warnings-as-errors"])]
+            swiftSettings: [.unsafeFlags(["-warnings-as-errors"])]
         ),
     ]
 )

@@ -108,10 +108,6 @@ struct PlaylistView: View {
         .onDisappear { stopAutoplay() }
     }
 
-    private var queueString: String {
-        songs.map { String($0.track) }.joined(separator: ",")
-    }
-
     private func addSong() {
         let song = Song.random(track: nextTrack)
         songs.append(song)

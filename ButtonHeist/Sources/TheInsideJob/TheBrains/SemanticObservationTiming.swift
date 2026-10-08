@@ -3,12 +3,6 @@
 import Foundation
 import ButtonHeistSupport
 
-enum SemanticObservationTiming {
-    /// Below this there is no point starting a viewport transition: the move
-    /// would not have time to be read before the budget ran out.
-    static let viewportTransitionMinimumBudgetMs = 32
-}
-
 struct SemanticObservationDeadline: Sendable, Equatable {
     let start: RuntimeElapsed.Instant
     let timeoutSeconds: Double

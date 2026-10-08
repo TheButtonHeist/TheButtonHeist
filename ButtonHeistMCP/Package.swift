@@ -24,7 +24,6 @@ let package = Package(
             ],
             path: "Sources",
             swiftSettings: [
-                .swiftLanguageMode(.v6),
                 .unsafeFlags(["-parse-as-library", "-warnings-as-errors"])
             ]
         ),
@@ -39,7 +38,6 @@ let package = Package(
             ],
             path: "Tests",
             swiftSettings: [
-                .swiftLanguageMode(.v6),
                 .unsafeFlags(["-warnings-as-errors"])
             ]
         )

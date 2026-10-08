@@ -1,6 +1,5 @@
 import ButtonHeistTestSupport
 import XCTest
-import Network
 @_spi(ButtonHeistTooling) @testable import ButtonHeist
 import TheScore
 
@@ -364,29 +363,10 @@ final class TargetConfigTests: XCTestCase {
 
     // MARK: - TheFence connect dispatch (with mock injection)
 
-    private static let testDevice = DiscoveredDevice(
-        id: "mock-device",
-        name: "MockApp#test",
-        endpoint: DiscoveredDeviceEndpoint.hostPort(host: "::1", port: 1)
-    )
-
-    private static let testServerInfo = ServerInfo(
-        appName: "MockApp",
-        bundleIdentifier: "com.test.mock",
-        deviceName: "MockDevice",
-        systemVersion: "18.0",
-        screenWidth: 393,
-        screenHeight: 852,
-        instanceId: "mock-session",
-        instanceIdentifier: "mock-server",
-        listeningPort: 49152,
-        tlsActive: true
-    )
-
     @ButtonHeistActor
     private func makeMockFence(fileConfig: ButtonHeistFileConfig? = nil) -> TheFence {
         let mockConn = MockConnection()
-        mockConn.serverInfo = Self.testServerInfo
+        mockConn.serverInfo = TheFenceFixtures.testServerInfo
         mockConn.responseScript = { message in
             switch message {
             case .requestInterface:
@@ -397,7 +377,7 @@ final class TargetConfigTests: XCTestCase {
         }
 
         let mockDisc = MockDiscovery()
-        mockDisc.discoveredDevices = [Self.testDevice]
+        mockDisc.discoveredDevices = [TheFenceFixtures.testDevice]
 
         let fence = TheFence(configuration: .init(fileConfig: fileConfig))
         fence.handoff.makeDiscovery = { mockDisc }
@@ -485,7 +465,7 @@ final class TargetConfigTests: XCTestCase {
         var connectAttempt = 0
 
         let mockDisc = MockDiscovery()
-        mockDisc.discoveredDevices = [Self.testDevice]
+        mockDisc.discoveredDevices = [TheFenceFixtures.testDevice]
         fence.handoff.makeDiscovery = { mockDisc }
         fence.handoff.makeConnection = { _ in
             connectAttempt += 1
