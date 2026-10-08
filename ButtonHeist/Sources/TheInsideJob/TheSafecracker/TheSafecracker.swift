@@ -79,14 +79,11 @@ final class TheSafecracker {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
-    /// Ask an element for focus directly, as the responder it is.
+    /// Focus a responder directly when accessibility activation declines.
     ///
-    /// What a VoiceOver user's double-tap goes through is
-    /// `accessibilityActivate`, so that is what a heist tries first. A text
-    /// field can refuse it while answering `canBecomeFirstResponder` yes, and
-    /// then focus the moment it is asked plainly — the activation declines on
-    /// the field's behalf without ever consulting the responder chain. Asking
-    /// it directly is what remains.
+    /// Heists try `accessibilityActivate()` first to mirror a VoiceOver
+    /// double-tap. Some text fields return `false` even though they can become
+    /// first responder, so this fallback calls `becomeFirstResponder()`.
     func focusFirstResponder(_ object: NSObject) -> Bool {
         guard let responder = object as? UIResponder,
               responder.canBecomeFirstResponder else { return false }
