@@ -282,7 +282,7 @@ extension HeistReport.Failure {
     var diagnosticFailure: DiagnosticFailure {
         DiagnosticFailure(
             message: detail.observed,
-            details: actionKind.failureDetails
+            details: resolvedActionKind.failureDetails
         )
     }
 }

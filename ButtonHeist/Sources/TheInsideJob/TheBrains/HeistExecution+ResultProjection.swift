@@ -118,7 +118,7 @@ extension HeistExecution {
                 completion: .failed(
                     evidence: nil,
                     failure: HeistFailureDetail(
-                        category: .wait,
+                        category: .timeout,
                         contract: "wait begins within the whole-heist deadline",
                         observed: "whole-heist deadline expired before wait observation",
                         expected: step.predicate.description

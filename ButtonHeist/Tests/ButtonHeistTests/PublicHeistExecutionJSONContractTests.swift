@@ -52,6 +52,30 @@ final class PublicHeistExecutionJSONContractTests: XCTestCase {
         XCTAssertEqual(try failure.bool("retryable"), true)
     }
 
+    func testWaitDeadlineWithoutEvidenceUsesTimeoutDiagnostic() throws {
+        let step = HeistExecutionStepResult.wait(
+            path: "$.body[0]",
+            predicate: .exists(.label("Ready")),
+            timeout: 1,
+            completion: .failed(
+                evidence: nil,
+                failure: HeistFailureDetail(
+                    category: .timeout,
+                    contract: "wait begins within the whole-heist deadline",
+                    observed: "whole-heist deadline expired before wait observation"
+                )
+            )
+        )
+
+        let failure = try publicHeistExecutionNodeJSON(step: step).object("failure")
+
+        XCTAssertEqual(try failure.string("code"), "request.timeout")
+        XCTAssertEqual(try failure.string("kind"), "request")
+        XCTAssertEqual(try failure.string("phase"), "request")
+        XCTAssertEqual(try failure.bool("retryable"), true)
+        XCTAssertTrue(try failure.string("hint").contains("retry"))
+    }
+
     func testFailureDiagnosticsPreserveCaptureFailureKind() throws {
         let result = try HeistResult(
             steps: [HeistResultFixture.explicitFailure(message: "stop")],

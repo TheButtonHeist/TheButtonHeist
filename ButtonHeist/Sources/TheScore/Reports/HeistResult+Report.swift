@@ -25,7 +25,10 @@ public struct HeistReport: Sendable, Equatable {
         /// The failure headline for this node. Compound wrappers whose child
         /// supplies the actionable failure intentionally have no headline.
         public var message: String? { suppressesMessage ? nil : detail.observed }
-        public let actionKind: ActionFailure.Kind
+        /// The canonical action failure classification, exposed with its
+        /// original optional source contract for existing clients.
+        public var actionKind: ActionFailure.Kind? { resolvedActionKind }
+        package let resolvedActionKind: ActionFailure.Kind
         private let suppressesMessage: Bool
 
         package init(
@@ -34,7 +37,7 @@ public struct HeistReport: Sendable, Equatable {
             suppressesMessage: Bool
         ) {
             self.detail = detail
-            self.actionKind = actionKind
+            resolvedActionKind = actionKind
             self.suppressesMessage = suppressesMessage
         }
     }
