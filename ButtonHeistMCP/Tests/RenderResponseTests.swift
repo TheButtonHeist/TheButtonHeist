@@ -232,13 +232,21 @@ struct RenderResponseTests {
         #expect(root["canonicalPlan"] == nil)
     }
 
-    @Test("structured encoding fallback uses typed failure details")
-    func structuredEncodingFallbackUsesTypedFailureDetails() throws {
-        let root = try #require(
-            ButtonHeistMCPServer.structuredEncodingFailureValue(FallbackTestError()).objectValue
+    @Test("structured encoding fallback replaces text and error status")
+    func structuredEncodingFallbackReplacesTextAndErrorStatus() throws {
+        let failure = DiagnosticFailure(
+            message: "Failed to encode structured tool response: fallback failed",
+            details: FailureDetails(code: .formattingJSONEncodingFailed)
         )
+        let fallback = try MCPValueBridge.structuredContent(for: .error(failure))
+        let result = ButtonHeistMCPServer.renderResponse(
+            .ok(message: "done"),
+            structuredContent: .fallback(fallback.value, failure)
+        )
+        let root = try #require(result.structuredContent?.objectValue)
         let details = try #require(root["details"]?.objectValue)
 
+        #expect(result.isError == true)
         #expect(root["status"]?.stringValue == "error")
         #expect(root["code"]?.stringValue == "formatting.json_encoding_failed")
         #expect(root["errorCode"] == nil)
@@ -249,6 +257,12 @@ struct RenderResponseTests {
         #expect(details["kind"]?.stringValue == "client")
         #expect(details["phase"]?.stringValue == "client")
         #expect(details["retryable"] == Value.bool(false))
+        guard case .text(let text, _, _)? = result.content.first else {
+            Issue.record("expected diagnostic text content")
+            return
+        }
+        #expect(text.contains("formatting.json_encoding_failed"))
+        #expect(!text.contains("done"))
     }
 
     private static func interfaceFixture() throws -> Interface {
@@ -413,10 +427,6 @@ struct RenderResponseTests {
             respondsToUserInteraction: false
         )
     }
-}
-
-private struct FallbackTestError: LocalizedError {
-    var errorDescription: String? { "fallback failed" }
 }
 
 private func containsObjectKey(_ key: String, in value: Value?) -> Bool {

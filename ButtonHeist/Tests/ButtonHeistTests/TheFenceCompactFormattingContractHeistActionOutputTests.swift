@@ -243,7 +243,10 @@ extension TheFenceCompactFormattingContractTests {
 
         let compact = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result)).compactFormatted()
 
-        XCTAssertTrue(compact.contains("-> error: target stopped responding"), compact)
+        XCTAssertTrue(
+            compact.contains("-> error[request.action_failed request retryable=false]: target stopped responding"),
+            compact
+        )
         XCTAssertTrue(compact.contains("evidence: elements changed"), compact)
         XCTAssertTrue(compact.contains(#"+ "Lazy Row":"Loaded by scroll" staticText id="lazy_row""#), compact)
     }

@@ -2,7 +2,7 @@ import ButtonHeistTestSupport
 import XCTest
 import Network
 import ButtonHeistSupport
-@_spi(ButtonHeistTooling) @testable import ButtonHeist
+@_spi(ButtonHeistInternals) @_spi(ButtonHeistTooling) @testable import ButtonHeist
 @_spi(ButtonHeistInternals) import ThePlans
 @_spi(ButtonHeistInternals) import TheScore
 
@@ -26,6 +26,24 @@ extension TheFenceHandlerTests {
         XCTAssertEqual(diagnosticFailure.details.phase, .request)
         XCTAssertFalse(diagnosticFailure.details.retryable)
         XCTAssertEqual(diagnosticFailure.details.hint, "Fix the request.")
+    }
+
+    func testJSONEncodingFallbackReturnsItsTypedFailure() throws {
+        let failure = DiagnosticFailure(
+            message: "encoding failed",
+            details: FailureDetails(code: .formattingJSONEncodingFailed)
+        )
+
+        let rendering = try PublicJSONSerializer.render(
+            encoding: ThrowingEncodable(),
+            outputFormatting: [.sortedKeys],
+            encodingFailure: failure
+        )
+        let json = try JSONProbe(data: rendering.data)
+
+        XCTAssertEqual(rendering.failure, failure)
+        XCTAssertEqual(try json.string("status"), "error")
+        XCTAssertEqual(try json.string("code"), "formatting.json_encoding_failed")
     }
 
     func testHandoffConnectionFailureProjectsOnceToDiagnosticFailure() {
@@ -420,4 +438,13 @@ extension TheFenceHandlerTests {
         XCTAssertEqual(failure.details.hint, "Fix the request so it satisfies the server-side validation rules.")
     }
 
+}
+
+private struct ThrowingEncodable: Encodable {
+    func encode(to _: Encoder) throws {
+        throw EncodingError.invalidValue(
+            "value",
+            EncodingError.Context(codingPath: [], debugDescription: "test failure")
+        )
+    }
 }

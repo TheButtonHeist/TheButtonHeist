@@ -141,13 +141,13 @@ final class TheBrainsScrollTests: XCTestCase {
         let result = TheSafecracker.ActionDispatchResult.failure(
             .scrollToVisible,
             message: "element inflation failed [notFound]: missing",
-            failureKind: .targetUnavailable
+            failureKind: .elementNotFound
         )
 
         guard let failureKind = result.failureKind else {
             return XCTFail("Expected scroll_to_visible failure kind")
         }
-        XCTAssertEqual(TheBrains.actionFailureKind(for: failureKind), .elementNotFound)
+        XCTAssertEqual(failureKind, .elementNotFound)
     }
 
     func testExploreScreenReturnsNilWhenInitialSettlementIsCancelled() async {
@@ -267,7 +267,7 @@ final class TheBrainsScrollTests: XCTestCase {
             return XCTFail("Expected timed-out dispatch failure kind")
         }
         XCTAssertEqual(failureKind, .timeout)
-        XCTAssertEqual(TheBrains.actionFailureKind(for: failureKind), .timeout)
+        XCTAssertEqual(failureKind, .timeout)
     }
 
     func testLiveObjectOnlyDoesNotAwaitGeometryAfterFreshResolution() async throws {

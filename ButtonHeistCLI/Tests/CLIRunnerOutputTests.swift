@@ -1,7 +1,7 @@
 import Foundation
 import XCTest
 
-@_spi(ButtonHeistTooling) import ButtonHeist
+@_spi(ButtonHeistInternals) @_spi(ButtonHeistTooling) import ButtonHeist
 
 @testable import ButtonHeistCLIExe
 
@@ -25,7 +25,7 @@ final class CLIRunnerOutputTests: XCTestCase {
                 jsonRenderer: { response, requestId in
                     XCTAssertEqual(response.isFailure, false)
                     XCTAssertNil(requestId)
-                    return Data(#"{"message":"done","status":"ok"}"#.utf8)
+                    return .rendered(Data(#"{"message":"done","status":"ok"}"#.utf8))
                 }
             ),
             .text(#"{"message":"done","status":"ok"}"#)
@@ -42,7 +42,7 @@ final class CLIRunnerOutputTests: XCTestCase {
             requestId: successRequestId,
             jsonRenderer: { _, requestId in
                 XCTAssertEqual(requestId, successRequestId)
-                return Data(#"{"request_id":"success-17","status":"ok"}"#.utf8)
+                return .rendered(Data(#"{"request_id":"success-17","status":"ok"}"#.utf8))
             }
         )
         let fallback = CLIRunner.renderedOutput(
@@ -56,7 +56,7 @@ final class CLIRunnerOutputTests: XCTestCase {
             jsonRenderer: { response, requestId in
                 XCTAssertTrue(response.isFailure)
                 XCTAssertEqual(requestId, fallbackRequestId)
-                return Data(#"{"request_id":18,"status":"error"}"#.utf8)
+                return .rendered(Data(#"{"request_id":18,"status":"error"}"#.utf8))
             }
         )
 

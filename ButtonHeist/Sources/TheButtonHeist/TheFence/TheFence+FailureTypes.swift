@@ -280,11 +280,9 @@ public struct DiagnosticFailure: Sendable, Equatable {
 
 extension HeistReport.Failure {
     var diagnosticFailure: DiagnosticFailure {
-        actionKind.map {
-            DiagnosticFailure(failureKind: $0, message: diagnosticMessage)
-        } ?? DiagnosticFailure(
-            reportFailure: detail,
-            message: diagnosticMessage
+        DiagnosticFailure(
+            message: detail.observed,
+            details: resolvedActionKind.failureDetails
         )
     }
 }

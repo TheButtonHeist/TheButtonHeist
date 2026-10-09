@@ -4,11 +4,6 @@ import TheScore
 
 extension TheSafecracker {
 
-    enum ActionDispatchOutcome: Sendable {
-        case success(resolvedElementId: HeistId?)
-        case failure(FailureKind)
-    }
-
     /// Result of a high-level action dispatch before post-action observation.
     /// Post-action observation adds semantic evidence to produce the wire `ActionResult`.
     struct ActionDispatchResult: Sendable {
@@ -19,7 +14,7 @@ extension TheSafecracker {
         let activationTrace: ActivationTrace?
         let screenActionHandler: ScreenActionHandlerName?
         let timing: ActionPerformanceTiming?
-        let outcome: ActionDispatchOutcome
+        let outcome: Result<HeistId?, ActionFailure.Kind>
 
         var success: Bool {
             if case .success = outcome { return true }
@@ -31,7 +26,7 @@ extension TheSafecracker {
             return resolvedElementId
         }
 
-        var failureKind: FailureKind? {
+        var failureKind: ActionFailure.Kind? {
             guard case .failure(let failureKind) = outcome else { return nil }
             return failureKind
         }
@@ -43,7 +38,7 @@ extension TheSafecracker {
             activationTrace: ActivationTrace?,
             screenActionHandler: ScreenActionHandlerName?,
             timing: ActionPerformanceTiming?,
-            outcome: ActionDispatchOutcome
+            outcome: Result<HeistId?, ActionFailure.Kind>
         ) {
             self.payload = payload
             self.message = message
@@ -69,7 +64,7 @@ extension TheSafecracker {
                 activationTrace: activationTrace,
                 screenActionHandler: screenActionHandler,
                 timing: nil,
-                outcome: .success(resolvedElementId: resolvedElementId)
+                outcome: .success(resolvedElementId)
             )
         }
 
@@ -78,7 +73,7 @@ extension TheSafecracker {
             message: String,
             subjectEvidence: ActionSubjectEvidence? = nil,
             activationTrace: ActivationTrace? = nil,
-            failureKind: FailureKind = .actionFailed
+            failureKind: ActionFailure.Kind = .actionFailed
         ) -> ActionDispatchResult {
             ActionDispatchResult(
                 payload: payload,
@@ -113,7 +108,7 @@ extension TheSafecracker {
                 activationTrace: activationTrace,
                 screenActionHandler: screenActionHandler,
                 timing: timing,
-                outcome: .success(resolvedElementId: heistId)
+                outcome: .success(heistId)
             )
         }
 
@@ -143,20 +138,6 @@ extension TheSafecracker {
         }
     }
 
-    /// Internal failure kinds used by dispatch to choose the wire `ActionFailure.Kind`.
-    /// Not wire format — this is an internal control-flow signal.
-    enum FailureKind: Sendable {
-        /// Generic interaction failure that does not carry a more specific kind.
-        case actionFailed
-        /// The accessibility tree could not be parsed (no traversable windows).
-        case treeUnavailable
-        /// A polling/wait operation exceeded its budget.
-        case timeout
-        /// Input geometry or other client-controlled values failed validation.
-        case inputValidation
-        /// The command target was not present or its live accessibility object expired.
-        case targetUnavailable
-    }
 }
 
 #endif // DEBUG

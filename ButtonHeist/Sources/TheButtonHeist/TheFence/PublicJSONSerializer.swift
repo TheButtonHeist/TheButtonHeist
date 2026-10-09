@@ -4,37 +4,49 @@ enum PublicJSONSerializer {
     static let encodingFailureMessage =
         "Failed to encode JSON response: response contained non-JSON values"
 
-    static func data<T: Encodable>(
+    static func render<T: Encodable>(
         encoding response: T,
         outputFormatting: JSONEncoder.OutputFormatting,
-        encodingFailureResponse: PublicErrorResponse
-    ) throws -> Data {
+        encodingFailure: DiagnosticFailure
+    ) throws -> PublicJSONRendering {
         do {
-            return try encode(response, outputFormatting: outputFormatting)
+            return .rendered(try encode(response, outputFormatting: outputFormatting))
         } catch {
-            return try encode(encodingFailureResponse, outputFormatting: outputFormatting)
+            return .fallback(
+                try encode(
+                    PublicErrorResponse(failure: encodingFailure),
+                    outputFormatting: outputFormatting
+                ),
+                encodingFailure
+            )
         }
     }
 
-    static func data<T: Encodable>(
+    static func render<T: Encodable>(
         encoding response: T,
         requestId: PublicRequestId?,
         outputFormatting: JSONEncoder.OutputFormatting,
-        encodingFailureResponse: PublicErrorResponse
-    ) throws -> Data {
+        encodingFailure: DiagnosticFailure
+    ) throws -> PublicJSONRendering {
         guard let requestId else {
-            return try data(
+            return try render(
                 encoding: response,
                 outputFormatting: outputFormatting,
-                encodingFailureResponse: encodingFailureResponse
+                encodingFailure: encodingFailure
             )
         }
         let envelope = PublicResponseEnvelope(requestId: requestId, response: response)
-        let failureEnvelope = PublicResponseEnvelope(requestId: requestId, response: encodingFailureResponse)
+        let failureEnvelope = PublicResponseEnvelope(
+            requestId: requestId,
+            response: PublicErrorResponse(failure: encodingFailure)
+        )
         do {
-            return try encode(envelope, outputFormatting: outputFormatting)
+            return .rendered(try encode(envelope, outputFormatting: outputFormatting))
         } catch {
-            return try encode(failureEnvelope, outputFormatting: outputFormatting)
+            return .fallback(
+                try encode(failureEnvelope, outputFormatting: outputFormatting),
+                encodingFailure
+            )
         }
     }
 

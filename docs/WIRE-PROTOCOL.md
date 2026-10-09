@@ -542,6 +542,14 @@ execution path:
 or `unavailable`, with a required `failureKind` and optional `message`. Legacy
 auxiliary screenshot action steps are not part of the receipt schema.
 
+Public heist report JSON projects terminal capture evidence under optional
+`report.diagnostics`. `failureScreenshotSummary` describes the capture without
+embedding PNG data. An unavailable capture also includes
+`failureScreenshotFailureKind`; a captured screen with an accessibility
+interface includes a size-bounded `failureInterface`. The report's configured
+failure-interface limit is a global node bound, so ordinary flat trees and
+scroll-container trees cannot bypass it.
+
 ## Action Results
 
 Action responses use `actionResult`:

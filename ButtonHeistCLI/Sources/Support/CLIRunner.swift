@@ -48,11 +48,7 @@ enum CLIRunner {
         }
     }
 
-    typealias JSONResponseRenderer = (FenceResponse, PublicRequestId?) throws -> Data
-
-    private struct JSONResponseStatus: Decodable {
-        let code: KnownFailureCode?
-    }
+    typealias JSONResponseRenderer = (FenceResponse, PublicRequestId?) throws -> PublicJSONRendering
 
     // MARK: - Command Execution
 
@@ -185,9 +181,9 @@ enum CLIRunner {
             return responseFailed ? .failedText(text) : .text(text)
         case .json:
             do {
-                let data = try jsonRenderer(response, requestId)
-                if let json = String(data: data, encoding: .utf8) {
-                    let failed = responseFailed || isJSONRenderingFailure(data)
+                let rendering = try jsonRenderer(response, requestId)
+                if let json = String(data: rendering.data, encoding: .utf8) {
+                    let failed = responseFailed || rendering.failure != nil
                     return failed ? .failedText(json) : .text(json)
                 }
                 return .failedStatus("Failed to encode JSON data as UTF-8")
@@ -200,13 +196,8 @@ enum CLIRunner {
     private static func defaultJSONResponse(
         _ response: FenceResponse,
         requestId: PublicRequestId?
-    ) throws -> Data {
-        try response.jsonData(requestId: requestId)
-    }
-
-    private static func isJSONRenderingFailure(_ data: Data) -> Bool {
-        (try? JSONDecoder().decode(JSONResponseStatus.self, from: data).code)
-            == .formattingJSONEncodingFailed
+    ) throws -> PublicJSONRendering {
+        try response.jsonRendering(requestId: requestId)
     }
 
     // MARK: - Private Helpers

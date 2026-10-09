@@ -363,7 +363,17 @@ func publicHeistExecutionJSON(
     step: HeistExecutionStepResult,
     profile: ProjectionProfile = .summary
 ) throws -> JSONProbe {
-    let response = try publicHeistExecutionResponse(step: step)
+    try publicHeistExecutionJSON(
+        result: HeistResult(steps: [step], durationMs: 1),
+        profile: profile
+    )
+}
+
+func publicHeistExecutionJSON(
+    result: HeistResult,
+    profile: ProjectionProfile = .summary
+) throws -> JSONProbe {
+    let response = try publicHeistExecutionResponse(result: result)
     let data = try JSONEncoder().encode(PublicResponseModel(response: response, profile: profile))
     return try JSONProbe(data: data)
 }
@@ -371,7 +381,12 @@ func publicHeistExecutionJSON(
 func publicHeistExecutionResponse(
     step: HeistExecutionStepResult
 ) throws -> FenceResponse {
-    let result = try HeistResult(steps: [step], durationMs: 1)
+    try publicHeistExecutionResponse(result: HeistResult(steps: [step], durationMs: 1))
+}
+
+func publicHeistExecutionResponse(
+    result: HeistResult
+) throws -> FenceResponse {
     return FenceResponse.heistExecution(
         plan: try HeistPlan(body: [.warn(WarnStep(message: "fixture"))]),
         report: HeistReport.project(result: result)

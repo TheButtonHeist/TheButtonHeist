@@ -38,9 +38,13 @@ import TheScore
 
         let report = HeistReport.project(result: try HeistResult(steps: [step], durationMs: 1))
         let node = try #require(report.outputNodes.first)
+        let failure = try #require(node.failure)
+        let actionKind: ActionFailure.Kind? = failure.actionKind
 
         #expect(node.invocationDisplayName == #"RunHeist("Cart.checkout", "Milk")"#)
         #expect(node.evidence == nil)
+        #expect(actionKind == .accessibilityTreeUnavailable)
+        #expect(report.failure?.actionKind == .accessibilityTreeUnavailable)
     }
 
     @Test func `report reducer derives summary from the admitted result tree`() throws {

@@ -16,6 +16,20 @@ import Testing
 //   `HeistResultSemanticAdmissionTests.passed action evidence requires expectation replay proof`.
 
 @Suite struct ResultProjectionInvariantTests {
+    @Test func `whole heist deadline before wait observation remains a timeout`() throws {
+        let path: HeistExecutionPath = "$.body[0]"
+        let step = HeistExecution.ResultProjector.heistTimeout(
+            wait: WaitStep(predicate: .exists(.label("Ready")), timeout: 1),
+            path: path
+        )
+        let report = HeistReport.project(
+            result: try HeistResult(steps: [step], durationMs: 0)
+        )
+
+        #expect(step.failure?.category == .timeout)
+        #expect(report.failedNode?.failure?.actionKind == .timeout)
+    }
+
     @Test func `failed outcome path and incomplete evidence survive report and human projection`() throws {
         let predicate = AccessibilityPredicate.exists(.label("Saved"))
         let evidence = HeistResultFixture.expectationEvidence(

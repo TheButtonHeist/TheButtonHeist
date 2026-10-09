@@ -44,7 +44,7 @@ struct ActivationPolicy {
                 message: staleness.message,
                 subjectEvidence: semanticSubjectEvidence,
                 activationTrace: ActivationTrace(.refreshFailed),
-                failureKind: .targetUnavailable
+                failureKind: .elementNotFound
             )
         }
         switch semanticDispatch.outcome {

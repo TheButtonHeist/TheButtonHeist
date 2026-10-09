@@ -750,7 +750,7 @@ extension TheBrainsScrollTests {
 
         XCTAssertFalse(result.success)
         XCTAssertEqual(result.method, .scrollToVisible)
-        XCTAssertEqual(result.failureKind, .targetUnavailable)
+        XCTAssertEqual(result.failureKind, .elementNotFound)
         XCTAssertTrue(result.message?.contains("element inflation failed [notFound]") == true)
         XCTAssertTrue(result.message?.contains("No match for") == true)
         XCTAssertTrue(result.message?.contains("Missing Button") == true)

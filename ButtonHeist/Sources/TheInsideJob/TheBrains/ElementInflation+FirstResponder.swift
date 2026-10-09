@@ -44,7 +44,7 @@ extension ElementInflation {
                   inflatedTarget.treeElement.heistId == firstResponderHeistId else {
                 return .failed(.staleRefresh(
                     "first responder no longer matches captured HeistId \(firstResponderHeistId) after inflation",
-                    failureKind: .targetUnavailable
+                    failureKind: .elementNotFound
                 ))
             }
             return .inflated(inflatedTarget)

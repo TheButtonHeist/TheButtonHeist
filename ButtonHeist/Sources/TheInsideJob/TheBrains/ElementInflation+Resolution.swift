@@ -210,7 +210,7 @@ extension ElementInflation {
             if deadline.hasTimeRemaining(at: RuntimeElapsed.now) {
                 return .failure(.staleRefresh(
                     "fresh visible accessibility evidence was unavailable for target \(description)",
-                    failureKind: .targetUnavailable
+                    failureKind: .elementNotFound
                 ))
             }
             return .failure(.timedOut(

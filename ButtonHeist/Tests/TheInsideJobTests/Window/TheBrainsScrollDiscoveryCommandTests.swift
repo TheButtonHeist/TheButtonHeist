@@ -873,7 +873,7 @@ extension TheBrainsScrollTests {
 
         XCTAssertFalse(result.success)
         XCTAssertEqual(result.method, .scroll)
-        XCTAssertEqual(result.failureKind, .targetUnavailable)
+        XCTAssertEqual(result.failureKind, .elementNotFound)
         XCTAssertEqual(scrollView.contentOffset, .zero)
         XCTAssertTrue(
             result.message?.contains("exists in the interface tree but is outside the current viewport") == true,
@@ -906,7 +906,7 @@ extension TheBrainsScrollTests {
 
         XCTAssertFalse(result.success)
         XCTAssertEqual(result.method, .scrollToEdge)
-        XCTAssertEqual(result.failureKind, .targetUnavailable)
+        XCTAssertEqual(result.failureKind, .elementNotFound)
         XCTAssertEqual(scrollView.contentOffset, .zero)
         XCTAssertTrue(
             result.message?.contains("exists in the interface tree but is outside the current viewport") == true,

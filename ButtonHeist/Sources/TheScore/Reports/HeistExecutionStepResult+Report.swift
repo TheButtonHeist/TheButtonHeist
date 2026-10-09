@@ -27,18 +27,18 @@ public extension HeistExecutionStepResult {
     /// Authored action result surfaced to human/report adapters.
     var reportActionResult: ActionResult? { actionEvidence?.result }
 
-    /// Public-facing failure message for a failed step, derived from factual execution evidence.
-    var reportFailureMessage: String? {
-        guard let failure else { return nil }
+    /// Compound wrappers suppress their duplicate headline when a child owns the actionable failure.
+    var reportSuppressesFailureMessage: Bool {
+        guard failure != nil else { return false }
         if children.contains(where: { $0.status == .failed }) {
             switch kind {
             case .conditional, .forEachIteration, .repeatUntilIteration, .heist, .invoke:
-                return nil
+                return true
             case .action, .wait, .forEachElement, .forEachString, .repeatUntil, .warn, .fail:
                 break
             }
         }
-        return failure.observed
+        return false
     }
 }
 
@@ -90,29 +90,6 @@ private extension HeistExecutionStepResult {
             return message.description
         case .action, .failure, .heist, .warning:
             return nil
-        }
-    }
-}
-
-extension HeistFailureDetail {
-    var actionFailureKind: ActionFailure.Kind {
-        switch category {
-        case .timeout:
-            .timeout
-        case .runtimeUnavailable:
-            .accessibilityTreeUnavailable
-        case .targetResolution:
-            .elementNotFound
-        case .validation:
-            .validationError
-        case .internalInvariant,
-             .action,
-             .expectation,
-             .wait,
-             .invocation,
-             .loop,
-             .explicitFailure:
-            .actionFailed
         }
     }
 }

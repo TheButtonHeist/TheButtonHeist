@@ -70,4 +70,25 @@ public enum HeistFailureCategory: String, Codable, Sendable, Equatable {
     case invocation
     case loop
     case explicitFailure
+
+    public var actionFailureKind: ActionFailure.Kind {
+        switch self {
+        case .timeout:
+            .timeout
+        case .runtimeUnavailable:
+            .accessibilityTreeUnavailable
+        case .targetResolution:
+            .elementNotFound
+        case .validation:
+            .validationError
+        case .internalInvariant,
+             .action,
+             .expectation,
+             .wait,
+             .invocation,
+             .loop,
+             .explicitFailure:
+            .actionFailed
+        }
+    }
 }

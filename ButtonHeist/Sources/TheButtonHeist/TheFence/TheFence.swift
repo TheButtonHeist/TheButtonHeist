@@ -99,11 +99,8 @@ public final class TheFence {
 
     private func sessionFailurePayload(for failure: HandoffConnectionError) -> SessionFailurePayload {
         SessionFailurePayload(
-            code: failure.failureCode,
-            phase: failure.phase,
-            retryable: failure.retryable,
-            message: failure.errorDescription,
-            hint: failure.hint
+            details: failure.failureDetails,
+            message: failure.errorDescription
         )
     }
 

@@ -24,10 +24,22 @@ public struct HeistReport: Sendable, Equatable {
         public let detail: HeistFailureDetail
         /// The failure headline for this node. Compound wrappers whose child
         /// supplies the actionable failure intentionally have no headline.
-        public let message: String?
-        public let actionKind: ActionFailure.Kind?
+        public var message: String? { suppressesMessage ? nil : detail.observed }
+        /// The canonical action failure classification, exposed with its
+        /// original optional source contract for existing clients.
+        public var actionKind: ActionFailure.Kind? { resolvedActionKind }
+        package let resolvedActionKind: ActionFailure.Kind
+        private let suppressesMessage: Bool
 
-        package var diagnosticMessage: String { message ?? detail.observed }
+        package init(
+            detail: HeistFailureDetail,
+            actionKind: ActionFailure.Kind,
+            suppressesMessage: Bool
+        ) {
+            self.detail = detail
+            resolvedActionKind = actionKind
+            self.suppressesMessage = suppressesMessage
+        }
     }
 
     public struct Node: Sendable, Equatable {
@@ -38,7 +50,8 @@ public struct HeistReport: Sendable, Equatable {
         public let command: HeistActionCommandType?
         public let target: AccessibilityTarget?
         public let status: HeistExecutionStepStatus
-        public let message: String?
+        private let successMessage: String?
+        public var message: String? { failure?.detail.observed ?? successMessage }
         public let failure: Failure?
         public let abortedAtChildPath: HeistExecutionPath?
         public let activationTrace: ActivationTrace?
@@ -46,7 +59,7 @@ public struct HeistReport: Sendable, Equatable {
         package let evidence: Evidence?
 
         public var expectation: ExpectationResult? {
-            expectationReplay?.success
+            evidence?.expectationResult
         }
 
         /// The recorded reason expectation truth could not be reconstructed.
@@ -54,24 +67,7 @@ public struct HeistReport: Sendable, Equatable {
         /// This is evidence uncertainty, not an interpretation failure. The
         /// execution node and its terminal failure remain available.
         public var expectationGap: Observation.Gap? {
-            expectationReplay?.failure
-        }
-
-        private var expectationReplay: Result<ExpectationResult, Observation.Gap>? {
-            switch evidence {
-            case .action(_, _, let replay):
-                replay
-            case .wait(_, let replay, _):
-                Optional(replay)
-            case .caseSelection,
-                 .forEachString,
-                 .forEachElement,
-                 .repeatUntil,
-                 .invocation,
-                 .warning,
-                 nil:
-                nil
-            }
+            evidence?.expectationGap
         }
 
         public var warning: HeistExecutionWarning? {
@@ -90,13 +86,13 @@ public struct HeistReport: Sendable, Equatable {
             command = step.actionCommand?.wireType
             target = step.reportTarget
             status = step.status
-            message = step.reportMessage
+            successMessage = step.failure == nil ? step.reportMessage : nil
             failure = step.failure.map {
                 Failure(
                     detail: $0,
-                    message: step.reportFailureMessage,
                     actionKind: step.actionEvidence?.result?.outcome.failureKind
-                        ?? (step.waitEvidence == nil ? nil : $0.actionFailureKind)
+                        ?? $0.category.actionFailureKind,
+                    suppressesMessage: step.reportSuppressesFailureMessage
                 )
             }
             abortedAtChildPath = step.abortedAtChildPath
@@ -176,10 +172,65 @@ public struct HeistReport: Sendable, Equatable {
                 return nil
             }
         }
+
+        package var observation: Observation.Evidence? {
+            switch self {
+            case .action(_, let evidence, _):
+                evidence.result?.observationEvidence
+            case .wait(let evidence, _, _):
+                evidence.observation
+            case .caseSelection,
+                 .forEachString,
+                 .forEachElement,
+                 .repeatUntil,
+                 .invocation,
+                 .warning:
+                nil
+            }
+        }
+
+        package var expectationEvidence: HeistExpectationEvidence? {
+            switch self {
+            case .action(_, let evidence, _):
+                evidence.expectationEvidence
+            case .wait(let evidence, _, _):
+                evidence
+            case .caseSelection,
+                 .forEachString,
+                 .forEachElement,
+                 .repeatUntil,
+                 .invocation,
+                 .warning:
+                nil
+            }
+        }
+
+        package var expectationResult: ExpectationResult? {
+            expectationReplay?.success
+        }
+
+        package var expectationGap: Observation.Gap? {
+            expectationReplay?.failure
+        }
+
+        private var expectationReplay: Result<ExpectationResult, Observation.Gap>? {
+            switch self {
+            case .action(_, _, let replay): replay
+            case .wait(_, let replay, _): replay
+            case .caseSelection,
+                 .forEachString,
+                 .forEachElement,
+                 .repeatUntil,
+                 .invocation,
+                 .warning:
+                nil
+            }
+        }
     }
 
     public struct Diagnostics: Sendable, Equatable {
         public let failureScreenshotSummary: String?
+        public let failureScreenshotFailureKind: ActionFailure.Kind?
         package let failureInterface: Interface?
 
         package func failureInterfaceDump(elementLimit: Int) -> String? {
@@ -255,9 +306,13 @@ public struct HeistReport: Sendable, Equatable {
     public let summary: Summary
     public let metrics: Metrics
     public let nodes: [Node]
-    public let failure: Failure?
-    public let warnings: [HeistExecutionWarning]
     public let diagnostics: Diagnostics
+
+    public var failure: Failure? { failedNode?.failure }
+
+    public var warnings: [HeistExecutionWarning] {
+        outputNodes.compactMap(\.warning)
+    }
 
     public var outputNodes: [Node] {
         var output: [Node] = []
@@ -271,15 +326,11 @@ public struct HeistReport: Sendable, Equatable {
         summary: Summary,
         metrics: Metrics,
         nodes: [Node],
-        failure: Failure?,
-        warnings: [HeistExecutionWarning],
         diagnostics: Diagnostics
     ) {
         self.summary = summary
         self.metrics = metrics
         self.nodes = nodes
-        self.failure = failure
-        self.warnings = warnings
         self.diagnostics = diagnostics
     }
 
@@ -316,9 +367,7 @@ private extension HeistReport {
         var expectationsChecked = 0
         var expectationsMet = 0
         var finalScreenId: String?
-        var firstFailedStep: HeistExecutionStepResult?
-        var firstFailure: Failure?
-        var warnings: [HeistExecutionWarning] = []
+        var firstFailedPath: HeistExecutionPath?
         var metricAccumulator: MetricAccumulator
 
         init(durationMs: ElapsedMilliseconds) {
@@ -343,9 +392,6 @@ private extension HeistReport {
                 .screenId {
                 finalScreenId = screenId
             }
-            if let warning = step.warningEvidence {
-                warnings.append(warning)
-            }
         }
 
         mutating func leave(_ step: HeistExecutionStepResult) {
@@ -355,9 +401,8 @@ private extension HeistReport {
                 expectationsChecked += 1
                 expectationsMet += node.expectation?.met == true ? 1 : 0
             }
-            if firstFailure == nil, let failure = node.failure, node.status == .failed {
-                firstFailedStep = step
-                firstFailure = failure
+            if firstFailedPath == nil, node.failure != nil, node.status == .failed {
+                firstFailedPath = step.path
             }
             if frames.isEmpty {
                 roots.append(node)
@@ -376,7 +421,7 @@ private extension HeistReport {
                     executedTopLevelStepCount: result.steps.count { $0.status != .skipped },
                     executedNodeCount: executedNodeCount,
                     outputNodeCount: outputNodeCount,
-                    abortedAtPath: firstFailedStep?.path,
+                    abortedAtPath: firstFailedPath,
                     durationMs: durationMs.milliseconds,
                     expectations: expectations,
                     finalScreenId: finalScreenId
@@ -386,10 +431,9 @@ private extension HeistReport {
                     ceilings: metricAccumulator.ceilings
                 ),
                 nodes: roots,
-                failure: firstFailure,
-                warnings: warnings,
                 diagnostics: Diagnostics(
                     failureScreenshotSummary: result.failureScreenshotSummary,
+                    failureScreenshotFailureKind: result.failureCapture?.failureKind,
                     failureInterface: result.failureDiagnosticInterface
                 )
             )

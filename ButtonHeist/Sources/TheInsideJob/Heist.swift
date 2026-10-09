@@ -105,7 +105,7 @@ public extension Heist {
             let failedNode = report.failedNode
             self.failedStepPath = failedNode?.path ?? "$"
             self.failedStepKind = failedNode?.kind ?? .fail
-            self.message = failedNode?.failure?.diagnosticMessage
+            self.message = failedNode?.failure?.detail.observed
                 ?? failedNode?.message
                 ?? "heist failed"
             self.diagnostic = failedNode?.failure.map { Self.diagnostic($0.detail) }
@@ -248,18 +248,7 @@ public extension Heist {
         }
 
         private static func expectationEvidence(_ node: HeistReport.Node) -> HeistExpectationEvidence? {
-            switch node.evidence {
-            case .action(_, let evidence, _): evidence.expectationEvidence
-            case .wait(let evidence, _, _): evidence
-            case .caseSelection,
-                 .forEachString,
-                 .forEachElement,
-                 .repeatUntil,
-                 .invocation,
-                 .warning,
-                 nil:
-                nil
-            }
+            node.evidence?.expectationEvidence
         }
 
         private static func screenChangeDescription(_ observation: Observation.Evidence) -> String {

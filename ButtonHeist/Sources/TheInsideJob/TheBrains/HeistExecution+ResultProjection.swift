@@ -118,7 +118,7 @@ extension HeistExecution {
                 completion: .failed(
                     evidence: nil,
                     failure: HeistFailureDetail(
-                        category: .wait,
+                        category: .timeout,
                         contract: "wait begins within the whole-heist deadline",
                         observed: "whole-heist deadline expired before wait observation",
                         expected: step.predicate.description
@@ -292,7 +292,7 @@ extension HeistExecution.ResultProjector {
         case .completed:
             switch dispatch.outcome {
             case .failure(let failure):
-                resultOutcome = .failure(TheBrains.actionFailureKind(for: failure))
+                resultOutcome = .failure(failure)
                 message = dispatch.message
             case .success:
                 resultOutcome = .success
@@ -303,7 +303,7 @@ extension HeistExecution.ResultProjector {
             message = "action observation cancelled"
         case .unavailable:
             resultOutcome = .failure(.accessibilityTreeUnavailable)
-            message = TheBrains.treeUnavailableMessage
+            message = TheBrains.accessibilityTreeUnavailableMessage
         case .viewportExitFailed:
             resultOutcome = .failure(.actionFailed)
             message = "Could not restore the accessibility viewport after observation"
@@ -382,7 +382,7 @@ extension HeistExecution.ResultProjector {
             observed = "wait observation was cancelled"
         case .unavailable:
             category = .runtimeUnavailable
-            observed = TheBrains.treeUnavailableMessage
+            observed = TheBrains.accessibilityTreeUnavailableMessage
         case .viewportExitFailed:
             category = .action
             observed = "Could not restore the accessibility viewport after observation"

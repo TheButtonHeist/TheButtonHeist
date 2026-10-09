@@ -626,6 +626,14 @@ each recorded result once, selects report nodes, and reads their report-owned
 action evidence; there is no competing execution report or Fence-owned report
 projection.
 
+Failure categories map once to the canonical `ActionFailure.Kind`. The report
+retains that typed classification even when an action or wait has no observation
+evidence, and every renderer derives its code, phase, retryability, hint, and
+message from the same failure. Terminal screenshot capture also remains typed:
+an unavailable capture keeps its failure kind, while a captured screen supplies
+the report's diagnostic interface. Public JSON bounds that interface with the
+failure-evidence limit and never emits screenshot bytes through the report.
+
 Each action or wait result owns its bounded `Observation.Evidence`. Report
 projection preserves that evidence on the corresponding semantic node and does
 not invent a heist-wide interval across step boundaries. Action renderers may
@@ -643,9 +651,10 @@ and rejects incompatible external fields. There is no `Result` repair path or
 synthetic fallback result. Status and abort paths derive from the private node,
 and the wire decoder accepts only fields legal for its `type` and `outcome`.
 
-`ActionDispatchResult` is the one aggregate of app-side action dispatch. Its
-outcome is success, with an optional payload and resolved element id, or failure,
-with a typed failure kind. The heist reducer combines that request outcome with
+`ActionDispatchResult` is the one aggregate of app-side action dispatch. It
+retains the action payload and evidence beside one standard-library
+`Result<HeistId?, ActionFailure.Kind>`: success carries the resolved element id,
+and failure carries the canonical typed failure kind. The heist reducer combines that request outcome with
 the canonical observation events retained by the Vault to construct the
 completed step directly; it does not translate through a second
 interaction-result or observation model.

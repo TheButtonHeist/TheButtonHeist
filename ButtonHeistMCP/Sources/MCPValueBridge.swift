@@ -4,6 +4,22 @@ import MCP
 import TheScore
 
 enum MCPValueBridge {
+    enum StructuredContent {
+        case rendered(Value)
+        case fallback(Value, DiagnosticFailure)
+
+        var value: Value {
+            switch self {
+            case .rendered(let value), .fallback(let value, _): value
+            }
+        }
+
+        var failure: DiagnosticFailure? {
+            guard case .fallback(_, let failure) = self else { return nil }
+            return failure
+        }
+    }
+
     static func commandEnvelope(from arguments: [String: Value]?) throws -> TheFence.CommandArgumentEnvelope {
         try validateArgumentObject(arguments)
         return TheFence.CommandArgumentEnvelope(
@@ -71,9 +87,10 @@ enum MCPValueBridge {
 
     static func structuredContent(
         for response: FenceResponse
-    ) throws -> Value {
-        let data = try response.jsonData(profile: .mcp, outputFormatting: [])
-        return try JSONDecoder().decode(Value.self, from: data)
+    ) throws -> StructuredContent {
+        let rendering = try response.jsonRendering(profile: .mcp, outputFormatting: [])
+        let value = try JSONDecoder().decode(Value.self, from: rendering.data)
+        return rendering.failure.map { .fallback(value, $0) } ?? .rendered(value)
     }
 
     static func jsonValueNode(_ value: Value) -> PublicJSONValueNode<Value> {

@@ -3,7 +3,7 @@ import ThePlans
 
 /// Failure classification for action dispatch and observation.
 public enum ActionFailure {
-    public enum Kind: String, Codable, Sendable, CaseIterable {
+    public enum Kind: String, Codable, Sendable, CaseIterable, Error {
         case accessibilityTreeUnavailable
         case elementNotFound
         case timeout

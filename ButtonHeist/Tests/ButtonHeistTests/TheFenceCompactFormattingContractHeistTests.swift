@@ -222,7 +222,10 @@ extension TheFenceCompactFormattingContractTests {
 
         let output = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result)).compactFormatted()
 
-        XCTAssertTrue(output.contains("[0] fail -> error: Unknown screen"), output)
+        XCTAssertTrue(
+            output.contains("[0] fail -> error[request.action_failed request retryable=false]: Unknown screen"),
+            output
+        )
     }
 
     func testPublicHeistJSONReportsFailStepMessage() throws {
@@ -281,10 +284,13 @@ extension TheFenceCompactFormattingContractTests {
 
         XCTAssertEqual(try node.object("failure").string("observed"), message)
         XCTAssertTrue(response.compactFormatted().contains(mismatch), response.compactFormatted())
-        XCTAssertEqual(
-            response.humanFormatted(),
-            "Heist: 1 top-level step(s) executed in 1ms (stopped at $.body[0]) [expectations: 0/1 met]"
+        let human = response.humanFormatted()
+        XCTAssertTrue(
+            human.contains("Heist: 1 top-level step(s) executed in 1ms (stopped at $.body[0])"),
+            human
         )
+        XCTAssertTrue(human.contains("Error at $.body[0] [request.action_failed request retryable=false]"), human)
+        XCTAssertTrue(human.contains(message), human)
         let junit = fence.junitXML(for: report, heistName: "toast")
         XCTAssertTrue(junit.contains(#"observed accessibility candidate label=&quot;Ticket saved., Dismiss&quot;"#))
         XCTAssertTrue(junit.contains(#"did not match exists(target(predicate(label=&quot;Ticket saved.&quot;)))"#))
@@ -564,7 +570,12 @@ extension TheFenceCompactFormattingContractTests {
         XCTAssertEqual(try rootProbe.string("abortedAtChildPath"), failedActionPath)
         XCTAssertEqual(try children.map { try $0.string("kind") }, ["for_each_iteration", "for_each_iteration"])
         XCTAssertTrue(compact.contains("heist: 1 top-level steps in 30ms"), compact)
-        XCTAssertTrue(compact.contains("[0] for_each_string -> error: for_each_string stopped"), compact)
+        XCTAssertTrue(
+            compact.contains(
+                "[0] for_each_string -> error[request.action_failed request retryable=false]: for_each_string stopped"
+            ),
+            compact
+        )
     }
 
 }

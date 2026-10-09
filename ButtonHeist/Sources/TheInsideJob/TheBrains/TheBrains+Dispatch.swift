@@ -213,26 +213,9 @@ extension TheBrains {
         case .failure(let failureKind):
             return .failure(
                 payload: result.payload,
-                failureKind: Self.actionFailureKind(for: failureKind),
+                failureKind: failureKind,
                 message: result.message
             )
-        }
-    }
-
-    nonisolated static func actionFailureKind(
-        for failureKind: TheSafecracker.FailureKind
-    ) -> ActionFailure.Kind {
-        switch failureKind {
-        case .actionFailed:
-            return .actionFailed
-        case .treeUnavailable:
-            return .accessibilityTreeUnavailable
-        case .timeout:
-            return .timeout
-        case .inputValidation:
-            return .validationError
-        case .targetUnavailable:
-            return .elementNotFound
         }
     }
 

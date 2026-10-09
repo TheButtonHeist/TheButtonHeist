@@ -129,7 +129,7 @@ extension Actions {
                 element: element,
                 liveObject: liveObject,
                 suggestion: "retry the same semantic target after UI settles",
-                failureKind: .targetUnavailable
+                failureKind: .elementNotFound
             )
         case .noRotors:
             return rotorFailure(observed: "customRotors=[]",
@@ -159,7 +159,7 @@ extension Actions {
                 element: element,
                 liveObject: liveObject,
                 suggestion: "start a new rotor traversal on the current screen",
-                failureKind: .targetUnavailable
+                failureKind: .elementNotFound
             )
         case .currentItemUnavailable(let heistId):
             return rotorFailure(
@@ -170,7 +170,7 @@ extension Actions {
                 element: element,
                 liveObject: liveObject,
                 suggestion: "start from the semantic target again or use the current continuation returned by the previous rotor result",
-                failureKind: .targetUnavailable
+                failureKind: .elementNotFound
             )
         case .continuationTextRangeUnavailable:
             return rotorFailure(observed: "continuation.textRange is not available",
@@ -247,7 +247,7 @@ extension Actions {
         element: InterfaceTree.Element,
         liveObject: NSObject,
         suggestion: String,
-        failureKind: TheSafecracker.FailureKind = .actionFailed
+        failureKind: ActionFailure.Kind = .actionFailed
     ) -> TheSafecracker.ActionDispatchResult {
         .failure(
             .rotor(nil),

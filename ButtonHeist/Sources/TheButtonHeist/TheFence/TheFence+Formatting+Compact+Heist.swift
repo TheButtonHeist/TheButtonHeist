@@ -23,9 +23,19 @@ extension FenceResponse {
             var line = "  [\(index)] \(Self.compactHeistStepName(step))"
             var detailLines: [String] = []
             let delta = step.evidence?.observationDelta(profile: profile)
-            if let failureMessage = step.failure?.message {
-                line += " -> error: \(failureMessage)"
+            if let failure = step.failure {
+                let diagnosticLines = Self.diagnosticLines(failure.diagnosticFailure)
+                line += " -> \(diagnosticLines[0])"
+                detailLines.append(contentsOf: diagnosticLines.dropFirst().map { "    \($0)" })
+                if !failure.detail.contract.isEmpty,
+                   failure.detail.contract != failure.detail.observed {
+                    detailLines.append("    contract: \(failure.detail.contract)")
+                }
+                if let expected = failure.detail.expected, !expected.isEmpty {
+                    detailLines.append("    expected: \(expected)")
+                }
                 detailLines = Self.compactHeistFailureDeltaLines(delta)
+                    + detailLines
                 if let timing = step.evidence?.expectationTiming {
                     detailLines.append("    expectation: \(Self.compactExpectationTiming(timing))")
                 }
@@ -48,6 +58,14 @@ extension FenceResponse {
             if !detailLines.isEmpty {
                 text += "\n" + detailLines.joined(separator: "\n")
             }
+        }
+        if let screenshot = report.diagnostics.failureScreenshotSummary {
+            text += "\n\(screenshot)"
+        }
+        if let interface = report.diagnostics.failureInterfaceDump(
+            elementLimit: profile.limits.failureInterfaceElements
+        ) {
+            text += "\n\(interface)"
         }
         return text
     }
@@ -79,44 +97,16 @@ extension FenceResponse {
 
 private extension HeistReport.Evidence {
     func observationDelta(profile: ProjectionProfile) -> DeltaProjection? {
-        switch self {
-        case .action(_, let evidence, _):
-            return evidence.result?.observationEvidence.flatMap {
-                DeltaProjection(
-                    evidence: $0,
-                    profile: profile,
-                    includeScreenInterface: true
-                )
-            }
-        case .wait(let evidence, _, _):
-            return DeltaProjection(
-                evidence: evidence.observation,
+        observation.flatMap {
+            DeltaProjection(
+                evidence: $0,
                 profile: profile,
                 includeScreenInterface: true
             )
-        case .caseSelection,
-             .forEachString,
-             .forEachElement,
-             .repeatUntil,
-             .invocation,
-             .warning:
-            return nil
         }
     }
 
     var expectationTiming: HeistExpectationTiming? {
-        switch self {
-        case .action(_, let evidence, _):
-            evidence.expectationEvidence?.timing
-        case .wait(let evidence, _, _):
-            evidence.timing
-        case .caseSelection,
-             .forEachString,
-             .forEachElement,
-             .repeatUntil,
-             .invocation,
-             .warning:
-            nil
-        }
+        expectationEvidence?.timing
     }
 }

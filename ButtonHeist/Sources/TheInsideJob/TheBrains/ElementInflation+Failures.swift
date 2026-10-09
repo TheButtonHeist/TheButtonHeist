@@ -30,7 +30,7 @@ extension ElementInflation {
 
     internal struct ElementInflationFailure: Error {
         internal let failedStep: ElementInflationFailureStep
-        internal let failureKind: TheSafecracker.FailureKind
+        internal let failureKind: ActionFailure.Kind
         internal let message: String
         internal let targetResolutionFailure: ElementActionTargetResolutionFailure?
 
@@ -39,18 +39,18 @@ extension ElementInflation {
         ) -> ElementInflationFailure {
             .init(
                 .targetResolution,
-                failureKind: .targetUnavailable,
+                failureKind: .elementNotFound,
                 message: failure.description,
                 targetResolutionFailure: failure
             )
         }
 
         internal static func notFound(_ message: String) -> ElementInflationFailure {
-            .init(.notFound, failureKind: .targetUnavailable, message: message)
+            .init(.notFound, failureKind: .elementNotFound, message: message)
         }
 
         internal static func ambiguous(_ message: String) -> ElementInflationFailure {
-            .init(.ambiguous, failureKind: .targetUnavailable, message: message)
+            .init(.ambiguous, failureKind: .elementNotFound, message: message)
         }
 
         internal static func noRevealPath(_ message: String) -> ElementInflationFailure {
@@ -59,7 +59,7 @@ extension ElementInflation {
 
         internal static func staleRefresh(
             _ message: String,
-            failureKind: TheSafecracker.FailureKind = .actionFailed
+            failureKind: ActionFailure.Kind = .actionFailed
         ) -> ElementInflationFailure {
             .init(.staleRefresh, failureKind: failureKind, message: message)
         }
@@ -74,7 +74,7 @@ extension ElementInflation {
 
         internal static func geometryNotActionable(
             _ message: String,
-            failureKind: TheSafecracker.FailureKind = .actionFailed
+            failureKind: ActionFailure.Kind = .actionFailed
         ) -> ElementInflationFailure {
             .init(.geometryNotActionable, failureKind: failureKind, message: message)
         }
@@ -85,7 +85,7 @@ extension ElementInflation {
 
         private init(
             _ step: ElementInflationFailureStep,
-            failureKind: TheSafecracker.FailureKind,
+            failureKind: ActionFailure.Kind,
             message: String,
             targetResolutionFailure: ElementActionTargetResolutionFailure? = nil
         ) {
@@ -101,7 +101,7 @@ extension ElementInflation {
     internal func staleRefreshFailure(reason: RetryReason) -> ElementInflationFailure {
         .staleRefresh(
             "target refresh reached the action deadline after \(reason.failureDescription)",
-            failureKind: .targetUnavailable
+            failureKind: .elementNotFound
         )
     }
 
