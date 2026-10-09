@@ -6,22 +6,22 @@ import TheScore
 
 @MainActor
 final class TheMuscleWireTests: TheMuscleTestCase {
-    func testServerHelloDeliveryRejectsStaleGenerationAndAdmitsCurrentGeneration() async {
-        let staleGeneration = deliveryGeneration
+    func testServerHelloDeliveryRejectsInvalidatedCapabilityAndAdmitsCurrentCapability() async {
+        let staleDelivery = delivery!
         await installCallbacks()
-        let currentGeneration = deliveryGeneration
+        let currentDelivery = delivery!
         let initialSendCount = sentMessages.count
 
         let staleOutcome = await muscle.sendServerHello(
             clientId: 7,
-            generation: staleGeneration
+            delivery: staleDelivery
         )
         XCTAssertEqual(staleOutcome, .transportUnavailable(clientId: nil))
         XCTAssertEqual(sentMessages.count, initialSendCount)
 
         let currentOutcome = await muscle.sendServerHello(
             clientId: 7,
-            generation: currentGeneration
+            delivery: currentDelivery
         )
         XCTAssertEqual(currentOutcome, .delivered)
         XCTAssertEqual(sentMessages.count, initialSendCount + 1)
@@ -47,7 +47,7 @@ final class TheMuscleWireTests: TheMuscleTestCase {
     }
 
     func testServerHelloResponseEnvelopeKeepsStableWireShape() async throws {
-        let outcome = await muscle.sendServerHello(clientId: 7, generation: deliveryGeneration)
+        let outcome = await muscle.sendServerHello(clientId: 7, delivery: delivery)
 
         XCTAssertEqual(outcome, .delivered)
         let sent = try XCTUnwrap(sentMessages.first)
@@ -71,7 +71,7 @@ final class TheMuscleWireTests: TheMuscleTestCase {
             1,
             data: data,
             respond: respond,
-            generation: deliveryGeneration
+            delivery: delivery
         )
 
         let response = try XCTUnwrap(responses().first)

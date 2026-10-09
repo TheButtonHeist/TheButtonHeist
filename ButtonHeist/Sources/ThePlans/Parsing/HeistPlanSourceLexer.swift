@@ -200,13 +200,10 @@ struct HeistPlanSourceLexer {
         HeistBuildSourceSpan(sourceName: sourceName, offset: offset, line: line, column: column, length: length)
     }
 
-    private func error(_ message: String) -> HeistSourceCompilationError {
-        HeistSourceCompilationError(
+    private func error(_ message: String) -> HeistPlanBuildError {
+        HeistPlanBuildError.sourceCompilation(
             message: message,
-            sourceName: sourceName,
-            offset: offset,
-            line: line,
-            column: column
+            sourceSpan: sourceSpan()
         )
     }
 }

@@ -130,7 +130,7 @@ extension HeistJUnitXML {
     }
 
     private static func failureType(for node: HeistReport.Node) -> String? {
-        node.failure?.resolvedActionKind.rawValue
+        node.failure?.actionKind.rawValue
     }
 }
 

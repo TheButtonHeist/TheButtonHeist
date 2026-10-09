@@ -8,12 +8,20 @@ public enum HeistPlanSourceAdmission {
     ) throws(HeistPlanBuildError) -> HeistPlanLoadRequest {
         switch (path, inlineDSL) {
         case (.some, .some):
-            throw HeistPlanBuildError(
-                diagnostics: HeistAdmissionFailure.multiplePlanSources(commandName: commandName).diagnostics
+            throw HeistPlanBuildError.admission(
+                code: .planningMultiplePlanSources,
+                message: """
+                \(commandName) accepts exactly one plan source: ButtonHeist DSL source in `plan` \
+                or a generated `.heist` package artifact in `path`.
+                """
             )
         case (.none, .none):
-            throw HeistPlanBuildError(
-                diagnostics: HeistAdmissionFailure.missingPlanSource(commandName: commandName).diagnostics
+            throw HeistPlanBuildError.admission(
+                code: .planningMissingPlanSource,
+                message: """
+                \(commandName) requires exactly one plan source: ButtonHeist DSL source in `plan` \
+                or a generated `.heist` package artifact in `path`.
+                """
             )
         case (.some(let path), .none):
             return HeistPlanLoadRequest(commandName: commandName, source: .artifactPath(path))
@@ -44,12 +52,11 @@ public enum HeistArgumentAdmission {
         do {
             return try JSONDecoder().decode(HeistArgument.self, from: data)
         } catch {
-            throw HeistPlanBuildError(diagnostics: [
-                HeistAdmissionFailure.invalidArgument(
-                    source: sourceURL.path,
-                    reason: String(describing: error)
-                ).diagnostic,
-            ])
+            throw HeistPlanBuildError.admission(
+                code: .planningInvalidArgument,
+                path: sourceURL.path,
+                message: "Invalid heist argument at \(sourceURL.path): \(String(describing: error))"
+            )
         }
     }
 
@@ -60,56 +67,26 @@ public enum HeistArgumentAdmission {
         do {
             _ = try HeistExecutionEnvironment.empty.binding(argument: argument, to: plan.parameter)
         } catch {
-            throw HeistPlanBuildError(
-                diagnostics: HeistAdmissionFailure.invalidRootArgument(String(describing: error)).diagnostics
+            throw HeistPlanBuildError.admission(
+                code: .planningInvalidRootArgument,
+                message: "run_heist argument does not match root heist parameter: \(String(describing: error))"
             )
         }
     }
 }
 
-package extension HeistAdmissionFailure {
-    var diagnostics: [HeistBuildDiagnostic] {
-        [diagnostic]
-    }
-
-    var diagnostic: HeistBuildDiagnostic {
-        switch self {
-        case .missingPlanSource:
-            return planningDiagnostic(code: .planningMissingPlanSource, message: description)
-        case .multiplePlanSources:
-            return planningDiagnostic(code: .planningMultiplePlanSources, message: description)
-        case .emptyPath:
-            return planningDiagnostic(code: .planningEmptyPath, message: description)
-        case .unsupportedPath(_, let path):
-            return planningDiagnostic(
-                code: .planningUnsupportedPath,
-                path: path,
-                message: description
-            )
-        case .emptyInlineSource:
-            return planningDiagnostic(code: .planningEmptyInlineSource, message: description)
-        case .invalidArgument(let source, _):
-            return planningDiagnostic(
-                code: .planningInvalidArgument,
-                path: source,
-                message: description
-            )
-        case .invalidRootArgument:
-            return planningDiagnostic(code: .planningInvalidRootArgument, message: description)
-        }
-    }
-
-    private func planningDiagnostic(
+private extension HeistPlanBuildError {
+    static func admission(
         code: HeistKnownBuildDiagnosticCode,
         path: String? = nil,
         message: String
-    ) -> HeistBuildDiagnostic {
-        HeistBuildDiagnostic(
+    ) -> HeistPlanBuildError {
+        HeistPlanBuildError(diagnostic: HeistBuildDiagnostic(
             code: code,
             phase: .planning,
             path: path,
             message: message
-        )
+        ))
     }
 }
 
@@ -120,15 +97,22 @@ private extension HeistPlanLoading {
     ) throws(HeistPlanBuildError) -> HeistPlan {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            throw HeistPlanBuildError(
-                diagnostics: HeistAdmissionFailure.emptyPath(commandName: commandName).diagnostics
+            throw HeistPlanBuildError.admission(
+                code: .planningEmptyPath,
+                message: "\(commandName) path must not be empty."
             )
         }
 
         let url = URL(fileURLWithPath: (trimmed as NSString).expandingTildeInPath)
         guard url.pathExtension.lowercased() == "heist" else {
-            throw HeistPlanBuildError(
-                diagnostics: HeistAdmissionFailure.unsupportedPath(commandName: commandName, path: path).diagnostics
+            throw HeistPlanBuildError.admission(
+                code: .planningUnsupportedPath,
+                path: path,
+                message: """
+                \(commandName) path must be a generated `.heist` package artifact for \(path). \
+                Use ButtonHeist DSL source or `.heist`; raw `.json` HeistPlan IR and `plan.json` \
+                are internal artifact content, not public run input.
+                """
             )
         }
 
@@ -156,8 +140,9 @@ private extension HeistPlanLoading {
         commandName: String
     ) throws(HeistPlanBuildError) -> HeistPlan {
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw HeistPlanBuildError(
-                diagnostics: HeistAdmissionFailure.emptyInlineSource(commandName: commandName).diagnostics
+            throw HeistPlanBuildError.admission(
+                code: .planningEmptyInlineSource,
+                message: "\(commandName) ButtonHeist DSL source must not be empty."
             )
         }
 

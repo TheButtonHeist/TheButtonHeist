@@ -230,7 +230,7 @@ final class CLICommandSyncTests: XCTestCase {
         // The compiled artifact round-trips losslessly through the canonical codec.
         let artifact = try HeistArtifactCodec.read(from: URL(fileURLWithPath: artifactPath))
         XCTAssertEqual(artifact.plan, plan)
-        XCTAssertEqual(artifact.manifest.entry, "swiftFlow")
+        XCTAssertEqual(artifact.plan.name, "swiftFlow")
 
         // And it dispatches as a .heist path, not inline version/body params.
         let arguments = try RunHeistCommand.planArguments(

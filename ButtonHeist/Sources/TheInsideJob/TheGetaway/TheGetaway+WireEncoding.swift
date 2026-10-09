@@ -102,18 +102,22 @@ extension TheGetaway {
         _ message: ServerMessage,
         requestId: RequestID? = nil,
         respond: @escaping SocketResponseHandler,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async -> ResponseDeliveryOutcome {
         await muscle.sendResponse(
             message,
             requestId: requestId,
             respond: respond,
-            generation: generation
+            delivery: delivery
         )
     }
 
-    func sendEncodedData(_ data: Data, toClient clientId: Int) async -> ResponseDeliveryOutcome {
-        switch await muscle.sendData(data, toClient: clientId) {
+    func sendEncodedData(
+        _ data: Data,
+        toClient clientId: Int,
+        delivery: ClientDelivery
+    ) async -> ResponseDeliveryOutcome {
+        switch await muscle.sendData(data, toClient: clientId, delivery: delivery) {
         case .delivered:
             return .delivered
         case .failed(let sendFailure):

@@ -132,9 +132,7 @@ private func writeRuntimeInvalidHeistArtifact(to url: URL) throws {
     try fileManager.createDirectory(at: url, withIntermediateDirectories: true)
     let manifest = HeistArtifactManifest(
         format: .buttonHeist,
-        entry: "tooManySteps",
         formatVersion: currentHeistArtifactFormatVersion,
-        planVersion: currentHeistPlanVersion,
         producer: .buttonHeist,
         createdAt: Date(timeIntervalSince1970: 0)
     )
@@ -148,7 +146,7 @@ private func runtimeInvalidPlanJSONData() throws -> Data {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
     return try encoder.encode(RuntimeInvalidPlanFixture(
-        version: currentHeistPlanVersion,
+        version: HeistPlan.currentVersion,
         name: "tooManySteps",
         body: Array(repeating: RuntimeInvalidWarnStepFixture(message: "too many steps"), count: 501)
     ))

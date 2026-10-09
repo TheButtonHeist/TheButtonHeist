@@ -27,8 +27,7 @@ class TheMuscleTestCase: XCTestCase {
     var muscle: TheMuscle!
 
     private var sink: TheMuscleCallbackSink!
-    private var latestDeliveryGenerationRawValue: UInt64 = 0
-    private(set) var deliveryGeneration = ClientDelivery.Generation(rawValue: 0)
+    private(set) var delivery: ClientDelivery!
 
     var sentMessages: [(data: Data, clientId: Int)] { sink.sentMessages }
     var disconnectedClients: [Int] { sink.disconnectedClients }
@@ -44,6 +43,7 @@ class TheMuscleTestCase: XCTestCase {
     }
 
     override func tearDown() async throws {
+        await delivery.invalidate()
         await muscle.tearDown()
         muscle = nil
         sink = nil
@@ -51,6 +51,7 @@ class TheMuscleTestCase: XCTestCase {
     }
 
     func replaceMuscle(sessionReleaseTimeout: TimeInterval) async {
+        await delivery.invalidate()
         await muscle.tearDown()
         muscle = makeMuscle(sessionReleaseTimeout: sessionReleaseTimeout)
         sink = TheMuscleCallbackSink()
@@ -59,11 +60,8 @@ class TheMuscleTestCase: XCTestCase {
 
     func installCallbacks() async {
         let sink = self.sink!
-        precondition(latestDeliveryGenerationRawValue < .max)
-        latestDeliveryGenerationRawValue += 1
-        deliveryGeneration = ClientDelivery.Generation(rawValue: latestDeliveryGenerationRawValue)
-        await muscle.beginCallbackWiring(deliveryGeneration)
-        await muscle.installCallbacks(
+        await delivery?.invalidate()
+        delivery = ClientDelivery(callbacks: ClientDelivery.Callbacks(
             sendToClient: { data, clientId in
                 sink.appendSent((data, clientId))
                 return .delivered
@@ -71,11 +69,10 @@ class TheMuscleTestCase: XCTestCase {
             disconnectClient: { clientId in
                 sink.appendDisconnected(clientId)
             },
-            onClientAuthenticated: { clientId, respond in
+            onClientAuthenticated: { _, clientId, respond in
                 sink.appendAuthenticatedCallback((clientId, respond))
-            },
-            generation: deliveryGeneration
-        )
+            }
+        ))
     }
 
     func encodeAuth(token: SessionAuthToken, driverId: DriverID? = nil) throws -> Data {
@@ -110,7 +107,7 @@ class TheMuscleTestCase: XCTestCase {
         await muscle.registerClientAddress(
             clientId,
             address: address,
-            generation: deliveryGeneration
+            delivery: delivery
         )
         guard let hello = try? JSONEncoder().encode(RequestEnvelope(message: .clientHello)) else {
             return XCTFail("Failed to encode clientHello")
@@ -119,13 +116,13 @@ class TheMuscleTestCase: XCTestCase {
             clientId,
             data: hello,
             respond: respond,
-            generation: deliveryGeneration
+            delivery: delivery
         )
         _ = await muscle.admitClientMessage(
             clientId,
             data: try encodeAuth(token: token, driverId: driverId),
             respond: respond,
-            generation: deliveryGeneration
+            delivery: delivery
         )
     }
 

@@ -252,12 +252,32 @@ public struct HeistBuildDiagnostic: Sendable, Equatable, CustomStringConvertible
 public struct HeistPlanBuildError: Error, Sendable, Equatable, CustomStringConvertible {
     public let diagnostics: [HeistBuildDiagnostic]
 
+    package init(diagnostics: [HeistBuildDiagnostic]) {
+        self.diagnostics = diagnostics
+    }
+
+    package init(diagnostic: HeistBuildDiagnostic) {
+        self.init(diagnostics: [diagnostic])
+    }
+
     public var description: String {
         "ButtonHeist plan build failed: \(diagnostics.map(\.renderedMessage).joined(separator: "; "))"
     }
 }
 
 extension HeistPlanBuildError {
+    static func sourceCompilation(
+        message: String,
+        sourceSpan: HeistBuildSourceSpan
+    ) -> HeistPlanBuildError {
+        HeistPlanBuildError(diagnostic: HeistBuildDiagnostic(
+            code: .sourceInvalidSyntax,
+            phase: .sourceCompilation,
+            sourceSpan: sourceSpan,
+            message: message
+        ))
+    }
+
     static func planStructure(
         path: String,
         message: String,

@@ -56,10 +56,13 @@ struct HeistSwiftFileCompilation: Sendable {
         try Task.checkCancellation()
         let source = source.standardizedFileURL
         guard FileManager.default.fileExists(atPath: source.path) else {
-            throw HeistSwiftFileCompilationError.sourceFileNotFound(source.path)
+            throw HeistPlanBuildError.swiftSourceNotFound(source)
         }
         HeistSwiftFileCompilationTrace.write("preparing Swift heist compile")
-        let thePlansSwiftcArguments = try Self.resolveThePlansSwiftcArguments(explicitPackageRoot: packageRoot)
+        let thePlansSwiftcArguments = try Self.resolveThePlansSwiftcArguments(
+            explicitPackageRoot: packageRoot,
+            diagnosticSource: source
+        )
 
         let tempURL = temporaryDirectory
             .appendingPathComponent("heist-source-\(UUID().uuidString)", isDirectory: true)
@@ -88,7 +91,8 @@ struct HeistSwiftFileCompilation: Sendable {
             compileDirectory: compileDirectory,
             buildDirectory: buildDirectory,
             moduleCache: moduleCache,
-            thePlansSwiftcArguments: thePlansSwiftcArguments
+            thePlansSwiftcArguments: thePlansSwiftcArguments,
+            entry: entry
         )
     }
 
@@ -97,7 +101,8 @@ struct HeistSwiftFileCompilation: Sendable {
         compileDirectory: URL,
         buildDirectory: URL,
         moduleCache: URL,
-        thePlansSwiftcArguments: [String]
+        thePlansSwiftcArguments: [String],
+        entry: HeistEntrySymbol
     ) async throws -> HeistPlan {
         let executableURL = buildDirectory.appendingPathComponent("plan-compiler")
         HeistSwiftFileCompilationTrace.write("compiling Swift heist wrapper against built ThePlans artifacts")
@@ -113,7 +118,7 @@ struct HeistSwiftFileCompilation: Sendable {
         )
         _ = try successfulOutput(
             from: compilerResult,
-            phase: .compilation(source.path)
+            phase: .compilation(source: source, entry: entry)
         )
 
         HeistSwiftFileCompilationTrace.write("running Swift heist wrapper")
@@ -124,18 +129,44 @@ struct HeistSwiftFileCompilation: Sendable {
         )
         let output = try successfulOutput(
             from: executionResult,
-            phase: .execution(source.path)
+            phase: .execution(source: source, entry: entry)
         )
 
         do {
-            return try HeistPlanJSONCodec.decodeValidatedPlan(output.stdout, sourceURL: source)
-        } catch let error as HeistPlanJSONCodecError {
-            throw HeistSwiftFileCompilationError.invalidCompilerOutput(error.description)
+            return try JSONDecoder().decode(HeistPlan.self, from: output.stdout)
         } catch let error as HeistPlanRuntimeSafetyError {
-            throw HeistSwiftFileCompilationError.runtimeSafetyFailed(error.description)
+            throw HeistPlanBuildError.swiftRuntimeSafetyFailure(
+                error.description,
+                source: source,
+                entry: entry
+            )
         } catch {
-            throw HeistSwiftFileCompilationError.invalidCompilerOutput(String(describing: error))
+            throw HeistPlanBuildError.invalidSwiftCompilerOutput(
+                Self.planDecodeDescription(error, source: source),
+                source: source,
+                entry: entry
+            )
         }
+    }
+
+    private static func planDecodeDescription(_ error: Error, source: URL) -> String {
+        let reason: String
+        switch error {
+        case DecodingError.typeMismatch(_, let context) where context.codingPath.isEmpty:
+            reason = "expected JSON object"
+        case DecodingError.keyNotFound(let key, _) where key.stringValue == "version":
+            return "Invalid heist plan at \(source.path): missing version."
+        case DecodingError.typeMismatch(_, let context) where context.codingPath.last?.stringValue == "version":
+            return "Invalid heist plan at \(source.path): version must be an integer, got \(context.debugDescription)."
+        case let versionError as HeistPlanVersionAdmissionError:
+            return """
+            Invalid heist plan at \(source.path): unsupported version \(versionError.observed). \
+            This Button Heist build supports version \(HeistPlan.currentVersion).
+            """
+        default:
+            reason = String(describing: error)
+        }
+        return "Invalid heist plan at \(source.path): \(reason)"
     }
 
     private func successfulOutput(
@@ -229,24 +260,15 @@ struct HeistSwiftFileCompilation: Sendable {
 extension HeistSwiftFileCompilation {
     private static let environmentOverrideKey = HeistSwiftFileCompilationEnvironmentKey.thePlansBuildDirectory
 
-    static func resolveThePlansSwiftcArguments(explicitPackageRoot: URL?) throws -> [String] {
-        try resolveThePlansSwiftcArguments(
-            explicitPackageRoot: explicitPackageRoot,
-            environment: ProcessInfo.processInfo.environment,
-            executableURL: currentExecutableURL()
-        )
-    }
-
     static func resolveThePlansSwiftcArguments(
         explicitPackageRoot: URL?,
-        environment: [String: String],
-        executableURL: URL?
+        diagnosticSource: URL? = nil
     ) throws -> [String] {
         try resolveThePlansSwiftcArguments(
             explicitPackageRoot: explicitPackageRoot,
-            environment: environment,
-            executableURL: executableURL,
-            swiftPMBuildDirectory: swiftPMBuildDirectory(for:)
+            environment: ProcessInfo.processInfo.environment,
+            executableURL: currentExecutableURL(),
+            diagnosticSource: diagnosticSource
         )
     }
 
@@ -254,6 +276,24 @@ extension HeistSwiftFileCompilation {
         explicitPackageRoot: URL?,
         environment: [String: String],
         executableURL: URL?,
+        diagnosticSource: URL? = nil
+    ) throws -> [String] {
+        try resolveThePlansSwiftcArguments(
+            explicitPackageRoot: explicitPackageRoot,
+            environment: environment,
+            executableURL: executableURL,
+            diagnosticSource: diagnosticSource,
+            swiftPMBuildDirectory: {
+                try swiftPMBuildDirectory(for: $0, diagnosticSource: diagnosticSource)
+            }
+        )
+    }
+
+    static func resolveThePlansSwiftcArguments(
+        explicitPackageRoot: URL?,
+        environment: [String: String],
+        executableURL: URL?,
+        diagnosticSource: URL? = nil,
         swiftPMBuildDirectory: (URL) throws -> URL
     ) throws -> [String] {
         // The override is an explicit boundary contract for Xcode and release
@@ -261,9 +301,10 @@ extension HeistSwiftFileCompilation {
         if let override = environmentOverridePath(in: environment) {
             HeistSwiftFileCompilationTrace.write("resolving \(environmentOverrideKey) override at \(override)")
             guard (override as NSString).isAbsolutePath else {
-                throw HeistSwiftFileCompilationError.buildArtifactsNotFound(
+                throw HeistPlanBuildError.swiftBuildArtifactsNotFound(
                     searched: [override],
-                    hint: "\(environmentOverrideKey) must name one absolute build directory."
+                    hint: "\(environmentOverrideKey) must name one absolute build directory.",
+                    source: diagnosticSource
                 )
             }
             let buildDirectory = URL(fileURLWithPath: override, isDirectory: true)
@@ -275,7 +316,7 @@ extension HeistSwiftFileCompilation {
                 HeistSwiftFileCompilationTrace.write("using built ThePlans artifacts at \(buildDirectory.path)")
                 return arguments
             }
-            throw HeistSwiftFileCompilationError.buildArtifactsNotFound(
+            throw HeistPlanBuildError.swiftBuildArtifactsNotFound(
                 searched: [buildDirectory.path],
                 hint: """
                 \(environmentOverrideKey)=\(override) does not contain built ThePlans artifacts \
@@ -283,12 +324,13 @@ extension HeistSwiftFileCompilation {
                 ThePlans.framework in an Xcode products directory). \
                 Build them with `swift build --product heist-plan` \
                 and point \(environmentOverrideKey) at the absolute path of `.build/debug`.
-                """
+                """,
+                source: diagnosticSource
             )
         }
 
         if let explicitPackageRoot {
-            let packageRoot = try admittedPackageRoot(explicitPackageRoot)
+            let packageRoot = try admittedPackageRoot(explicitPackageRoot, diagnosticSource: diagnosticSource)
             HeistSwiftFileCompilationTrace.write("checking ButtonHeist package root: \(packageRoot.path)")
             let buildDirectory = try swiftPMBuildDirectory(packageRoot)
             if let arguments = try resolveSwiftPMBuildDirectory(buildDirectory) {
@@ -296,19 +338,20 @@ extension HeistSwiftFileCompilation {
                 return arguments
             }
 
-            throw HeistSwiftFileCompilationError.buildArtifactsNotFound(
+            throw HeistPlanBuildError.swiftBuildArtifactsNotFound(
                 searched: [buildDirectory.path],
                 hint: """
                 SwiftPM reports no built ThePlans artifacts for \(packageRoot.path). \
                 Build that package with `swift build --product heist-plan`, or set \
                 \(environmentOverrideKey) to the absolute path of one exact SwiftPM build directory \
                 or Xcode products directory.
-                """
+                """,
+                source: diagnosticSource
             )
         }
 
         guard let installedBuildDirectory = installedBuildDirectory(for: executableURL) else {
-            throw HeistSwiftFileCompilationError.packageRootNotFound
+            throw HeistPlanBuildError.swiftPackageRootNotFound(source: diagnosticSource)
         }
         HeistSwiftFileCompilationTrace.write("checking installed ThePlans artifacts: \(installedBuildDirectory.path)")
         if let arguments = try resolveSwiftPMBuildDirectory(installedBuildDirectory) {
@@ -316,13 +359,14 @@ extension HeistSwiftFileCompilation {
             return arguments
         }
 
-        throw HeistSwiftFileCompilationError.buildArtifactsNotFound(
+        throw HeistPlanBuildError.swiftBuildArtifactsNotFound(
             searched: [installedBuildDirectory.path],
             hint: """
             The installed executable's prefix does not contain its required ThePlans artifacts. \
             Reinstall Button Heist, supply Configuration(packageRoot:), or set \
             \(environmentOverrideKey) to one exact SwiftPM build directory or Xcode products directory.
-            """
+            """,
+            source: diagnosticSource
         )
     }
 }
@@ -337,7 +381,7 @@ private extension HeistSwiftFileCompilation {
         return override
     }
 
-    private static func admittedPackageRoot(_ url: URL) throws -> URL {
+    private static func admittedPackageRoot(_ url: URL, diagnosticSource: URL?) throws -> URL {
         let packageRoot = url.standardizedFileURL
         let manifest = packageRoot.appendingPathComponent("Package.swift")
         let directSources = packageRoot.appendingPathComponent("Sources/ThePlans", isDirectory: true)
@@ -346,7 +390,7 @@ private extension HeistSwiftFileCompilation {
             || FileManager.default.fileExists(atPath: repositorySources.path)
         guard FileManager.default.fileExists(atPath: manifest.path),
               containsThePlans else {
-            throw HeistSwiftFileCompilationError.packageRootNotFound
+            throw HeistPlanBuildError.swiftPackageRootNotFound(source: diagnosticSource)
         }
         return packageRoot
     }
@@ -433,7 +477,10 @@ private extension HeistSwiftFileCompilation {
         ]
     }
 
-    private static func swiftPMBuildDirectory(for packageRoot: URL) throws -> URL {
+    private static func swiftPMBuildDirectory(
+        for packageRoot: URL,
+        diagnosticSource: URL?
+    ) throws -> URL {
         let process = Process()
         let standardOutput = Pipe()
         let standardError = Pipe()
@@ -461,9 +508,10 @@ private extension HeistSwiftFileCompilation {
                 bytes: standardError.fileHandleForReading.readDataToEndOfFile(),
                 encoding: .utf8
             )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            throw HeistSwiftFileCompilationError.buildArtifactsNotFound(
+            throw HeistPlanBuildError.swiftBuildArtifactsNotFound(
                 searched: [packageRoot.path],
-                hint: "SwiftPM could not resolve this package's build directory: \(diagnostics)"
+                hint: "SwiftPM could not resolve this package's build directory: \(diagnostics)",
+                source: diagnosticSource
             )
         }
         return URL(fileURLWithPath: output, isDirectory: true).standardizedFileURL

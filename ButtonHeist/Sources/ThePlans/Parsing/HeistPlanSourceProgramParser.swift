@@ -133,7 +133,7 @@ extension HeistPlanSourceParser {
         do {
             definitionPath = try HeistDefinitionPath(validating: path)
         } catch {
-            throw HeistSourceCompilationError(diagnostic: .invalidDefinitionPath(
+            throw HeistPlanBuildError(diagnostic: .invalidDefinitionPath(
                 path,
                 error: error,
                 phase: .sourceCompilation,
@@ -371,7 +371,7 @@ private extension HeistPlanSourceParser {
         do {
             invocationPath = try HeistInvocationPath(validating: name)
         } catch let validationError {
-            throw HeistSourceCompilationError(diagnostic: .invalidInvocationPath(
+            throw HeistPlanBuildError(diagnostic: .invalidInvocationPath(
                 name,
                 error: validationError,
                 phase: .sourceCompilation,

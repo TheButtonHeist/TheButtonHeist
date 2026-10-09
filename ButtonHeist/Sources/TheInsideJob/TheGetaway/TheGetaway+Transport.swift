@@ -14,38 +14,28 @@ extension TheGetaway {
     ) async -> TransportWiringOutcome {
         let attempt = TransportWiringAttempt(
             transport: transport,
-            deliveryGeneration: issueDeliveryGeneration()
+            delivery: clientDelivery(for: transport)
         )
+        let replacedDelivery = transportWiring.delivery
         let cleanup = replacementCleanup()
         transportWiring = .wiring(attempt, cleanup: cleanup)
+        if let replacedDelivery {
+            await replacedDelivery.invalidate()
+        }
         await cleanup?.value
         guard transportWiring.admits(attempt) else {
             return await rejectTransportWiring(attempt)
         }
 
-        await transportWiringBoundary.beforeCallbackBegin(attempt)
-        let beginOutcome = await muscle.beginCallbackWiring(attempt.deliveryGeneration)
-        guard beginOutcome == .admitted,
-              transportWiring.admits(attempt)
-        else {
-            return await rejectTransportWiring(attempt)
-        }
-
-        let installOutcome = await installTransportCallbacks(for: attempt)
-        guard installOutcome == .installed,
-              transportWiring.admits(attempt)
-        else {
+        await transportWiringBoundary.beforeControlPlaneAdmission(attempt)
+        guard transportWiring.admits(attempt) else {
             return await rejectTransportWiring(attempt)
         }
         return await wireControlPlane(for: attempt, onBacklogOverflow: onBacklogOverflow)
     }
 
-    private func installTransportCallbacks(
-        for attempt: TransportWiringAttempt
-    ) async -> ClientDelivery.InstallOutcome {
-        let transport = attempt.transport
+    private func clientDelivery(for transport: ServerTransport) -> ClientDelivery {
         let server = transport.server
-        let generation = attempt.deliveryGeneration
         let sendToClient: @Sendable (Data, Int) async -> ServerSendOutcome = { data, clientId in
             await server.send(data, to: clientId)
         }
@@ -53,18 +43,17 @@ extension TheGetaway {
             await server.removeClient(clientId)
         }
         let onAuthenticated: @MainActor @Sendable (
+            ClientDelivery,
             Int,
             @escaping SocketResponseHandler
-        ) async -> Void = { [weak self] _, respond in
-            await self?.sendServerInfo(respond: respond, generation: generation)
+        ) async -> Void = { [weak self] delivery, _, respond in
+            await self?.sendServerInfo(respond: respond, delivery: delivery)
         }
-        await transportWiringBoundary.beforeCallbackInstallation(attempt)
-        return await muscle.installCallbacks(
+        return ClientDelivery(callbacks: ClientDelivery.Callbacks(
             sendToClient: sendToClient,
             disconnectClient: disconnect,
-            onClientAuthenticated: onAuthenticated,
-            generation: generation
-        )
+            onClientAuthenticated: onAuthenticated
+        ))
     }
 
     private func wireControlPlane(
@@ -72,14 +61,14 @@ extension TheGetaway {
         onBacklogOverflow: @escaping @MainActor @Sendable (Int) async -> Void
     ) async -> TransportWiringOutcome {
         let transport = attempt.transport
-        let generation = attempt.deliveryGeneration
+        let delivery = attempt.delivery
         let mainActorStream = AsyncStream<TransportControlPlane.MainActorEvent>.makeStream(
             bufferingPolicy: .bufferingOldest(TransportControlPlane.mainActorEventBufferLimit)
         )
         let controlPlane = TransportControlPlane(
             transport: transport,
             muscle: muscle,
-            generation: generation,
+            delivery: delivery,
             pongPayload: pongPayload,
             probe: mainThreadProbe,
             publish: { event in
@@ -101,7 +90,7 @@ extension TheGetaway {
         )
         transportWiring = .wired(wiring)
         await controlPlane.start()
-        guard transportWiring.admitsEvent(generation: generation) else {
+        guard transportWiring.admitsEvent(delivery: delivery) else {
             mainActorStream.continuation.finish()
             mainActorConsumer.cancel()
             await controlPlane.stop()
@@ -116,7 +105,7 @@ extension TheGetaway {
         if transportWiring.admits(attempt) {
             transportWiring = .unwired
         }
-        await muscle.invalidateCallbacks(for: attempt.deliveryGeneration)
+        await attempt.delivery.invalidate()
         return .rejected
     }
 
@@ -146,12 +135,12 @@ extension TheGetaway {
     func tearDown() async {
         let wiring = transportWiring.wired
         let cleanup = transportWiring.cleanup
-        let generation = transportWiring.deliveryGeneration
+        let delivery = transportWiring.delivery
         transportWiring = .unwired
         wiring?.mainActorEvents.finish()
         wiring?.mainActorConsumer.cancel()
-        if let generation {
-            await muscle.invalidateCallbacks(for: generation)
+        if let delivery {
+            await delivery.invalidate()
         }
         await cleanup?.value
         await stopWiring(wiring)
@@ -167,9 +156,9 @@ extension TheGetaway {
         onBacklogOverflow: @escaping @MainActor @Sendable (Int) async -> Void
     ) async {
         switch event {
-        case .controlChanged(let generation):
+        case .controlChanged(let delivery):
             guard case .wired(let wiring) = transportWiring,
-                  wiring.attempt.deliveryGeneration == generation
+                  wiring.attempt.delivery === delivery
             else { return }
             let changes = await wiring.controlPlane.consumeControlChanges()
             for lease in changes.endedLeases {
@@ -179,9 +168,9 @@ extension TheGetaway {
                 await onBacklogOverflow(maxEvents)
             }
 
-        case .dispatch(let message, let respond, let lease, let generation):
+        case .dispatch(let message, let respond, let lease, let delivery):
             guard case .wired(let wiring) = transportWiring,
-                  wiring.attempt.deliveryGeneration == generation,
+                  wiring.attempt.delivery === delivery,
                   await wiring.controlPlane.consumeDispatch(for: lease)
             else { return }
             let clientId = message.clientId
@@ -189,18 +178,18 @@ extension TheGetaway {
             let submission = brains.submitTransportRequest(lease: lease) { [weak self] in
                 guard !Task.isCancelled,
                       let self,
-                      self.transportWiring.admitsEvent(generation: generation),
+                      self.transportWiring.admitsEvent(delivery: delivery),
                       await controlPlane.isCurrent(lease)
                 else { return }
                 await self.executeClientMessage(
                     message,
                     respond: respond,
-                    generation: generation
+                    delivery: delivery
                 )
             }
             if case .rejected(let rejection) = submission {
                 guard case .wired(let wiring) = transportWiring,
-                      wiring.attempt.deliveryGeneration == generation
+                      wiring.attempt.delivery === delivery
                 else { return }
                 insideJobLogger.error(
                     "Client \(clientId) interaction submission rejected: \(String(describing: rejection))"

@@ -162,19 +162,6 @@ struct HeistSwiftCompilerTests {
 #endif
 
     @Test
-    func `compiler plan JSON maps typed version admission failure`() {
-        let data = Data(#"{"version":4,"body":[{"type":"warn","warn":{"message":"future"}}]}"#.utf8)
-        let sourceURL = URL(fileURLWithPath: "/tmp/future-plan.swift")
-
-        #expect(throws: HeistPlanJSONCodecError.unsupportedVersion(
-            source: sourceURL.path,
-            observed: 4
-        )) {
-            _ = try HeistPlanJSONCodec.decodeValidatedPlan(data, sourceURL: sourceURL)
-        }
-    }
-
-    @Test
     func `compileFile returns a runtime validated HeistPlan`() async throws {
         let temp = try CompilerTemporaryDirectory()
         let source = try temp.writeSwiftSource(
@@ -658,24 +645,24 @@ struct HeistSwiftCompilerTests {
                 }
             )
             Issue.record("Expected explicit package root without artifacts to fail")
-        } catch let error as HeistSwiftFileCompilationError {
-            guard case .buildArtifactsNotFound(let searched, _) = error else {
-                Issue.record("Expected build artifact diagnostic, got \(error)")
-                return
-            }
-            #expect(searched.allSatisfy { $0.hasPrefix(admittedRoot.path + "/.build/") })
-            #expect(!searched.contains(outsideBuild.path))
+        } catch let error as HeistPlanBuildError {
+            #expect(error.diagnostics.map(\.code.knownCode) == [.swiftCompilationBuildArtifactsNotFound])
+            #expect(error.description.contains(admittedRoot.path + "/.build/"))
+            #expect(!error.description.contains(outsideBuild.path))
         }
     }
 
     @Test
     func `missing artifact context fails with typed diagnostic`() throws {
-        #expect(throws: HeistSwiftFileCompilationError.packageRootNotFound) {
+        do {
             _ = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
                 explicitPackageRoot: nil,
                 environment: [:],
                 executableURL: nil
             )
+            Issue.record("Expected missing artifact context to fail")
+        } catch let error as HeistPlanBuildError {
+            #expect(error.diagnostics.map(\.code.knownCode) == [.swiftCompilationPackageRootNotFound])
         }
     }
 
@@ -714,7 +701,7 @@ struct HeistSwiftCompilerTests {
 
     @Test
     func `relative environment artifact override is rejected`() throws {
-        #expect(throws: HeistSwiftFileCompilationError.self) {
+        #expect(throws: HeistPlanBuildError.self) {
             _ = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
                 explicitPackageRoot: nil,
                 environment: ["HEIST_THEPLANS_BUILD_DIR": ".build/debug"],

@@ -10,15 +10,9 @@ func representativeArtifactPlan() throws -> HeistPlan {
 }
 
 func validArtifactManifest() -> HeistArtifactManifest {
-    validArtifactManifest(entry: "searchFlow")
-}
-
-func validArtifactManifest(entry: HeistPlanName) -> HeistArtifactManifest {
     HeistArtifactManifest(
         format: .buttonHeist,
-        entry: entry,
         formatVersion: currentHeistArtifactFormatVersion,
-        planVersion: currentHeistPlanVersion,
         producer: .buttonHeist,
         createdAt: Date(timeIntervalSince1970: 0)
     )
@@ -55,7 +49,6 @@ func writePackage(
 }
 
 func rawArtifactManifestJSON(
-    entry: String?,
     includeFormatVersion: Bool = true,
     producerFields: [String] = [#" "name" : "buttonheist""#],
     additionalFields: [String] = []
@@ -63,14 +56,10 @@ func rawArtifactManifestJSON(
     var fields = [
         #"  "createdAt" : "2026-06-05T00:00:00Z""#,
         #"  "format" : "com.royalpineapple.buttonheist.heist""#,
-        #"  "planVersion" : 3"#,
         #"  "producer" : { \#(producerFields.joined(separator: ", ")) }"#,
     ]
-    if let entry {
-        fields.insert(#"  "entry" : "\#(entry)""#, at: 1)
-    }
     if includeFormatVersion {
-        fields.insert(#"  "formatVersion" : 1"#, at: 2)
+        fields.insert(#"  "formatVersion" : 2"#, at: 2)
     }
     fields.append(contentsOf: additionalFields)
     return Data(("{\n" + fields.joined(separator: ",\n") + "\n}\n").utf8)

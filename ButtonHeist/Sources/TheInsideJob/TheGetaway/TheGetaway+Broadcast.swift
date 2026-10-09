@@ -26,14 +26,14 @@ extension TheGetaway {
             logEncodingFailure(failure)
             return .failed(.responseEncodingFailed(failure))
         }
-        guard transport != nil else {
+        guard let delivery = transportWiring.wired?.attempt.delivery else {
             let outcome = ResponseDeliveryOutcome.transportUnavailable(clientId: nil)
             insideJobLogger.error("\(outcome.description)")
             return outcome
         }
         var firstFailure: ResponseDeliveryOutcome?
         for clientId in await muscle.activeSessionConnections.sorted() {
-            switch await sendEncodedData(data, toClient: clientId) {
+            switch await sendEncodedData(data, toClient: clientId, delivery: delivery) {
             case .delivered:
                 continue
             case .refused(let failure), .failed(let failure):

@@ -1,15 +1,14 @@
-import Foundation
 import ThePlans
 import TheScore
 
 // MARK: - Heist Repair Evidence
 
-package enum HeistRepairEvidenceOutcome: Codable, Sendable, Equatable {
+package enum HeistRepairEvidenceOutcome: Sendable, Equatable {
     case passed
     case failed(failureKind: ActionFailure.Kind?, message: String?)
 }
 
-package struct HeistRepairEvidence: Codable, Sendable, Equatable {
+package struct HeistRepairEvidence: Sendable, Equatable {
     package let heistFingerprint: String?
     package let stepPath: HeistExecutionPath
     package let command: HeistActionCommand
@@ -46,7 +45,7 @@ package struct HeistRepairEvidence: Codable, Sendable, Equatable {
     }
 }
 
-package struct HeistRepairRequest: Codable, Sendable, Equatable {
+package struct HeistRepairRequest: Sendable, Equatable {
     package let lastSuccess: HeistRepairEvidence
     package let currentFailure: HeistRepairEvidence
 
@@ -62,32 +61,6 @@ package struct HeistRepairRequest: Codable, Sendable, Equatable {
         }
         self.lastSuccess = lastSuccess
         self.currentFailure = currentFailure
-    }
-
-    private enum CodingKeys: String, CodingKey, CaseIterable {
-        case lastSuccess
-        case currentFailure
-    }
-
-    package init(from decoder: Decoder) throws {
-        try decoder.rejectUnknownKeys(allowed: CodingKeys.self, typeName: "heist repair request")
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let lastSuccess = try container.decode(HeistRepairEvidence.self, forKey: .lastSuccess)
-        let currentFailure = try container.decode(HeistRepairEvidence.self, forKey: .currentFailure)
-        do {
-            try self.init(lastSuccess: lastSuccess, currentFailure: currentFailure)
-        } catch {
-            throw DecodingError.dataCorrupted(.init(
-                codingPath: decoder.codingPath,
-                debugDescription: String(describing: error)
-            ))
-        }
-    }
-
-    package func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(lastSuccess, forKey: .lastSuccess)
-        try container.encode(currentFailure, forKey: .currentFailure)
     }
 
     private enum ValidationError: Error, CustomStringConvertible {
