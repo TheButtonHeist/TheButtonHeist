@@ -53,8 +53,12 @@ JSON-lines executes one request at a time, so stream order is its correlation
 contract; it has no second request-ID envelope.
 
 ButtonHeistMCP projects one tool per exposed Fence command from the same
-contract. Wire message discriminators live one layer lower in TheScore and are
-documented separately.
+contract. Fence payload decoding maps malformed nested values, including
+predicates, to one field-qualified `SchemaValidationError` path. Responses flow
+back through `FenceResponse.jsonRendering`; CLI and MCP consume that rendering
+and its bounded fallback instead of defining adapter-specific outcome shapes.
+Wire message discriminators live one layer lower in TheScore and are documented
+separately.
 
 Typed `FenceCommandDescriptor` values are the sole owners of public command
 shape. The committed public CLI/MCP command-contract JSON is generated only as

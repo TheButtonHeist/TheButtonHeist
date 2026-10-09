@@ -235,16 +235,16 @@ struct RenderResponseTests {
         #expect(root["canonicalPlan"] == nil)
     }
 
-    @Test("structured encoding fallback replaces text and error status")
+    @Test("canonical JSON fallback replaces text and error status")
     func structuredEncodingFallbackReplacesTextAndErrorStatus() throws {
         let failure = DiagnosticFailure(
             message: "Failed to encode structured tool response: fallback failed",
             details: FailureDetails(code: .formattingJSONEncodingFailed)
         )
-        let fallback = try MCPValueBridge.structuredContent(for: .error(failure))
+        let fallback = try FenceResponse.error(failure).jsonData(profile: .mcp, outputFormatting: [])
         let result = ButtonHeistMCPServer.renderResponse(
             .ok(message: "done"),
-            structuredContent: .fallback(fallback.value, failure)
+            jsonRenderer: { _ in .fallback(fallback, failure) }
         )
         let root = try #require(result.structuredContent?.objectValue)
         let details = try #require(root["details"]?.objectValue)
@@ -260,6 +260,26 @@ struct RenderResponseTests {
         #expect(details["kind"]?.stringValue == "client")
         #expect(details["phase"]?.stringValue == "client")
         #expect(details["retryable"] == Value.bool(false))
+        guard case .text(let text, _, _)? = result.content.first else {
+            Issue.record("expected diagnostic text content")
+            return
+        }
+        #expect(text.contains("formatting.json_encoding_failed"))
+        #expect(!text.contains("done"))
+    }
+
+    @Test("structured projection failure returns the canonical formatting diagnostic")
+    func structuredProjectionFailureReturnsCanonicalFormattingDiagnostic() throws {
+        let result = ButtonHeistMCPServer.renderResponse(
+            .ok(message: "done"),
+            jsonRenderer: { _ in throw StructuredProjectionTestError.failed }
+        )
+        let root = try #require(result.structuredContent?.objectValue)
+
+        #expect(result.isError == true)
+        #expect(root["status"]?.stringValue == "error")
+        #expect(root["code"]?.stringValue == "formatting.json_encoding_failed")
+        #expect(root["message"]?.stringValue?.contains("Failed to project structured tool response") == true)
         guard case .text(let text, _, _)? = result.content.first else {
             Issue.record("expected diagnostic text content")
             return
@@ -430,6 +450,10 @@ struct RenderResponseTests {
             respondsToUserInteraction: false
         )
     }
+}
+
+private enum StructuredProjectionTestError: Error {
+    case failed
 }
 
 private func containsObjectKey(_ key: String, in value: Value?) -> Bool {

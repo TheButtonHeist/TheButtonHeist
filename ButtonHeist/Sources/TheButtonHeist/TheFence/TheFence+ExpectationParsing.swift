@@ -23,7 +23,7 @@ extension TheFence {
 
         static func parseExpectation(_ value: HeistValue?) throws -> AccessibilityPredicate? {
             guard let value else { return nil }
-            return try parsePredicate(value)
+            return try parsePredicate(value, field: .expect)
         }
 
         /// Parse a required `AccessibilityPredicate` object (the `wait`
@@ -36,16 +36,17 @@ extension TheFence {
                     expected: "object"
                 )
             }
-            return try parsePredicate(value)
+            return try parsePredicate(value, field: .predicate)
         }
 
-        static func parsePredicate(_ value: HeistValue) throws -> AccessibilityPredicate {
+        static func parsePredicate(
+            _ value: HeistValue,
+            field: FenceParameterKey
+        ) throws -> AccessibilityPredicate {
             return try TheFence.HeistValuePayloadDecoder.decode(
                 value,
-                field: "expect",
-                as: AccessibilityPredicate.self,
-                includesRootInField: false,
-                dataCorruptedHandling: .invalidRequest
+                field: field.rawValue,
+                as: AccessibilityPredicate.self
             )
         }
 

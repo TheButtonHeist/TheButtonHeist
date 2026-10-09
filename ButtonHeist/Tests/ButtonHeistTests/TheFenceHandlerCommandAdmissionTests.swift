@@ -123,6 +123,33 @@ extension TheFenceHandlerTests {
     }
 
     @ButtonHeistActor
+    func testMalformedPredicatesUseFieldQualifiedValidationFailures() async {
+        let invalidPredicate: HeistValue = .object([
+            "type": .string("eventually"),
+        ])
+        let cases: [(TheFence.Command, [String: HeistValue], String)] = [
+            (
+                .wait,
+                ["predicate": invalidPredicate],
+                "predicate.type"
+            ),
+            (
+                .activate,
+                ["target": targetValue(identifier: "myElement"), "expect": invalidPredicate],
+                "expect.type"
+            ),
+        ]
+
+        for (command, arguments, field) in cases {
+            await assertValidationFailure(command: command, arguments: arguments) { failure in
+                XCTAssertEqual(failure.details.code, .requestValidationError)
+                XCTAssertTrue(failure.message.contains("schema validation failed for \(field)"))
+                XCTAssertTrue(failure.message.contains("Predicate type \"eventually\" is not valid"))
+            }
+        }
+    }
+
+    @ButtonHeistActor
     func testMixedAndLegacyRotorSelectorsAreRejected() async {
         let target = targetValue(identifier: "myElement")
         let cases: [([String: HeistValue], String)] = [

@@ -78,11 +78,6 @@ extension HeistValue {
     }
 }
 
-enum HeistValuePayloadDataCorruptedHandling {
-    case schemaValidation
-    case invalidRequest
-}
-
 extension TheFence {
     /// Serialize typed CLI/MCP values into the raw public JSON boundary currency.
     @_spi(ButtonHeistTooling) public enum HeistValuePayloadEncoder {
@@ -97,8 +92,7 @@ extension TheFence {
             _ value: HeistValue,
             field rootField: String,
             as type: T.Type,
-            includesRootInField: Bool = true,
-            dataCorruptedHandling: HeistValuePayloadDataCorruptedHandling = .schemaValidation
+            includesRootInField: Bool = true
         ) throws -> T {
             do {
                 let data = try JSONEncoder().encode(value)
@@ -108,8 +102,7 @@ extension TheFence {
                     error,
                     value: value,
                     rootField: rootField,
-                    includesRootInField: includesRootInField,
-                    dataCorruptedHandling: dataCorruptedHandling
+                    includesRootInField: includesRootInField
                 )
             } catch {
                 throw FenceError.invalidRequest(String(describing: error))
@@ -120,8 +113,7 @@ extension TheFence {
             _ error: DecodingError,
             value: HeistValue,
             rootField: String,
-            includesRootInField: Bool,
-            dataCorruptedHandling: HeistValuePayloadDataCorruptedHandling
+            includesRootInField: Bool
         ) -> Error {
             switch error {
             case .typeMismatch(let expectedType, let context):
@@ -148,17 +140,12 @@ extension TheFence {
                     expected: "present"
                 )
             case .dataCorrupted(let context):
-                switch dataCorruptedHandling {
-                case .schemaValidation:
-                    return SchemaValidationError(
-                        field: field(rootField, codingPath: context.codingPath, includesRoot: includesRootInField),
-                        observed: payloadValue(at: context.codingPath, in: value)?.schemaObservedDescription
-                            ?? "invalid value",
-                        expected: context.debugDescription
-                    )
-                case .invalidRequest:
-                    return FenceError.invalidRequest(context.debugDescription)
-                }
+                return SchemaValidationError(
+                    field: field(rootField, codingPath: context.codingPath, includesRoot: includesRootInField),
+                    observed: payloadValue(at: context.codingPath, in: value)?.schemaObservedDescription
+                        ?? "invalid value",
+                    expected: context.debugDescription
+                )
             @unknown default:
                 return FenceError.invalidRequest(String(describing: error))
             }
