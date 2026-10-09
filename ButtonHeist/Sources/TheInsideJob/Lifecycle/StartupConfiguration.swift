@@ -105,8 +105,7 @@ struct StartupInfoPlist: Equatable, Sendable {
 enum InfoPlistValue: Equatable, Sendable, CustomStringConvertible {
     case bool(Bool)
     case string(String)
-    case integer(Int)
-    case double(Double)
+    case number(Double)
     case stringArray([String])
     case unsupported(String)
 
@@ -124,15 +123,8 @@ enum InfoPlistValue: Equatable, Sendable, CustomStringConvertible {
         return nil
     }
 
-    var integer: Int? {
-        if case .integer(let value) = self {
-            return value
-        }
-        return nil
-    }
-
-    var double: Double? {
-        if case .double(let value) = self {
+    var number: Double? {
+        if case .number(let value) = self {
             return value
         }
         return nil
@@ -151,9 +143,7 @@ enum InfoPlistValue: Equatable, Sendable, CustomStringConvertible {
             return String(value)
         case .string(let value):
             return value
-        case .integer(let value):
-            return String(value)
-        case .double(let value):
+        case .number(let value):
             return String(value)
         case .stringArray(let value):
             return Self.describe(value)
@@ -199,10 +189,7 @@ private func decodeFoundationInfoPlistValue(_ object: Any) -> InfoPlistValue {
         if number.isBooleanPropertyListValue {
             return .bool(number.boolValue)
         }
-        if CFNumberIsFloatType(number as CFNumber) {
-            return .double(number.doubleValue)
-        }
-        return .integer(Int(truncating: number))
+        return .number(number.doubleValue)
     }
     return .unsupported(String(describing: object))
 }
@@ -230,8 +217,8 @@ struct StartupEnvironmentKey: RawRepresentable, Hashable, Sendable {
     static let port = StartupEnvironmentKey(.insideJobPort)
     static let scope = StartupEnvironmentKey(.insideJobScope)
     static let sessionTimeout = StartupEnvironmentKey(.insideJobSessionTimeout)
-    static let fingerprintsEnabled = StartupEnvironmentKey(rawValue: "INSIDEJOB_FINGERPRINTS")
-    static let failureEvidence = StartupEnvironmentKey(rawValue: "BUTTONHEIST_FAILURE_EVIDENCE")
+    static let fingerprintsEnabled = StartupEnvironmentKey(.insideJobFingerprints)
+    static let failureEvidence = StartupEnvironmentKey(.buttonheistFailureEvidence)
 
     fileprivate static let processProjectionKeys: [StartupEnvironmentKey] = [
         .disableAutoStart,
@@ -436,17 +423,11 @@ struct StartupConfiguration: Equatable, Sendable {
     }
 
     private static func parsePort(_ value: InfoPlistValue) -> UInt16? {
-        if let string = value.string {
-            return UInt16(string.trimmingCharacters(in: .whitespacesAndNewlines))
-        }
-        if let int = value.integer, int >= 0, int <= Int(UInt16.max) {
-            return UInt16(int)
-        }
-        if let double = value.double,
-           double.rounded(.towardZero) == double,
-           double >= 0,
-           double <= Double(UInt16.max) {
-            return UInt16(double)
+        if let number = value.number,
+           number.rounded(.towardZero) == number,
+           number >= 0,
+           number <= Double(UInt16.max) {
+            return UInt16(number)
         }
         return nil
     }
@@ -486,16 +467,7 @@ struct StartupConfiguration: Equatable, Sendable {
     }
 
     private static func parseTimeInterval(_ value: InfoPlistValue) -> TimeInterval? {
-        if let string = value.string {
-            return TimeInterval(string.trimmingCharacters(in: .whitespacesAndNewlines))
-        }
-        if let double = value.double {
-            return double
-        }
-        if let int = value.integer {
-            return TimeInterval(int)
-        }
-        return nil
+        value.number
     }
 
     private static func resolveAllowedScopes(
@@ -529,9 +501,6 @@ struct StartupConfiguration: Equatable, Sendable {
     }
 
     private static func parseScopes(_ value: InfoPlistValue) -> Set<ConnectionScope>? {
-        if let string = value.string {
-            return ConnectionScope.parse(string)
-        }
         if let strings = value.stringArray {
             return ConnectionScope.parse(strings.joined(separator: ","))
         }
@@ -568,10 +537,10 @@ struct StartupConfiguration: Equatable, Sendable {
     }
 
     private static func parseBool(_ value: String) -> Bool? {
-        switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "true", "1", "yes":
+        switch value {
+        case "true":
             return true
-        case "false", "0", "no":
+        case "false":
             return false
         default:
             return nil
@@ -579,13 +548,7 @@ struct StartupConfiguration: Equatable, Sendable {
     }
 
     private static func parseBool(_ value: InfoPlistValue) -> Bool? {
-        if let bool = value.bool {
-            return bool
-        }
-        if let string = value.string {
-            return parseBool(string)
-        }
-        return nil
+        value.bool
     }
 
     private static func resolveFailureEvidencePolicy(

@@ -25,7 +25,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             return mock
         }
 
-        handoff.setupAutoReconnect(filter: "App")
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: "App"))
         handoff.connect(to: device)
 
         await Task.yield()
@@ -69,13 +69,13 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             return connection
         }
 
-        handoff.setupAutoReconnect(filter: "OldApp")
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: "OldApp"))
         handoff.connect(to: oldDevice)
         XCTAssertEqual(connectedIDs, ["old-device"])
         await Task.yield()
         XCTAssertEqual(reconnectSleeper.sleepCallCount, 1)
 
-        handoff.setupAutoReconnect(filter: "NewApp")
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: "NewApp"))
         reconnectSleeper.resumeNext()
         await Task.yield()
 
@@ -121,7 +121,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         handoff.makeDiscovery = { mockDiscovery }
         handoff.startDiscovery()
 
-        handoff.setupAutoReconnect(filter: nil)
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: nil))
 
         handoff.connect(to: device)
         XCTAssertEqual(connectionCount, 1)
@@ -137,7 +137,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         let oldDevice = DiscoveredDevice(host: "127.0.0.1", port: 1111)
         let newDevice = DiscoveredDevice(host: "127.0.0.1", port: 2222)
 
-        XCTAssertTrue(lifecycle.setup(filter: "OldApp"))
+        XCTAssertTrue(lifecycle.setup(target: DeviceResolutionTarget(filter: "OldApp")))
         guard let oldTarget = lifecycle.targetForDisconnectedDevice(oldDevice) else {
             return XCTFail("Expected old reconnect target")
         }
@@ -146,7 +146,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         }
         XCTAssertTrue(lifecycle.isReconnectRunning)
 
-        XCTAssertTrue(lifecycle.setup(filter: "NewApp"))
+        XCTAssertTrue(lifecycle.setup(target: DeviceResolutionTarget(filter: "NewApp")))
         XCTAssertFalse(lifecycle.isReconnectRunning)
         XCTAssertFalse(lifecycle.finishSuccess(oldRun))
         XCTAssertFalse(lifecycle.finishFailure(oldRun, failure: .connectionFailed("stale")))
@@ -166,7 +166,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         let lifecycle = HandoffConnectionLifecycle()
         let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
 
-        XCTAssertTrue(lifecycle.setup(filter: nil))
+        XCTAssertTrue(lifecycle.setup(target: DeviceResolutionTarget(filter: nil)))
         guard let target = lifecycle.targetForDisconnectedDevice(device) else {
             return XCTFail("Expected reconnect target")
         }
@@ -183,7 +183,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
         let failure = HandoffConnectionError.connectionFailed("gave up")
 
-        XCTAssertTrue(lifecycle.setup(filter: nil))
+        XCTAssertTrue(lifecycle.setup(target: DeviceResolutionTarget(filter: nil)))
         guard let target = lifecycle.targetForDisconnectedDevice(device) else {
             return XCTFail("Expected reconnect target")
         }
@@ -198,7 +198,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         XCTAssertFalse(lifecycle.finishFailure(run, failure: .connectionFailed("again")))
         XCTAssertNil(lifecycle.targetForDisconnectedDevice(device))
 
-        XCTAssertTrue(lifecycle.setup(filter: nil))
+        XCTAssertTrue(lifecycle.setup(target: DeviceResolutionTarget(filter: nil)))
         XCTAssertNotNil(lifecycle.targetForDisconnectedDevice(device))
     }
 
@@ -208,7 +208,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         let firstDevice = DiscoveredDevice(host: "127.0.0.1", port: 1111)
         let secondDevice = DiscoveredDevice(host: "127.0.0.1", port: 2222)
 
-        XCTAssertTrue(lifecycle.setup(filter: nil))
+        XCTAssertTrue(lifecycle.setup(target: DeviceResolutionTarget(filter: nil)))
         guard let firstTarget = lifecycle.targetForDisconnectedDevice(firstDevice),
               let firstRun = lifecycle.run(target: firstTarget, operation: { _ in })
         else {
@@ -242,7 +242,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             return connection
         }
 
-        handoff.setupAutoReconnect(filter: nil)
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: nil))
         handoff.connect(to: device)
 
         assertReconnecting(handoff.connectionPhase, device: device)
@@ -265,7 +265,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         var phases: [HandoffConnectionPhase] = []
         lifecycle.onPhaseChanged = { phases.append($0) }
 
-        XCTAssertTrue(lifecycle.setup(filter: nil))
+        XCTAssertTrue(lifecycle.setup(target: DeviceResolutionTarget(filter: nil)))
         guard let firstRun = lifecycle.run(target: target, operation: { _ in }) else {
             return XCTFail("Expected first reconnect run")
         }
@@ -294,7 +294,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         var phases: [HandoffConnectionPhase] = []
         lifecycle.onPhaseChanged = { phases.append($0) }
 
-        XCTAssertTrue(lifecycle.setup(filter: nil))
+        XCTAssertTrue(lifecycle.setup(target: DeviceResolutionTarget(filter: nil)))
         guard let run = lifecycle.run(target: target, operation: { _ in }) else {
             return XCTFail("Expected reconnect run")
         }
@@ -335,7 +335,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         mockDiscovery.discoveredDevices = [device]
         handoff.makeDiscovery = { mockDiscovery }
         handoff.startDiscovery()
-        handoff.setupAutoReconnect(filter: nil)
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: nil))
 
         handoff.connect(to: device)
         await fulfillment(of: [disconnected], timeout: 5)
@@ -356,7 +356,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
         let enabledPolicyHandoff = TheHandoff()
         let enabledPolicyDevice = DiscoveredDevice(host: "127.0.0.1", port: 5678)
         _ = connectMockHandoff(enabledPolicyHandoff, device: enabledPolicyDevice)
-        enabledPolicyHandoff.setupAutoReconnect(filter: nil)
+        enabledPolicyHandoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: nil))
 
         enabledPolicyHandoff.forceDisconnect()
 
@@ -446,7 +446,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
     func testRuntimePhaseDropsConnectionHandleWhenDisconnecting() async {
         let handoff = TheHandoff()
         let mock = connectPendingMockHandoff(handoff)
-        handoff.setupAutoReconnect(filter: nil)
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: nil))
 
         XCTAssertNotNil(handoff.connectionLifecycle.activeConnection)
 
@@ -481,7 +481,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             return connection
         }
 
-        handoff.setupAutoReconnect(filter: "127.0.0.1:1456")
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: "127.0.0.1:1456"))
         handoff.connect(to: device)
 
         await fulfillment(of: [reconnected], timeout: 5)
@@ -515,7 +515,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             return connection
         }
 
-        handoff.setupAutoReconnect(filter: "127.0.0.1:1457")
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: "127.0.0.1:1457"))
         handoff.connect(to: device)
 
         await fulfillment(of: [reconnected], timeout: 5)
@@ -542,7 +542,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             return connection
         }
 
-        handoff.setupAutoReconnect(filter: "127.0.0.1:1458")
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: "127.0.0.1:1458"))
         handoff.connect(to: device)
 
         let timedOutAttemptDisconnected = await eventually(within: .seconds(1)) {
@@ -600,7 +600,7 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             }
         }
 
-        handoff.setupAutoReconnect(filter: "Checkout")
+        handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: "Checkout"))
         handoff.connect(to: originalDevice)
 
         await fulfillment(of: [gaveUp], timeout: 5)

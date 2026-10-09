@@ -515,16 +515,15 @@ module. The compiler accepts only these sources, in this order:
 
    ```bash
    swift build --product heist-plan
-   HEIST_THEPLANS_BUILD_DIR="$PWD/.build/debug" \
+   HEIST_THEPLANS_BUILD_DIR="$(swift build --show-bin-path)" \
      heist-plan compile Flow.swift --entry makeHeist --output Flow.heist
    ```
 
 2. **An explicit package root** —
    `HeistSwiftCompiler.Configuration(packageRoot:)` admits one Button Heist
-   package. The compiler checks that package's host-triple `debug` and
-   `release` directories, then its legacy `.build/debug` and `.build/release`
-   directories. It does not leave that package root or inspect sibling
-   checkouts.
+   package. The compiler asks SwiftPM for that package's one active binary
+   directory with `swift build --show-bin-path`; it does not guess build
+   layouts, inspect sibling checkouts, or fall back to another configuration.
 
 3. **Installed compiler artifacts** — The Homebrew distribution supports Apple
    Silicon macOS only. It installs `heist-plan` next to `buttonheist` and

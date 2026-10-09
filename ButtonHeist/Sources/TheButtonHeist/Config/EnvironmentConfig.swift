@@ -108,25 +108,25 @@ public enum SessionIdleTimeout: Sendable, Equatable {
 /// Use `resolve()` to build this from the current environment, then access `.fenceConfiguration`
 /// to create a `TheFence`.
 public struct EnvironmentConfig: Sendable {
-    public let deviceFilter: String?
+    let connectionTarget: DeviceResolutionTarget
     let token: SessionAuthToken?
     let driverID: DriverID?
     public let sessionTimeout: SessionIdleTimeout
     let connectionTimeout: TimeInterval
     let fileConfig: ButtonHeistFileConfig?
-    let directDevice: DiscoveredDevice?
     let autoReconnect: Bool
+
+    public var hasConnectionTarget: Bool { !connectionTarget.isAutomatic }
 
     /// Build a `TheFence.Configuration` from this resolved config.
     public var fenceConfiguration: TheFence.Configuration {
         .init(
-            deviceFilter: deviceFilter,
+            connectionTarget: connectionTarget,
             connectionTimeout: connectionTimeout,
             token: token,
             driverID: driverID,
             autoReconnect: autoReconnect,
-            fileConfig: fileConfig,
-            directDevice: directDevice
+            fileConfig: fileConfig
         )
     }
 
@@ -141,64 +141,14 @@ public struct EnvironmentConfig: Sendable {
         sessionTimeout: TimeInterval? = nil,
         connectionTimeout: TimeInterval? = nil,
         autoReconnect: Bool = true,
+        configPath: String? = nil,
         environment: ButtonHeistEnvironment = .current
     ) throws -> EnvironmentConfig {
-        try resolve(
-            deviceFilter: deviceFilter,
-            token: token,
-            sessionTimeout: sessionTimeout,
-            connectionTimeout: connectionTimeout,
-            autoReconnect: autoReconnect,
-            fileConfig: try TargetConfigResolver.loadConfig(searchPaths: TargetConfigResolver.searchPaths),
-            environment: environment
-        )
-    }
-
-    /// Resolve configuration with an optional config path from a caller-owned source.
-    /// A nil path uses the default search paths; a non-nil path is an explicit config path.
-    public static func resolve(
-        deviceFilter: String? = nil,
-        token: String? = nil,
-        sessionTimeout: TimeInterval? = nil,
-        connectionTimeout: TimeInterval? = nil,
-        autoReconnect: Bool = true,
-        configPath: String?,
-        environment: ButtonHeistEnvironment = .current
-    ) throws -> EnvironmentConfig {
-        guard let configPath else {
-            return try resolve(
-                deviceFilter: deviceFilter,
-                token: token,
-                sessionTimeout: sessionTimeout,
-                connectionTimeout: connectionTimeout,
-                autoReconnect: autoReconnect,
-                environment: environment
-            )
+        let fileConfig = if let configPath {
+            try TargetConfigResolver.loadConfig(from: configPath)
+        } else {
+            try TargetConfigResolver.loadConfig(searchPaths: TargetConfigResolver.searchPaths)
         }
-        return try resolve(
-            deviceFilter: deviceFilter,
-            token: token,
-            sessionTimeout: sessionTimeout,
-            connectionTimeout: connectionTimeout,
-            autoReconnect: autoReconnect,
-            configPath: configPath,
-            environment: environment
-        )
-    }
-
-    /// Resolve configuration with an explicit user-provided config path.
-    /// Missing or malformed explicit config files are diagnostic failures, not
-    /// alternate config searches.
-    public static func resolve(
-        deviceFilter: String? = nil,
-        token: String? = nil,
-        sessionTimeout: TimeInterval? = nil,
-        connectionTimeout: TimeInterval? = nil,
-        autoReconnect: Bool = true,
-        configPath: String,
-        environment: ButtonHeistEnvironment = .current
-    ) throws -> EnvironmentConfig {
-        let fileConfig = try TargetConfigResolver.loadConfig(from: configPath)
         return try resolve(
             deviceFilter: deviceFilter,
             token: token,
@@ -220,31 +170,22 @@ public struct EnvironmentConfig: Sendable {
         environment: ButtonHeistEnvironment
     ) throws -> EnvironmentConfig {
 
-        let envDevice = environment.device
         let envToken = environment.token
-        let configTarget = TargetConfigResolver.resolveEffective(config: fileConfig, environment: environment)
+        let requestedDevice = deviceFilter ?? environment.device
+        let defaultTargetName = fileConfig?.defaultTarget
+        let configTarget = defaultTargetName.flatMap { fileConfig?.targets[$0] }
 
-        let resolvedDevice: String?
+        let connectionTarget: DeviceResolutionTarget
         let resolvedToken: String?
-        let directDevice: DiscoveredDevice?
-        if let explicitOrEnvDevice = deviceFilter ?? envDevice {
-            resolvedDevice = explicitOrEnvDevice
+        if let requestedDevice {
+            connectionTarget = DeviceResolutionTarget(filter: requestedDevice)
             resolvedToken = token ?? envToken
-            directDevice = nil
-        } else if let configTarget {
-            resolvedDevice = configTarget.device
-            resolvedToken = token ?? configTarget.token
-            directDevice = DiscoveredDevice.fromHostPort(
-                configTarget.device,
-                id: DiscoveryDeviceID(
-                    stringLiteral: "config-\(fileConfig?.defaultTarget?.rawValue ?? configTarget.device)"
-                ),
-                name: fileConfig?.defaultTarget?.rawValue
-            )
+        } else if let defaultTargetName, let configTarget {
+            connectionTarget = DeviceResolutionTarget(config: configTarget, named: defaultTargetName)
+            resolvedToken = token ?? envToken ?? configTarget.token
         } else {
-            resolvedDevice = nil
+            connectionTarget = DeviceResolutionTarget(filter: nil)
             resolvedToken = token ?? envToken
-            directDevice = nil
         }
 
         let resolvedSessionTimeoutSeconds = try TransportTimeout.resolve(
@@ -269,13 +210,12 @@ public struct EnvironmentConfig: Sendable {
         )
 
         return EnvironmentConfig(
-            deviceFilter: resolvedDevice,
+            connectionTarget: connectionTarget,
             token: try resolvedToken.map(SessionAuthToken.init(validating:)),
             driverID: try environment.driverID.map(DriverID.init(validating:)),
             sessionTimeout: resolvedSessionTimeout,
             connectionTimeout: resolvedConnectionTimeout,
             fileConfig: fileConfig,
-            directDevice: directDevice,
             autoReconnect: autoReconnect
         )
     }

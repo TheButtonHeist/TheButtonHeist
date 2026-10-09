@@ -21,30 +21,9 @@ enum MCPValueBridge {
     }
 
     static func commandEnvelope(from arguments: [String: Value]?) throws -> TheFence.CommandArgumentEnvelope {
-        try validateArgumentObject(arguments)
-        return TheFence.CommandArgumentEnvelope(
-            values: try (arguments ?? [:]).mapValues { try heistValue(from: $0) }
-        )
-    }
-
-    static func validateArgumentObject(
-        _ arguments: [String: Value]?,
-        context: String = "MCP arguments",
-        maxBytes: Int = PublicJSONInputLimits.maxRequestBytes,
-        maxNestingDepth: Int = PublicJSONInputLimits.maxNestingDepth,
-        maxTotalObjectKeys: Int = PublicJSONInputLimits.maxTotalObjectKeys
-    ) throws {
-        try PublicJSONValuePreflight.validateObject(
-            arguments ?? [:],
-            policy: PublicJSONInputPolicy(
-                maxBytes: maxBytes,
-                maxNestingDepth: maxNestingDepth,
-                maxTotalObjectKeys: maxTotalObjectKeys,
-                nullHandling: .rejected(expected: "non-null command argument")
-            ),
-            context: context,
-            node: jsonValueNode
-        )
+        let values = try (arguments ?? [:]).mapValues(heistValue)
+        try PublicJSONInputDecoder.validate(values, context: "MCP arguments")
+        return TheFence.CommandArgumentEnvelope(values: values)
     }
 
     static func value(from heistValue: HeistValue) -> Value {
@@ -64,7 +43,7 @@ enum MCPValueBridge {
         }
     }
 
-    static func heistValue(from value: Value) throws -> HeistValue {
+    private static func heistValue(from value: Value) throws -> HeistValue {
         switch value {
         case .null:
             throw PublicJSONInputError("MCP arguments contains null")
@@ -73,15 +52,18 @@ enum MCPValueBridge {
         case .int(let int):
             return .int(int)
         case .double(let double):
+            guard double.isFinite else {
+                throw PublicJSONInputError("MCP arguments contains a non-finite number")
+            }
             return .double(double)
         case .string(let string):
             return .string(string)
         case .data:
             throw PublicJSONInputError("MCP arguments contains binary data")
         case .array(let values):
-            return .array(try values.map { try heistValue(from: $0) })
+            return .array(try values.map(heistValue))
         case .object(let object):
-            return .object(try object.mapValues { try heistValue(from: $0) })
+            return .object(try object.mapValues(heistValue))
         }
     }
 
@@ -93,24 +75,4 @@ enum MCPValueBridge {
         return rendering.failure.map { .fallback(value, $0) } ?? .rendered(value)
     }
 
-    static func jsonValueNode(_ value: Value) -> PublicJSONValueNode<Value> {
-        switch value {
-        case .null:
-            return .null
-        case .bool(let bool):
-            return .bool(bool)
-        case .int(let int):
-            return .int(int)
-        case .double(let double):
-            return .double(double)
-        case .string(let string):
-            return .string(string)
-        case let .data(mimeType, data):
-            return .data(mimeType: mimeType, byteCount: data.count)
-        case .array(let values):
-            return .array(values)
-        case .object(let object):
-            return .object(object)
-        }
-    }
 }

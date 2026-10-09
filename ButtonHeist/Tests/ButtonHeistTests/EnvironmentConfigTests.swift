@@ -7,7 +7,8 @@ final class EnvironmentConfigTests: XCTestCase {
 
     func testDefaultsWithEmptyEnv() throws {
         let config = try resolve(env: .empty)
-        XCTAssertNil(config.deviceFilter)
+        XCTAssertEqual(config.connectionTarget, DeviceResolutionTarget(filter: nil))
+        XCTAssertFalse(config.hasConnectionTarget)
         XCTAssertNil(config.token)
         XCTAssertEqual(config.sessionTimeout, .after(60))
         XCTAssertEqual(config.connectionTimeout, 30.0)
@@ -20,7 +21,8 @@ final class EnvironmentConfigTests: XCTestCase {
             .buttonheistToken: "tok-123",
         ])
         let config = try resolve(env: env)
-        XCTAssertEqual(config.deviceFilter, "127.0.0.1:1455")
+        XCTAssertEqual(config.connectionTarget, DeviceResolutionTarget(filter: "127.0.0.1:1455"))
+        XCTAssertTrue(config.hasConnectionTarget)
         XCTAssertEqual(config.token, "tok-123")
     }
 
@@ -34,8 +36,25 @@ final class EnvironmentConfigTests: XCTestCase {
             token: "explicit-token",
             env: env
         )
-        XCTAssertEqual(config.deviceFilter, "explicit-device")
+        XCTAssertEqual(config.connectionTarget, DeviceResolutionTarget(filter: "explicit-device"))
         XCTAssertEqual(config.token, "explicit-token")
+    }
+
+    func testDefaultConfigTargetUsesEnvironmentToken() throws {
+        let name = TargetName(rawValue: "sim")
+        let target = TargetConfig(device: "127.0.0.1:1455", token: "config-token")
+        let config = try EnvironmentConfig.resolve(
+            deviceFilter: nil,
+            token: nil,
+            sessionTimeout: nil,
+            connectionTimeout: nil,
+            autoReconnect: true,
+            fileConfig: ButtonHeistFileConfig(targets: [name: target], defaultTarget: name),
+            environment: ButtonHeistEnvironment(token: "env-token")
+        )
+
+        XCTAssertEqual(config.connectionTarget, DeviceResolutionTarget(config: target, named: name))
+        XCTAssertEqual(config.token, "env-token")
     }
 
     func testSessionTimeoutFromEnvVar() throws {
@@ -130,7 +149,7 @@ final class EnvironmentConfigTests: XCTestCase {
             env: .empty
         )
         let fence = config.fenceConfiguration
-        XCTAssertEqual(fence.deviceFilter, "127.0.0.1:1455")
+        XCTAssertEqual(fence.connectionTarget, DeviceResolutionTarget(filter: "127.0.0.1:1455"))
         XCTAssertEqual(fence.token, "tok")
         XCTAssertEqual(fence.connectionTimeout, 15.0)
         XCTAssertEqual(fence.autoReconnect, false)

@@ -38,7 +38,7 @@ final class CommandArgumentEnvelopeLimitsTests: XCTestCase {
         )) { error in
             assertSchemaError(
                 error,
-                message: "schema validation failed for run_heist: observed 9 bytes; expected JSON request <= 5 bytes"
+                message: "schema validation failed for run_heist: observed 15 bytes; expected JSON request <= 5 bytes"
             )
         }
     }

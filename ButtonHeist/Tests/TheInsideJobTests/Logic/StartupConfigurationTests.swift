@@ -72,24 +72,30 @@ final class StartupConfigurationTests: XCTestCase {
         XCTAssertEqual(configuration, expected)
     }
 
-    func testInfoPlistBoundaryParsesTypedShapes() {
+    func testInfoPlistCompatibilityShapesFallBackWithWarnings() {
         let configuration = StartupConfiguration.resolve(
             env: .empty,
             infoPlist: makeInfoPlist([
                 .disableAutoStart: "yes",
                 .fingerprintsEnabled: "no",
-                .port: 5151.0,
+                .port: "5151",
                 .scope: "simulator,network",
                 .sessionTimeout: " 120.5 "
             ])
         )
 
-        XCTAssertEqual(configuration.disableAutoStart, ResolvedStartupValue(value: true, source: .infoPlist))
-        XCTAssertEqual(configuration.fingerprintsEnabled, ResolvedStartupValue(value: false, source: .infoPlist))
-        XCTAssertEqual(configuration.preferredPort, ResolvedStartupValue(value: 5151, source: .infoPlist))
-        XCTAssertEqual(configuration.allowedScopes, ResolvedStartupValue(value: [.simulator, .network], source: .infoPlist))
-        XCTAssertEqual(configuration.sessionTimeout, ResolvedStartupValue(value: 120.5, source: .infoPlist))
-        XCTAssertEqual(configuration.warnings, [])
+        XCTAssertEqual(configuration.disableAutoStart, ResolvedStartupValue(value: false, source: .defaultValue))
+        XCTAssertEqual(configuration.fingerprintsEnabled, ResolvedStartupValue(value: true, source: .defaultValue))
+        XCTAssertEqual(configuration.preferredPort, ResolvedStartupValue(value: 0, source: .defaultValue))
+        XCTAssertEqual(configuration.allowedScopes, ResolvedStartupValue(value: ConnectionScope.default, source: .defaultValue))
+        XCTAssertEqual(configuration.sessionTimeout, ResolvedStartupValue(value: 30, source: .defaultValue))
+        XCTAssertEqual(configuration.warnings, [
+            .invalidValueIgnored(key: StartupInfoPlistKey.disableAutoStart.rawValue, source: .infoPlist, value: "yes"),
+            .invalidValueIgnored(key: StartupInfoPlistKey.fingerprintsEnabled.rawValue, source: .infoPlist, value: "no"),
+            .invalidValueIgnored(key: StartupInfoPlistKey.port.rawValue, source: .infoPlist, value: "5151"),
+            .invalidValueIgnored(key: StartupInfoPlistKey.scope.rawValue, source: .infoPlist, value: "simulator,network"),
+            .invalidValueIgnored(key: StartupInfoPlistKey.sessionTimeout.rawValue, source: .infoPlist, value: " 120.5 ")
+        ])
     }
 
     func testMalformedInfoPlistValuesFallBackWithWarnings() {
@@ -223,7 +229,7 @@ final class StartupConfigurationTests: XCTestCase {
             ]),
             infoPlist: makeInfoPlist([
                 .port: 5151,
-                .scope: "usb"
+                .scope: ["usb"]
             ])
         )
 

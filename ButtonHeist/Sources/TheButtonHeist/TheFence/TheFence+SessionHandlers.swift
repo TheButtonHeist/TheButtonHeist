@@ -26,14 +26,12 @@ extension TheFence {
     }
 
     func handleConnect(_ request: ConnectRequest) async throws -> FenceResponse {
-        let resolvedDevice: String
+        let resolvedTarget: DeviceResolutionTarget
         let resolvedToken: String?
-        let resolvedDirectDevice: DiscoveredDevice?
 
         if let device = request.device {
-            resolvedDevice = device
+            resolvedTarget = DeviceResolutionTarget(filter: device)
             resolvedToken = request.token
-            resolvedDirectDevice = nil
         } else if let targetName = request.targetName {
             guard let fileConfig = config.fileConfig else {
                 throw FenceError.invalidRequest(
@@ -46,14 +44,9 @@ extension TheFence {
                     "Unknown target '\(targetName.rawValue)'. Available: \(available.joined(separator: ", "))"
                 )
             }
-            resolvedDevice = target.device
+            resolvedTarget = DeviceResolutionTarget(config: target, named: targetName)
             resolvedToken = request.token ?? target.token
-            resolvedDirectDevice = DiscoveredDevice.fromHostPort(
-                target.device,
-                id: DiscoveryDeviceID(stringLiteral: "config-\(targetName.rawValue)"),
-                name: targetName.rawValue
-            )
-        } else if handoff.connectionLifecycle.isConnected || config.deviceFilter != nil || config.directDevice != nil {
+        } else if handoff.connectionLifecycle.isConnected || !config.connectionTarget.isAutomatic {
             return try await establishSessionOnly()
         } else {
             throw FenceError.invalidRequest(
@@ -65,19 +58,8 @@ extension TheFence {
 
         let authToken = try resolvedToken.map(SessionAuthToken.init(validating:))
         handoff.authToken = authToken
-        let newConfig = Configuration(
-            deviceFilter: resolvedDevice,
-            connectionTimeout: config.connectionTimeout,
-            token: authToken,
-            driverID: config.driverID,
-            autoReconnect: config.autoReconnect,
-            fileConfig: config.fileConfig,
-            directDevice: resolvedDirectDevice,
-            artifactBaseDirectory: config.artifactBaseDirectory,
-            actionExpectationTimeoutPolicy: config.actionExpectationTimeoutPolicy,
-            postActionExpectationTimeoutBuffer: config.postActionExpectationTimeoutBuffer
-        )
-        config = newConfig
+        config.connectionTarget = resolvedTarget
+        config.token = authToken
 
         do {
             try await start()

@@ -8,7 +8,7 @@ struct HeistSwiftCompilerTests {
     @Test
     func `entry symbol validates one canonical dotted identifier currency`() throws {
         #expect(try HeistEntrySymbol(validating: "Checkout.compile").description == "Checkout.compile")
-        #expect(throws: HeistEntrySymbol.ValidationError.self) {
+        #expect(throws: HeistPathValidationError.self) {
             _ = try HeistEntrySymbol(validating: "Checkout-compile")
         }
     }
@@ -615,7 +615,8 @@ struct HeistSwiftCompilerTests {
         let arguments = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
             explicitPackageRoot: admittedRoot,
             environment: [:],
-            executableURL: nil
+            executableURL: nil,
+            swiftPMBuildDirectory: { _ in admittedBuild }
         )
 
         #expect(arguments == temp.swiftPMArguments(for: admittedBuild))
@@ -632,7 +633,8 @@ struct HeistSwiftCompilerTests {
         let arguments = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
             explicitPackageRoot: localRoot,
             environment: [:],
-            executableURL: installedExecutable
+            executableURL: installedExecutable,
+            swiftPMBuildDirectory: { _ in localBuild }
         )
 
         #expect(arguments == temp.swiftPMArguments(for: localBuild))
@@ -650,7 +652,10 @@ struct HeistSwiftCompilerTests {
             _ = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
                 explicitPackageRoot: admittedRoot,
                 environment: [:],
-                executableURL: nil
+                executableURL: nil,
+                swiftPMBuildDirectory: { root in
+                    root.appendingPathComponent(".build/native/debug", isDirectory: true)
+                }
             )
             Issue.record("Expected explicit package root without artifacts to fail")
         } catch let error as HeistSwiftFileCompilationError {

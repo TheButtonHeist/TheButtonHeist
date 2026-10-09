@@ -46,25 +46,6 @@ extension FenceResponse {
         )
     }
 
-    @_spi(ButtonHeistTooling) public func jsonData(
-        requestId: PublicRequestId?,
-        outputFormatting: JSONEncoder.OutputFormatting = [.sortedKeys]
-    ) throws -> Data {
-        try jsonRendering(requestId: requestId, outputFormatting: outputFormatting).data
-    }
-
-    @_spi(ButtonHeistInternals) public func jsonRendering(
-        requestId: PublicRequestId?,
-        outputFormatting: JSONEncoder.OutputFormatting = [.sortedKeys]
-    ) throws -> PublicJSONRendering {
-        try PublicJSONSerializer.render(
-            encoding: PublicResponseModel(response: self, profile: .summary),
-            requestId: requestId,
-            outputFormatting: outputFormatting,
-            encodingFailure: Self.jsonEncodingFailure()
-        )
-    }
-
     static func jsonEncodingFailure() -> DiagnosticFailure {
         DiagnosticFailure(
             message: PublicJSONSerializer.encodingFailureMessage,

@@ -14,6 +14,10 @@ struct DeviceResolutionTarget: Equatable, Sendable {
 
     let kind: Kind
 
+    init(kind: Kind) {
+        self.kind = kind
+    }
+
     init(filter: String?) {
         guard let filter else {
             self.kind = .automatic
@@ -31,6 +35,28 @@ struct DeviceResolutionTarget: Equatable, Sendable {
         }
 
         self.kind = .query(query)
+    }
+
+    init(config target: TargetConfig, named name: TargetName) {
+        if let device = DiscoveredDevice.fromHostPort(
+            target.device,
+            id: DiscoveryDeviceID(stringLiteral: "config-\(name.rawValue)"),
+            name: name.rawValue
+        ) {
+            self.init(kind: .direct(device))
+        } else {
+            self.init(filter: target.device)
+        }
+    }
+
+    var isAutomatic: Bool {
+        if case .automatic = kind { return true }
+        return false
+    }
+
+    var requiresDiscovery: Bool {
+        if case .direct = kind { return false }
+        return true
     }
 
     var diagnosticName: String {

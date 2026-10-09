@@ -209,12 +209,11 @@ struct RunHeistCommand: ConnectedOneShotCLICommand {
 
     private static func parseRootArgument(_ rawValue: String) throws -> HeistValue {
         do {
-            return try PublicJSONInputDecoder.decodeHeistValue(
+            return .object(try PublicJSONInputDecoder.decodeObject(
                 from: rawValue,
-                root: .object,
                 context: "--argument",
                 rootMismatchMessage: "--argument must be a JSON object"
-            )
+            ))
         } catch let error as PublicJSONInputError {
             throw ValidationError(error.message)
         } catch {

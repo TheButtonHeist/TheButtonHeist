@@ -1,26 +1,25 @@
 import Foundation
 import XCTest
 
-@testable import ButtonHeist
+@_spi(ButtonHeistTooling) @testable import ButtonHeist
 
 final class PublicJSONInputLimitsTests: XCTestCase {
 
-    func testValidateArrayAcceptsValuesWithinRemainingLimits() {
-        let json = #"["alpha","beta","gamma"]"#
-
-        XCTAssertNoThrow(try PublicJSONInputPreflight.validateArray(
-            Data(json.utf8),
-            maxBytes: 32,
-            maxNestingDepth: 2,
-            maxTotalObjectKeys: 0
-        ))
+    func testDecodeObjectRejectsArrayRoot() {
+        XCTAssertThrowsError(try PublicJSONInputDecoder.decodeObject(
+            from: #"["alpha","beta"]"#,
+            rootMismatchMessage: "Expected JSON object input"
+        )) { error in
+            XCTAssertEqual((error as? PublicJSONInputError)?.message, "Expected JSON object input")
+        }
     }
 
     func testValidateObjectAcceptsStringWithinRemainingLimits() {
         let json = #"{"text":"alpha beta"}"#
 
-        XCTAssertNoThrow(try PublicJSONInputPreflight.validateObject(
-            json,
+        XCTAssertNoThrow(try PublicJSONInputDecoder.decodeObject(
+            from: Data(json.utf8),
+            context: "Public JSON input",
             maxBytes: 32,
             maxNestingDepth: 2,
             maxTotalObjectKeys: 1

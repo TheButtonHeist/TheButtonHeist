@@ -48,7 +48,7 @@ enum CLIRunner {
         }
     }
 
-    typealias JSONResponseRenderer = (FenceResponse, PublicRequestId?) throws -> PublicJSONRendering
+    typealias JSONResponseRenderer = (FenceResponse) throws -> PublicJSONRendering
 
     // MARK: - Command Execution
 
@@ -105,10 +105,9 @@ enum CLIRunner {
     @ButtonHeistActor
     static func output(
         _ output: CommandOutput,
-        format: OutputFormat,
-        requestId: PublicRequestId? = nil
+        format: OutputFormat
     ) -> RenderedOutput {
-        let rendered = renderedOutput(for: output, format: format, requestId: requestId)
+        let rendered = renderedOutput(for: output, format: format)
         switch rendered {
         case .text(let text), .failedText(let text):
             writeOutput(text)
@@ -123,7 +122,6 @@ enum CLIRunner {
     static func renderedOutput(
         for output: CommandOutput,
         format: OutputFormat,
-        requestId: PublicRequestId? = nil,
         jsonRenderer: JSONResponseRenderer = defaultJSONResponse
     ) -> RenderedOutput {
         switch output {
@@ -131,7 +129,6 @@ enum CLIRunner {
             return renderedResponse(
                 response,
                 format: format,
-                requestId: requestId,
                 jsonRenderer: jsonRenderer
             )
         case .binary(let data):
@@ -149,7 +146,6 @@ enum CLIRunner {
                     return renderedResponse(
                         .failure(error),
                         format: format,
-                        requestId: requestId,
                         jsonRenderer: jsonRenderer
                     )
                 }
@@ -159,7 +155,6 @@ enum CLIRunner {
             return renderedResponse(
                 response,
                 format: format,
-                requestId: requestId,
                 jsonRenderer: jsonRenderer
             )
         }
@@ -168,7 +163,6 @@ enum CLIRunner {
     private static func renderedResponse(
         _ response: FenceResponse,
         format: OutputFormat,
-        requestId: PublicRequestId?,
         jsonRenderer: JSONResponseRenderer
     ) -> RenderedOutput {
         let responseFailed = response.isFailure
@@ -181,7 +175,7 @@ enum CLIRunner {
             return responseFailed ? .failedText(text) : .text(text)
         case .json:
             do {
-                let rendering = try jsonRenderer(response, requestId)
+                let rendering = try jsonRenderer(response)
                 if let json = String(data: rendering.data, encoding: .utf8) {
                     let failed = responseFailed || rendering.failure != nil
                     return failed ? .failedText(json) : .text(json)
@@ -193,11 +187,8 @@ enum CLIRunner {
         }
     }
 
-    private static func defaultJSONResponse(
-        _ response: FenceResponse,
-        requestId: PublicRequestId?
-    ) throws -> PublicJSONRendering {
-        try response.jsonRendering(requestId: requestId)
+    private static func defaultJSONResponse(_ response: FenceResponse) throws -> PublicJSONRendering {
+        try response.jsonRendering(profile: .summary)
     }
 
     // MARK: - Private Helpers

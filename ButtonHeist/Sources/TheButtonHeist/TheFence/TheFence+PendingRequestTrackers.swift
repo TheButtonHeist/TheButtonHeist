@@ -49,10 +49,9 @@ extension TheFence {
             let message = "Protocol mismatch for request \(requestId): expected \(expected) response, " +
                 "received \(actual) response."
             let details = FailureDetails(code: .protocolMismatch)
-            return .connectionFailure(ConnectionFailure(
+            return .diagnostic(DiagnosticFailure(
                 message: message,
-                failureCode: details.code,
-                hint: details.hint
+                details: details
             ))
         }
     }

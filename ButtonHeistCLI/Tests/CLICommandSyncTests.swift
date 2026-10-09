@@ -313,47 +313,6 @@ final class CLICommandSyncTests: XCTestCase {
         XCTAssertEqual(parsed.argument(.text), .string("hello"))
     }
 
-    func testMachineRequestParserPreservesScalarMachineRequestIdsAsMetadata() throws {
-        let cases: [(json: String, expected: PublicRequestId)] = [
-            (#""request-1""#, .string("request-1")),
-            ("9223372036854775807", .signedInteger(Int64.max)),
-            ("null", .null),
-            ("18446744073709551615", .unsignedInteger(UInt64.max)),
-            ("1.25", .double(1.25)),
-            ("1.0", .signedInteger(1)),
-        ]
-
-        for testCase in cases {
-            let parsed = try CLIMachineRequestParser.parsedRequest(
-                from: "{\"id\":\(testCase.json),\"command\":\"ping\"}"
-            )
-
-            XCTAssertEqual(parsed.requestId, testCase.expected, testCase.json)
-            XCTAssertEqual(parsed.command, .ping, testCase.json)
-            XCTAssertNil(parsed.argument(FenceParameterKey(rawValue: "id")!), testCase.json)
-        }
-    }
-
-    func testMachineRequestParserRejectsUnsupportedMachineRequestIds() {
-        let cases = [
-            (#"{"nested":true}"#, "Public JSON request id must be string"),
-            ("true", "does not support bool"),
-            (#"["r1"]"#, "Public JSON request id"),
-        ]
-
-        for (json, expectedMessage) in cases {
-            XCTAssertThrowsError(
-                try CLIMachineRequestParser.parsedRequest(
-                    from: "{\"id\":\(json),\"command\":\"ping\"}"
-                )
-            ) { error in
-                let failure = self.machineRequestFailure(from: error)
-                XCTAssertTrue(failure.message.contains(expectedMessage), failure.message)
-                XCTAssertEqual(failure.details.code, .requestInvalid)
-            }
-        }
-    }
-
     func testMachineRequestParserRejectsHumanTextInJSONLinesMode() {
         XCTAssertThrowsError(
             try CLIMachineRequestParser.parsedRequest(from: "activate button_save")
@@ -384,7 +343,6 @@ final class CLICommandSyncTests: XCTestCase {
         )
 
         XCTAssertEqual(parsed.command, .activate)
-        XCTAssertNil(parsed.requestId)
         guard case .object(let target)? = parsed.argument(.target) else {
             return XCTFail("expected typed target object")
         }

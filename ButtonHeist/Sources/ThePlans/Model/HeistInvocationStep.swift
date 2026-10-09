@@ -19,8 +19,6 @@ public enum HeistPathValidationError: Error, Sendable, Equatable, CustomStringCo
 
 public struct HeistDefinitionPath: Sendable, Equatable, Hashable, CustomStringConvertible,
     ExpressibleByStringLiteral, Codable {
-    public typealias ValidationError = HeistPathValidationError
-
     fileprivate let value: HeistPathValue
 
     public var components: [HeistPlanName] { value.components }
@@ -38,8 +36,6 @@ public struct HeistDefinitionPath: Sendable, Equatable, Hashable, CustomStringCo
 
 public struct HeistInvocationPath: Sendable, Equatable, Hashable, CustomStringConvertible,
     ExpressibleByStringLiteral, Codable {
-    public typealias ValidationError = HeistPathValidationError
-
     fileprivate let value: HeistPathValue
 
     public var components: [HeistPlanName] { value.components }
@@ -65,8 +61,6 @@ public struct HeistInvocationPath: Sendable, Equatable, Hashable, CustomStringCo
 /// A zero-argument Swift function selected as a heist compiler entry point.
 public struct HeistEntrySymbol: Sendable, Equatable, Hashable, CustomStringConvertible,
     ExpressibleByStringLiteral {
-    public typealias ValidationError = HeistPathValidationError
-
     private let value: HeistPathValue
 
     public var description: String { value.description }

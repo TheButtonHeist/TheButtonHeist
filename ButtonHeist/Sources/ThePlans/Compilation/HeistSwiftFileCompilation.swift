@@ -242,6 +242,20 @@ extension HeistSwiftFileCompilation {
         environment: [String: String],
         executableURL: URL?
     ) throws -> [String] {
+        try resolveThePlansSwiftcArguments(
+            explicitPackageRoot: explicitPackageRoot,
+            environment: environment,
+            executableURL: executableURL,
+            swiftPMBuildDirectory: swiftPMBuildDirectory(for:)
+        )
+    }
+
+    static func resolveThePlansSwiftcArguments(
+        explicitPackageRoot: URL?,
+        environment: [String: String],
+        executableURL: URL?,
+        swiftPMBuildDirectory: (URL) throws -> URL
+    ) throws -> [String] {
         // The override is an explicit boundary contract for Xcode and release
         // automation. It deliberately wins over every other context.
         if let override = environmentOverridePath(in: environment) {
@@ -276,18 +290,16 @@ extension HeistSwiftFileCompilation {
         if let explicitPackageRoot {
             let packageRoot = try admittedPackageRoot(explicitPackageRoot)
             HeistSwiftFileCompilationTrace.write("checking ButtonHeist package root: \(packageRoot.path)")
-            let swiftPMCandidates = candidateBuildDirectories(in: packageRoot)
-            for buildDirectory in swiftPMCandidates {
-                if let arguments = try resolveSwiftPMBuildDirectory(buildDirectory) {
-                    HeistSwiftFileCompilationTrace.write("using built ThePlans artifacts at \(buildDirectory.path)")
-                    return arguments
-                }
+            let buildDirectory = try swiftPMBuildDirectory(packageRoot)
+            if let arguments = try resolveSwiftPMBuildDirectory(buildDirectory) {
+                HeistSwiftFileCompilationTrace.write("using built ThePlans artifacts at \(buildDirectory.path)")
+                return arguments
             }
 
             throw HeistSwiftFileCompilationError.buildArtifactsNotFound(
-                searched: swiftPMCandidates.map(\.path),
+                searched: [buildDirectory.path],
                 hint: """
-                The explicitly configured ButtonHeist package root \(packageRoot.path) contains no built ThePlans artifacts. \
+                SwiftPM reports no built ThePlans artifacts for \(packageRoot.path). \
                 Build that package with `swift build --product heist-plan`, or set \
                 \(environmentOverrideKey) to the absolute path of one exact SwiftPM build directory \
                 or Xcode products directory.
@@ -421,25 +433,40 @@ private extension HeistSwiftFileCompilation {
         ]
     }
 
-    private static func candidateBuildDirectories(in packageRoot: URL) -> [URL] {
-        let buildRoot = packageRoot.appendingPathComponent(".build", isDirectory: true)
-        // A package root is one admitted source identity. Its build layout is
-        // ordered deterministically: host-triple debug, host-triple release,
-        // then SwiftPM's legacy debug and release directories.
-        guard let architecture = currentArchitectureBuildDirectoryName() else {
-            return [
-                buildRoot.appendingPathComponent("debug", isDirectory: true),
-                buildRoot.appendingPathComponent("release", isDirectory: true),
-            ]
-        }
-        return [
-            buildRoot.appendingPathComponent(architecture, isDirectory: true)
-                .appendingPathComponent("debug", isDirectory: true),
-            buildRoot.appendingPathComponent(architecture, isDirectory: true)
-                .appendingPathComponent("release", isDirectory: true),
-            buildRoot.appendingPathComponent("debug", isDirectory: true),
-            buildRoot.appendingPathComponent("release", isDirectory: true),
+    private static func swiftPMBuildDirectory(for packageRoot: URL) throws -> URL {
+        let process = Process()
+        let standardOutput = Pipe()
+        let standardError = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [
+            "swift",
+            "build",
+            "--show-bin-path",
+            "--package-path",
+            packageRoot.path,
         ]
+        process.standardOutput = standardOutput
+        process.standardError = standardError
+        try process.run()
+        process.waitUntilExit()
+
+        let output = String(
+            bytes: standardOutput.fileHandleForReading.readDataToEndOfFile(),
+            encoding: .utf8
+        )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard process.terminationStatus == 0,
+              !output.isEmpty,
+              (output as NSString).isAbsolutePath else {
+            let diagnostics = String(
+                bytes: standardError.fileHandleForReading.readDataToEndOfFile(),
+                encoding: .utf8
+            )?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            throw HeistSwiftFileCompilationError.buildArtifactsNotFound(
+                searched: [packageRoot.path],
+                hint: "SwiftPM could not resolve this package's build directory: \(diagnostics)"
+            )
+        }
+        return URL(fileURLWithPath: output, isDirectory: true).standardizedFileURL
     }
 
     private static func swiftObjectFiles(in directory: URL) throws -> [URL] {
