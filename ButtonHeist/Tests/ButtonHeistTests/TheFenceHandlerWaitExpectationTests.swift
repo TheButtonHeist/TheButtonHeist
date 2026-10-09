@@ -241,12 +241,14 @@ extension TheFenceHandlerTests {
                 "property": .string("bogus"),
             ])]),
         ]))) { error in
-            guard case FenceError.invalidRequest(let msg) = error else {
-                XCTFail("Expected FenceError.invalidRequest, got \(error)")
+            guard let error = error as? SchemaValidationError else {
+                XCTFail("Expected SchemaValidationError, got \(error)")
                 return
             }
-            XCTAssertTrue(msg.contains("ElementProperty"), msg)
-            XCTAssertTrue(msg.contains("bogus"), msg)
+            XCTAssertEqual(error.field, "expect.assertions[0].property")
+            XCTAssertEqual(error.observed, "string \"bogus\"")
+            XCTAssertTrue(error.expected.contains("ElementProperty"), error.expected)
+            XCTAssertTrue(error.expected.contains("bogus"), error.expected)
         }
     }
 

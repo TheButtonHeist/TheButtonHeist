@@ -1,25 +1,8 @@
-import Foundation
 import MCP
 @_spi(ButtonHeistInternals) @_spi(ButtonHeistTooling) import ButtonHeist
 import TheScore
 
 enum MCPValueBridge {
-    enum StructuredContent {
-        case rendered(Value)
-        case fallback(Value, DiagnosticFailure)
-
-        var value: Value {
-            switch self {
-            case .rendered(let value), .fallback(let value, _): value
-            }
-        }
-
-        var failure: DiagnosticFailure? {
-            guard case .fallback(_, let failure) = self else { return nil }
-            return failure
-        }
-    }
-
     static func commandEnvelope(from arguments: [String: Value]?) throws -> TheFence.CommandArgumentEnvelope {
         let values = try (arguments ?? [:]).mapValues(heistValue)
         try PublicJSONInputDecoder.validate(values, context: "MCP arguments")
@@ -65,14 +48,6 @@ enum MCPValueBridge {
         case .object(let object):
             return .object(try object.mapValues(heistValue))
         }
-    }
-
-    static func structuredContent(
-        for response: FenceResponse
-    ) throws -> StructuredContent {
-        let rendering = try response.jsonRendering(profile: .mcp, outputFormatting: [])
-        let value = try JSONDecoder().decode(Value.self, from: rendering.data)
-        return rendering.failure.map { .fallback(value, $0) } ?? .rendered(value)
     }
 
 }
