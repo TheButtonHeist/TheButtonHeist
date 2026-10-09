@@ -131,17 +131,6 @@ extension DiagnosticFailure {
         self.init(message: connectionFailure.message, details: connectionFailure.details)
     }
 
-    init(failureKind: ActionFailure.Kind, message: String) {
-        self.init(message: message, details: failureKind.failureDetails)
-    }
-
-    init(reportFailure: HeistFailureDetail, message: String? = nil) {
-        self.init(
-            message: message ?? reportFailure.observed,
-            details: reportFailure.category.actionFailureKind.failureDetails
-        )
-    }
-
     private init(missingAccessibilityTargetCommand command: TheFence.Command) {
         let commandName = command.rawValue
         let contract = "requires target object with checks"

@@ -132,18 +132,12 @@ struct PublicHeistExecutionResponse: Encodable {
         )
         if let interface = report.diagnostics.failureInterface {
             let failureElementLimit = profile.limits.failureInterfaceElements
-            let limits = ProjectionLimits(
-                visibleElementBudget: failureElementLimit,
-                totalNodeBudget: min(profile.limits.totalNodeBudget, failureElementLimit),
-                deltaElementsPerBucket: profile.limits.deltaElementsPerBucket,
-                screenPreviewElements: profile.limits.screenPreviewElements,
-                caseResults: profile.limits.caseResults,
-                failureInterfaceElements: failureElementLimit
-            )
             try container.encode(
                 InterfaceProjection(
                     interface: interface,
-                    profile: ProjectionProfile(kind: .summary, limits: limits)
+                    detail: .summary,
+                    visibleElementBudget: failureElementLimit,
+                    totalNodeBudget: min(profile.limits.totalNodeBudget, failureElementLimit)
                 ),
                 forKey: .failureInterface
             )

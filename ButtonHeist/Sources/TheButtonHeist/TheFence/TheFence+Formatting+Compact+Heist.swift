@@ -28,7 +28,7 @@ extension FenceResponse {
                 line += " -> \(diagnosticLines[0])"
                 detailLines.append(contentsOf: diagnosticLines.dropFirst().map { "    \($0)" })
                 if !failure.detail.contract.isEmpty,
-                   failure.detail.contract != failure.diagnosticMessage {
+                   failure.detail.contract != failure.detail.observed {
                     detailLines.append("    contract: \(failure.detail.contract)")
                 }
                 if let expected = failure.detail.expected, !expected.isEmpty {

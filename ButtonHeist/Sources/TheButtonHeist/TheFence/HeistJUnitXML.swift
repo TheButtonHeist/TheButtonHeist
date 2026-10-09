@@ -104,7 +104,7 @@ extension HeistJUnitXML {
         for node: HeistReport.Node,
         report: HeistReport
     ) -> String {
-        let message = node.failure?.diagnosticMessage ?? node.message ?? "heist failed"
+        let message = node.failure?.detail.observed ?? node.message ?? "heist failed"
         let diagnostic = node.failure?.diagnosticFailure
         var lines = [message]
         if let diagnostic {
@@ -130,23 +130,7 @@ extension HeistJUnitXML {
     }
 
     private static func failureType(for node: HeistReport.Node) -> String? {
-        if let failureKind = node.failure?.actionKind {
-            return failureKind.rawValue
-        }
-        switch node.failure?.detail.category {
-        case .internalInvariant,
-             .validation,
-             .runtimeUnavailable,
-             .targetResolution,
-             .invocation,
-             .loop,
-             .explicitFailure:
-            return "commandError"
-        case .timeout:
-            return ActionFailure.Kind.timeout.rawValue
-        case .action, .expectation, .wait, .none:
-            return nil
-        }
+        node.failure?.actionKind.rawValue
     }
 }
 

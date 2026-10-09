@@ -25,14 +25,12 @@ public struct HeistReport: Sendable, Equatable {
         /// The failure headline for this node. Compound wrappers whose child
         /// supplies the actionable failure intentionally have no headline.
         public var message: String? { suppressesMessage ? nil : detail.observed }
-        public let actionKind: ActionFailure.Kind?
+        public let actionKind: ActionFailure.Kind
         private let suppressesMessage: Bool
-
-        package var diagnosticMessage: String { message ?? detail.observed }
 
         package init(
             detail: HeistFailureDetail,
-            actionKind: ActionFailure.Kind?,
+            actionKind: ActionFailure.Kind,
             suppressesMessage: Bool
         ) {
             self.detail = detail
@@ -228,22 +226,9 @@ public struct HeistReport: Sendable, Equatable {
     }
 
     public struct Diagnostics: Sendable, Equatable {
-        package let failureCapture: HeistFailureCapture?
+        public let failureScreenshotSummary: String?
+        public let failureScreenshotFailureKind: ActionFailure.Kind?
         package let failureInterface: Interface?
-
-        public var failureScreenshotSummary: String? {
-            guard let failureCapture else { return nil }
-            if let screenshot = failureCapture.payload {
-                return HeistFailureDiagnostics.screenshotSummary(screenshot)
-            }
-            return HeistFailureDiagnostics.unavailableScreenshotSummary(
-                message: failureCapture.message
-            )
-        }
-
-        public var failureScreenshotFailureKind: ActionFailure.Kind? {
-            failureCapture?.failureKind
-        }
 
         package func failureInterfaceDump(elementLimit: Int) -> String? {
             failureInterface.map {
@@ -444,7 +429,8 @@ private extension HeistReport {
                 ),
                 nodes: roots,
                 diagnostics: Diagnostics(
-                    failureCapture: result.failureCapture,
+                    failureScreenshotSummary: result.failureScreenshotSummary,
+                    failureScreenshotFailureKind: result.failureCapture?.failureKind,
                     failureInterface: result.failureDiagnosticInterface
                 )
             )

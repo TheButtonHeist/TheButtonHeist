@@ -105,7 +105,7 @@ public extension Heist {
             let failedNode = report.failedNode
             self.failedStepPath = failedNode?.path ?? "$"
             self.failedStepKind = failedNode?.kind ?? .fail
-            self.message = failedNode?.failure?.diagnosticMessage
+            self.message = failedNode?.failure?.detail.observed
                 ?? failedNode?.message
                 ?? "heist failed"
             self.diagnostic = failedNode?.failure.map { Self.diagnostic($0.detail) }

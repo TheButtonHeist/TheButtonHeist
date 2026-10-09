@@ -119,7 +119,7 @@ extension FenceResponse {
                 headline: "Error at \(failedNode.path) "
             )
             if !failure.detail.contract.isEmpty,
-               failure.detail.contract != failure.diagnosticMessage {
+               failure.detail.contract != failure.detail.observed {
                 text += "\ncontract: \(failure.detail.contract)"
             }
             if let expected = failure.detail.expected, !expected.isEmpty {
