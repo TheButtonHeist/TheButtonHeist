@@ -14,34 +14,8 @@ public extension FenceError {
                 details: diagnostics.heistBuildFailureDetails,
                 buildDiagnostics: diagnostics
             )
-        case .noDeviceFound:
-            return DiagnosticFailure(
-                message: "No devices found within timeout. Is the app running?",
-                details: FailureDetails(code: .discoveryNoDeviceFound)
-            )
-        case .noMatchingDevice(let filter, let available):
-            let list = available.isEmpty ? "(none)" : available.joined(separator: ", ")
-            return DiagnosticFailure(
-                message: "No device matching '\(filter)'. Available: \(list)",
-                details: FailureDetails(code: .discoveryNoMatchingDevice)
-            )
-        case .ambiguousDeviceTarget(let filter, let matches):
-            return DiagnosticFailure(
-                message: "Ambiguous device target '\(filter)' (matches: \(matches.joined(separator: ", ")))",
-                details: FailureDetails(code: .discoveryAmbiguousDeviceTarget)
-            )
-        case .connectionTimeout:
-            return DiagnosticFailure(
-                message: "Connection timed out",
-                details: FailureDetails(code: .setupTimeout, hint: HandoffConnectionError.recoveryHint)
-            )
-        case .connectionFailed(let message):
-            return DiagnosticFailure(
-                message: "Connection failed: \(message)",
-                details: FailureDetails(code: .connectionFailed, hint: HandoffConnectionError.recoveryHint)
-            )
-        case .connectionFailure(let failure):
-            return DiagnosticFailure(message: failure.message, details: failure.details)
+        case .diagnostic(let failure):
+            return failure
         case .sessionLocked(let message):
             return DiagnosticFailure(
                 message: "Session locked: \(message)",

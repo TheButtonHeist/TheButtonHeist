@@ -223,8 +223,7 @@ final class HandoffConnectionLifecycle {
 
     // MARK: - Reconnect lifecycle
 
-    func setup(filter: String?) -> Bool {
-        let target = DeviceResolutionTarget(filter: filter)
+    func setup(target: DeviceResolutionTarget) -> Bool {
         if case .armed(let currentTarget) = runtimePhase.reconnectState,
            currentTarget == target {
             return false

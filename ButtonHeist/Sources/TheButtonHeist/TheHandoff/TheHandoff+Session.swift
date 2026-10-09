@@ -4,28 +4,29 @@ import ButtonHeistSupport
 @ButtonHeistActor
 extension TheHandoff {
 
-    /// Discover a device (optionally matching a filter) and connect to it.
-    /// Starts discovery if not already active, polls until a matching device appears
-    /// or the bounded resolution window expires. Suspends on
-    /// `waitForConnectionResult` for the connection outcome.
-    func connectWithDiscovery(
-        filter: String?,
+    /// Resolve exactly one admitted target and connect to it.
+    func connect(
+        target: DeviceResolutionTarget,
         timeout: TimeInterval = 30
     ) async throws {
         disconnectForReplacement()
-        onStatus?("Searching for iOS devices...")
-        let startedDiscovery = !discoveryLifecycle.hasDiscoverySession
+        if target.requiresDiscovery {
+            onStatus?("Searching for iOS devices...")
+        }
+        let startedDiscovery = target.requiresDiscovery && !discoveryLifecycle.hasDiscoverySession
         if startedDiscovery { startDiscovery() }
 
         let resolutionTimeout = Self.connectionResolutionTimeout(for: timeout)
         let discoveryTimeout = UInt64(resolutionTimeout * 1_000_000_000)
-        let target = DeviceResolutionTarget(filter: filter)
         let device: DiscoveredDevice
         do {
             device = try await resolveTargetDevice(
                 target: target,
                 discoveryTimeout: discoveryTimeout
             )
+            if !target.requiresDiscovery {
+                try await admitDirectEndpoint(device, timeout: resolutionTimeout)
+            }
         } catch {
             if startedDiscovery { stopDiscovery() }
             if let connectionError = error as? HandoffConnectionError {
@@ -34,7 +35,9 @@ extension TheHandoff {
             throw error
         }
 
-        onStatus?("Found: \(displayName(for: device))")
+        if target.requiresDiscovery {
+            onStatus?("Found: \(displayName(for: device))")
+        }
         onStatus?("Connecting...")
 
         let attemptID = connect(to: device)
@@ -51,8 +54,8 @@ extension TheHandoff {
         min(max(timeout, 0.05), 2.0)
     }
 
-    func setupAutoReconnect(filter: String?) {
-        _ = connectionLifecycle.setup(filter: filter)
+    func setupAutoReconnect(target: DeviceResolutionTarget) {
+        _ = connectionLifecycle.setup(target: target)
     }
 
     func scheduleAutoReconnectIfNeeded(disconnectedDevice: DiscoveredDevice) {
@@ -80,6 +83,23 @@ extension TheHandoff {
             getDiscoveredDevices: { [weak self] in self?.discoveryLifecycle.discoveredDevices ?? [] }
         )
         return try await resolver.resolve()
+    }
+
+    private func admitDirectEndpoint(
+        _ device: DiscoveredDevice,
+        timeout: TimeInterval
+    ) async throws {
+        switch await device.reachability(
+            token: serverMessageRouter.authToken,
+            timeout: timeout
+        ) {
+        case .reachable:
+            return
+        case .failed(let reason):
+            throw HandoffConnectionError.disconnected(reason)
+        case .unavailable:
+            throw HandoffConnectionError.endpointUnreachable(device.name)
+        }
     }
 
     private func runAutoReconnect(attempt: HandoffReconnectAttempt) async {

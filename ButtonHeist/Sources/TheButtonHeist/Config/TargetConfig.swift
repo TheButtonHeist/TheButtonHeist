@@ -199,35 +199,6 @@ enum TargetConfigResolver {
         }
     }
 
-    /// Resolve connection parameters with full precedence:
-    /// 1. Env vars (BUTTONHEIST_DEVICE / BUTTONHEIST_TOKEN) override everything
-    /// 2. Named target from config file
-    /// 3. Default target from config file
-    static func resolveEffective(
-        targetName: TargetName? = nil,
-        config: ButtonHeistFileConfig? = nil,
-        environment: ButtonHeistEnvironment = .current
-    ) -> TargetConfig? {
-        let envDevice = environment.device
-        let envToken = environment.token
-
-        if let envDevice {
-            return TargetConfig(device: envDevice, token: envToken)
-        }
-
-        guard let config else { return nil }
-
-        let name = targetName ?? config.defaultTarget
-        guard let name else { return nil }
-
-        guard var target = config.targets[name] else { return nil }
-
-        if let envToken {
-            target = TargetConfig(device: target.device, token: envToken)
-        }
-        return target
-    }
-
     private static func configURL(for path: String) -> URL {
         let expanded = NSString(string: path).expandingTildeInPath
         if expanded.hasPrefix("/") {

@@ -111,6 +111,8 @@ public enum EnvironmentKey: String, Sendable {
     case insideJobId = "INSIDEJOB_ID"
     case insideJobScope = "INSIDEJOB_SCOPE"
     case insideJobSessionTimeout = "INSIDEJOB_SESSION_TIMEOUT"
+    case insideJobFingerprints = "INSIDEJOB_FINGERPRINTS"
+    case buttonheistFailureEvidence = "BUTTONHEIST_FAILURE_EVIDENCE"
 }
 
 extension EnvironmentKey: CustomStringConvertible {
@@ -119,10 +121,6 @@ extension EnvironmentKey: CustomStringConvertible {
 
 extension EnvironmentKey {
     public var value: String? { ProcessInfo.processInfo.environment[rawValue] }
-    public var boolValue: Bool {
-        guard let v = value?.lowercased() else { return false }
-        return v == "true" || v == "1" || v == "yes"
-    }
 }
 
 // MARK: - DecodingError Helpers

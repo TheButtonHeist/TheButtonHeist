@@ -57,12 +57,11 @@ extension TheFence {
     /// shape accepted by direct, MCP, batch, and heist request decoding.
     public nonisolated static func parseExpectationArgument(_ rawValue: String) throws -> HeistValue {
         do {
-            return try PublicJSONInputDecoder.decodeHeistValue(
+            return .object(try PublicJSONInputDecoder.decodeObject(
                 from: rawValue,
-                root: .object,
                 context: "Expectation JSON",
                 rootMismatchMessage: "Expected expectation JSON object"
-            )
+            ))
         } catch let error as PublicJSONInputError {
             throw FenceError.invalidRequest(error.message)
         } catch {

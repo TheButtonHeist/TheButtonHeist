@@ -8,8 +8,7 @@ import TheScore
 public final class TheFence {
     /// Connection and session configuration for TheFence.
     public struct Configuration {
-        /// Substring filter for Bonjour device names. `nil` matches any device.
-        var deviceFilter: String?
+        var connectionTarget: DeviceResolutionTarget
         /// Seconds to wait for initial connection before failing `start()`.
         var connectionTimeout: TimeInterval
         /// Auth token sent in the `authenticate` message after the server requests
@@ -21,8 +20,6 @@ public final class TheFence {
         /// Resolved `.buttonheist.json` config (device filter, token, output paths).
         /// Supplied by the CLI/MCP entry points from discovered config files.
         var fileConfig: ButtonHeistFileConfig?
-        /// Direct host:port target. Legacy configs may still carry a fingerprint.
-        var directDevice: DiscoveredDevice?
         /// Test/config override for screenshot artifact storage root.
         var artifactBaseDirectory: URL?
         /// Session-owned defaults for action expectation budgets.
@@ -31,24 +28,22 @@ public final class TheFence {
         var postActionExpectationTimeoutBuffer: TimeInterval
 
         init(
-            deviceFilter: String? = nil,
+            connectionTarget: DeviceResolutionTarget = DeviceResolutionTarget(filter: nil),
             connectionTimeout: TimeInterval = 30,
             token: SessionAuthToken? = nil,
             driverID: DriverID? = nil,
             autoReconnect: Bool = true,
             fileConfig: ButtonHeistFileConfig? = nil,
-            directDevice: DiscoveredDevice? = nil,
             artifactBaseDirectory: URL? = nil,
             actionExpectationTimeoutPolicy: ActionExpectationTimeoutPolicy = .default,
             postActionExpectationTimeoutBuffer: TimeInterval = 5
         ) {
-            self.deviceFilter = deviceFilter
+            self.connectionTarget = connectionTarget
             self.connectionTimeout = connectionTimeout
             self.token = token
             self.driverID = driverID
             self.autoReconnect = autoReconnect
             self.fileConfig = fileConfig
-            self.directDevice = directDevice
             self.artifactBaseDirectory = artifactBaseDirectory
             self.actionExpectationTimeoutPolicy = actionExpectationTimeoutPolicy
             self.postActionExpectationTimeoutBuffer = postActionExpectationTimeoutBuffer

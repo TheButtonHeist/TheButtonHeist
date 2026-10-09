@@ -3,8 +3,6 @@ import Foundation
 // MARK: - Heist Execution Environment
 
 public struct HeistReferenceName: Codable, Hashable, Sendable, Equatable, ExpressibleByStringLiteral {
-    public typealias ValidationError = HeistIdentifierValidationError
-
     public let rawValue: String
 
     public init(stringLiteral value: String) {

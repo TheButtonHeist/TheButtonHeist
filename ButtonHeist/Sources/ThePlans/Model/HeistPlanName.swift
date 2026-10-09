@@ -39,8 +39,6 @@ enum HeistIdentifierGrammar {
 /// `HeistDefinitionPath` or `HeistInvocationPath` when qualification matters.
 public struct HeistPlanName: Sendable, Equatable, Hashable, ExpressibleByStringLiteral,
     CustomStringConvertible, Codable {
-    public typealias ValidationError = HeistIdentifierValidationError
-
     private let value: String
 
     public init(validating value: String) throws {

@@ -287,22 +287,7 @@ extension HeistReport.Failure {
     }
 }
 
-/// Typed connection-attempt failure preserved from the lower-level disconnect cause.
-public struct ConnectionFailure: Equatable, Sendable {
-    public let message: String
-    public let details: FailureDetails
-
-    public init(
-        message: String,
-        failureCode: KnownFailureCode,
-        hint: String? = nil
-    ) {
-        self.message = message
-        self.details = FailureDetails(code: failureCode, hint: hint)
-    }
-}
-
-extension ConnectionFailure {
+extension DiagnosticFailure {
     init(connectionError: HandoffConnectionError) {
         switch connectionError {
         case .connectionFailed(let message):
@@ -318,6 +303,8 @@ extension ConnectionFailure {
             self.init(message: connectionError.displayMessage, details: connectionError.failureDetails)
         case .timeout:
             self.init(message: "Connection timed out", details: connectionError.failureDetails)
+        case .endpointUnreachable:
+            self.init(message: connectionError.displayMessage, details: connectionError.failureDetails)
         case .noDeviceFound:
             self.init(
                 message: "No devices found within timeout. Is the app running?",
@@ -335,11 +322,6 @@ extension ConnectionFailure {
                 details: connectionError.failureDetails
             )
         }
-    }
-
-    init(message: String, details: FailureDetails) {
-        self.message = message
-        self.details = details
     }
 
     init(disconnectReason reason: DisconnectReason) {

@@ -3,7 +3,7 @@
 The client connection as a state machine (`HandoffConnectionPhase`) plus the message-level handshake that runs inside the `connecting` phase: TLS-PSK, hello exchange, exact version equality, token auth, session claim. This diagram answers "what state is my connection in, and which step rejected me?"
 
 **Illustrates:** [AUTH.md](../AUTH.md), [WIRE-PROTOCOL.md](../WIRE-PROTOCOL.md)
-**Source of truth:** `ButtonHeist/Sources/TheButtonHeist/TheHandoff/HandoffConnectionState.swift`, `ButtonHeist/Sources/TheButtonHeist/TheHandoff/HandoffConnectionLifecycle.swift`, `ButtonHeist/Sources/TheButtonHeist/TheHandoff/NetworkBoundary/DeviceConnectionFailures.swift`, `ButtonHeist/Sources/TheInsideJob/Server/MuscleHandshakePhase.swift`, `ButtonHeist/Sources/TheScore/Core/TLSPreSharedKeyMaterial.swift`, `ButtonHeist/Sources/TheScore/Wire/Messages.swift`
+**Source of truth:** `ButtonHeist/Sources/TheButtonHeist/TheHandoff/DeviceResolver.swift`, `ButtonHeist/Sources/TheButtonHeist/TheHandoff/HandoffConnectionState.swift`, `ButtonHeist/Sources/TheButtonHeist/TheHandoff/HandoffConnectionLifecycle.swift`, `ButtonHeist/Sources/TheButtonHeist/TheHandoff/NetworkBoundary/DeviceConnectionFailures.swift`, `ButtonHeist/Sources/TheInsideJob/Server/MuscleHandshakePhase.swift`, `ButtonHeist/Sources/TheScore/Core/TLSPreSharedKeyMaterial.swift`, `ButtonHeist/Sources/TheScore/Wire/Messages.swift`
 
 ## Connection phases
 
@@ -16,7 +16,7 @@ stateDiagram-v2
     state "failed(HandoffConnectionError)" as failed
 
     [*] --> disc
-    disc --> conn : device discovered or targeted
+    disc --> conn : DeviceResolutionTarget resolves to endpoint
     disc --> recon : reconnect policy engages
     recon --> conn : attempt starts
     conn --> live : handshake + auth complete (ServerInfo received)
@@ -27,6 +27,12 @@ stateDiagram-v2
 ```
 
 `DisconnectReason` carries the documented failure edges: `networkError`, `bufferOverflow`, `eventBacklogOverflow`, `serverClosed`, `authFailed`, `sessionLocked`, `protocolMismatch`, `localDisconnect`, `missingToken`.
+
+`EnvironmentConfig` admits command, config-file, or environment syntax into one
+`DeviceResolutionTarget`. `TheHandoff` resolves that target by exactly one
+route—direct endpoint probing or discovery—and retains the same typed target
+for reconnect. It does not retain a parallel filter or consult the environment
+again after admission.
 
 ## Handshake inside `connecting`
 

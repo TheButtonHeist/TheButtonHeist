@@ -251,7 +251,7 @@ final class TheFenceHandlerTests: XCTestCase {
             ),
             ExpectedDiagnosticFailure(
                 name: "discovery",
-                response: FenceResponse.failure(FenceError.noDeviceFound),
+                response: FenceResponse.failure(FenceError(HandoffConnectionError.noDeviceFound)),
                 code: .discoveryNoDeviceFound,
                 kind: .discovery,
                 phase: .discovery,
@@ -260,10 +260,9 @@ final class TheFenceHandlerTests: XCTestCase {
             ),
             ExpectedDiagnosticFailure(
                 name: "transport",
-                response: FenceResponse.failure(FenceError.connectionFailure(ConnectionFailure(
+                response: FenceResponse.failure(FenceError.diagnostic(DiagnosticFailure(
                     message: "network down",
-                    failureCode: .transportNetworkError,
-                    hint: "retry"
+                    details: FailureDetails(code: .transportNetworkError, hint: "retry")
                 ))),
                 code: .transportNetworkError,
                 kind: .connection,

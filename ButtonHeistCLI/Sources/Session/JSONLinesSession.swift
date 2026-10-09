@@ -81,7 +81,7 @@ final class JSONLinesSession {
         do {
             parsedRequest = try CLIMachineRequestParser.parsedRequest(from: line)
         } catch let error as CLIMachineRequestError {
-            output(.error(error.diagnosticFailure), requestId: error.requestId)
+            output(.error(error.diagnosticFailure))
             return
         } catch {
             output(.failure(error))
@@ -91,14 +91,14 @@ final class JSONLinesSession {
         do {
             let operation = try fence.admit(parsedRequest.input)
             let response = try await fence.execute(operation)
-            output(response, requestId: parsedRequest.requestId)
+            output(response)
         } catch {
-            output(.failure(error), requestId: parsedRequest.requestId)
+            output(.failure(error))
         }
     }
 
-    private func output(_ response: FenceResponse, requestId: PublicRequestId? = nil) {
-        CLIRunner.output(.response(response), format: format, requestId: requestId)
+    private func output(_ response: FenceResponse) {
+        CLIRunner.output(.response(response), format: format)
     }
 
 }

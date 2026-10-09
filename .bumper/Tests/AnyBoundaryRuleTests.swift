@@ -33,6 +33,13 @@ struct AnyBoundaryRuleTests {
                 "enum HeistValuePayloadDecoder { static func expectedDescription(for type: Any.Type) {} }"
             ),
             (
+                RelativeFilePath(
+                    "ButtonHeist/Sources/TheButtonHeist/TheFence/PublicJSONInputLimits.swift"
+                ),
+                ButtonHeistComponent.client,
+                "struct FoundationJSONStructureTraversal { func validate(_ value: Any) {} }"
+            ),
+            (
                 RelativeFilePath("ButtonHeist/Sources/TheInsideJob/Lifecycle/StartupConfiguration.swift"),
                 ButtonHeistComponent.embeddedRuntime,
                 "func decodeFoundationInfoPlistValue(_ object: Any) {}"
@@ -54,6 +61,7 @@ struct AnyBoundaryRuleTests {
         let fixtures = [
             "private typealias FoundationFileAttributeDictionary = [String: Any]",
             "enum HeistValuePayloadDecoder { static func expectedDescription(for type: Any.Type) {} }",
+            "struct FoundationJSONStructureTraversal { func validate(_ value: Any) {} }",
             "func decodeFoundationInfoPlistValue(_ object: Any) {}",
         ]
 

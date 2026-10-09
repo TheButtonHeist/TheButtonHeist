@@ -7,12 +7,7 @@ import TheScore
 public enum FenceError: Error {
     case invalidRequest(String)
     case heistBuildDiagnostics([HeistBuildDiagnostic])
-    case noDeviceFound
-    case noMatchingDevice(filter: String, available: [String])
-    case ambiguousDeviceTarget(filter: String, matches: [String])
-    case connectionTimeout
-    case connectionFailed(String)
-    case connectionFailure(ConnectionFailure)
+    case diagnostic(DiagnosticFailure)
     case sessionLocked(String)
     case authFailed(String)
     case notConnected

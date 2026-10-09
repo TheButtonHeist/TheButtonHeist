@@ -44,6 +44,14 @@ Raw command dictionaries end at Fence admission. `FenceCommandInput` is the
 unadmitted edge value; `FenceOperationRequest` contains the typed operation that
 execution consumes.
 
+Raw machine JSON is size- and shape-checked at the Foundation boundary, then
+decoded directly into its destination contract. MCP converts its existing
+`Value` tree directly into `HeistValue`; the same encoded-input check applies
+the byte, depth, and key-count limits. There is no Button Heist JSON AST or
+format-specific recursive node between either boundary and command admission.
+JSON-lines executes one request at a time, so stream order is its correlation
+contract; it has no second request-ID envelope.
+
 ButtonHeistMCP projects one tool per exposed Fence command from the same
 contract. Wire message discriminators live one layer lower in TheScore and are
 documented separately.
@@ -239,6 +247,8 @@ Swift access control preserves four construction boundaries:
 - `HeistSwiftFileCompilation` has a private initializer. Its static `compile`
   operation owns construction. The compiler resolves `ThePlans` only from an
   absolute override, an explicit package root, or the exact installed prefix.
+  An explicit package root asks SwiftPM for its active binary directory; the
+  compiler does not guess debug, release, host-triple, or legacy layouts.
 - `HeistExecutionBudget` has a private initializer. Its `project` operation
   creates one budget before transport dispatch. It adds transport headroom only
   to the client wait.
@@ -547,6 +557,9 @@ The approved long-lived owners are:
 - `ClientDelivery`: the newest admitted callback generation and its current
   callbacks inside the app.
 - `TheHandoff`: external connection phase and discovery state outside the app.
+  One `DeviceResolutionTarget` enters the handoff, selects direct lookup or
+  discovery once, and remains the reconnect target. `EnvironmentConfig` does
+  not retain a parallel filter or re-read process environment after admission.
 - `PendingRequestRegistry`: typed `RequestID` to continuation correlation,
   removed on resolve, timeout, or cancellation.
 - `HeistResult`: immutable heist execution evidence. Total report projection
@@ -593,6 +606,8 @@ pipelines are explicit:
 | Callback generation admission and delivery | `ClientDelivery.swift` | `TheGetaway` issues strictly increasing generations and admits matching wiring and events; `TheMuscle` routes generation-scoped callback effects through the owner |
 | Drainable callback work | `TaskTracker.swift` | Lifecycle, listener-generation, and delayed-disconnect owners |
 | Discovery callback delivery | `DeviceDiscoveryEventStream.swift` | `DeviceDiscovery.swift` |
+| Connection target admission and resolution | `DeviceResolutionTarget` and `DeviceResolver` | `EnvironmentConfig` admits one target; `TheHandoff` resolves and retains it through reconnect |
+| Public JSON admission | `PublicJSONInputDecoder` | CLI decodes into its request envelope; MCP converts its existing value tree into command arguments and applies the same limits |
 | Compiler process terminal outcome | `HeistCompilerProcess.Runner` in `HeistCompilerProcess.swift` | `HeistSwiftFileCompilation.swift`; diagnostic rendering lives in `HeistSwiftFileCompilationError.swift` |
 | Result construction and relationship validity | `HeistExecutionStepResult+Construction.swift` | Runtime step executors and result decoding |
 | Result aggregate admission | `HeistResult.admitStructure` in `HeistResult.swift` | Package initialization and decoding; one ordered-sequence reducer admits every root and recursively visited child sequence |

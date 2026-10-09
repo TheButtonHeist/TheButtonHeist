@@ -35,7 +35,7 @@ struct ConnectCommand: ConnectedOneShotCLICommand {
             connectionTimeout: connection.connectTimeout,
             autoReconnect: false
         )
-        guard resolved.deviceFilter != nil else {
+        guard resolved.hasConnectionTarget else {
             throw ValidationError("""
                 No connection target configured. Checked:
                   - --device flag

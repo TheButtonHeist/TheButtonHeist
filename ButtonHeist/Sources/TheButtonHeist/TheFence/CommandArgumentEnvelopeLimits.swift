@@ -24,33 +24,13 @@ enum CommandArgumentEnvelopeLimits {
         maxDepth: Int,
         maxObjectKeys: Int
     ) throws {
-        try PublicJSONValuePreflight.validateObject(
+        try PublicJSONInputDecoder.validate(
             arguments.values,
-            policy: PublicJSONInputPolicy(
-                maxBytes: maxBytes,
-                maxNestingDepth: maxDepth,
-                maxTotalObjectKeys: maxObjectKeys
-            ),
-            mapViolation: { schemaValidationError(field: field, violation: $0) },
-            node: jsonValueNode
+            maxBytes: maxBytes,
+            maxNestingDepth: maxDepth,
+            maxTotalObjectKeys: maxObjectKeys,
+            mapViolation: { schemaValidationError(field: field, violation: $0) }
         )
-    }
-
-    private static func jsonValueNode(_ value: HeistValue) -> PublicJSONValueNode<HeistValue> {
-        switch value {
-        case .string(let string):
-            return .string(string)
-        case .bool(let bool):
-            return .bool(bool)
-        case .int(let number):
-            return .int(number)
-        case .double(let number):
-            return .double(number)
-        case .array(let array):
-            return .array(array)
-        case .object(let object):
-            return .object(object)
-        }
     }
 
     private static func schemaValidationError(
@@ -76,8 +56,6 @@ enum CommandArgumentEnvelopeLimits {
                 observed: "object key count \(observed)",
                 expected: "object key count <= \(max)"
             )
-        case .nullValue(let expected):
-            return SchemaValidationError(field: field, observed: "null", expected: expected)
         case .nonFiniteNumber(let observed):
             return SchemaValidationError(field: field, observed: observed, expected: "finite JSON number")
         }

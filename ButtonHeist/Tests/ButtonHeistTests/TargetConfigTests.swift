@@ -103,77 +103,6 @@ final class TargetConfigTests: XCTestCase {
         }
     }
 
-    // MARK: - TargetConfigResolver.resolveEffective
-
-    func testEnvVarsOverrideEverything() {
-        let config = ButtonHeistFileConfig(
-            targets: targetConfigs(["sim1": TargetConfig(device: "127.0.0.1:1455", token: "config-token")]),
-            defaultTarget: targetName("sim1")
-        )
-        let env = environment([
-            .buttonheistDevice: "127.0.0.1:9999",
-            .buttonheistToken: "env-token",
-        ])
-
-        let resolved = TargetConfigResolver.resolveEffective(targetName: targetName("sim1"), config: config, environment: env)
-        XCTAssertEqual(resolved?.device, "127.0.0.1:9999")
-        XCTAssertEqual(resolved?.token, "env-token")
-    }
-
-    func testEnvDeviceWithoutTokenUsesNilToken() {
-        let env = environment([.buttonheistDevice: "127.0.0.1:9999"])
-        let resolved = TargetConfigResolver.resolveEffective(config: nil, environment: env)
-        XCTAssertEqual(resolved?.device, "127.0.0.1:9999")
-        XCTAssertNil(resolved?.token)
-    }
-
-    func testNamedTargetFromConfig() {
-        let config = ButtonHeistFileConfig(
-            targets: targetConfigs(["sim1": TargetConfig(device: "127.0.0.1:1455", token: "t1")]),
-            defaultTarget: nil
-        )
-        let resolved = TargetConfigResolver.resolveEffective(targetName: targetName("sim1"), config: config, environment: .empty)
-        XCTAssertEqual(resolved?.device, "127.0.0.1:1455")
-        XCTAssertEqual(resolved?.token, "t1")
-    }
-
-    func testDefaultTargetFromConfig() {
-        let config = ButtonHeistFileConfig(
-            targets: targetConfigs([
-                "sim1": TargetConfig(device: "127.0.0.1:1455"),
-                "sim2": TargetConfig(device: "127.0.0.1:1456"),
-            ]),
-            defaultTarget: targetName("sim2")
-        )
-        let resolved = TargetConfigResolver.resolveEffective(config: config, environment: .empty)
-        XCTAssertEqual(resolved?.device, "127.0.0.1:1456")
-    }
-
-    func testNoConfigNoEnvReturnsNil() {
-        let resolved = TargetConfigResolver.resolveEffective(config: nil, environment: .empty)
-        XCTAssertNil(resolved)
-    }
-
-    func testUnknownTargetNameReturnsNil() {
-        let config = ButtonHeistFileConfig(
-            targets: targetConfigs(["sim1": TargetConfig(device: "127.0.0.1:1455")]),
-            defaultTarget: nil
-        )
-        let resolved = TargetConfigResolver.resolveEffective(targetName: targetName("unknown"), config: config, environment: .empty)
-        XCTAssertNil(resolved)
-    }
-
-    func testEnvTokenOverridesConfigToken() {
-        let config = ButtonHeistFileConfig(
-            targets: targetConfigs(["sim1": TargetConfig(device: "127.0.0.1:1455", token: "config-token")]),
-            defaultTarget: targetName("sim1")
-        )
-        let env = environment([.buttonheistToken: "env-token"])
-        let resolved = TargetConfigResolver.resolveEffective(config: config, environment: env)
-        XCTAssertEqual(resolved?.device, "127.0.0.1:1455")
-        XCTAssertEqual(resolved?.token, "env-token")
-    }
-
     // MARK: - TargetConfigResolver.loadConfig
 
     func testLoadConfigFromExplicitPath() throws {
@@ -424,14 +353,18 @@ final class TargetConfigTests: XCTestCase {
         guard case .connected = payload.state else {
             return XCTFail("Expected connected session state, got \(payload.state)")
         }
-        XCTAssertEqual(fence.config.deviceFilter, "127.0.0.1:1456")
+        let sim2 = try XCTUnwrap(config.targets[targetName("sim2")])
+        XCTAssertEqual(
+            fence.config.connectionTarget,
+            DeviceResolutionTarget(config: sim2, named: targetName("sim2"))
+        )
         XCTAssertEqual(fence.config.token, "tok2")
     }
 
     @ButtonHeistActor
     func testConnectWithDirectDeviceSwitchesConnection() async throws {
         let fence = makeMockFence()
-        fence.handoff.setupAutoReconnect(filter: "stale-target")
+        fence.handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: "stale-target"))
 
         let response = try await fence.execute(command: .connect, values: [
             "device": .string("127.0.0.1:9999"),
@@ -444,7 +377,7 @@ final class TargetConfigTests: XCTestCase {
         guard case .connected = payload.state else {
             return XCTFail("Expected connected session state, got \(payload.state)")
         }
-        XCTAssertEqual(fence.config.deviceFilter, "127.0.0.1:9999")
+        XCTAssertEqual(fence.config.connectionTarget, DeviceResolutionTarget(filter: "127.0.0.1:9999"))
         XCTAssertEqual(fence.config.token, "direct-tok")
     }
 
@@ -457,7 +390,7 @@ final class TargetConfigTests: XCTestCase {
             defaultTarget: targetName("sim1")
         )
         let fence = TheFence(configuration: .init(
-            deviceFilter: "127.0.0.1:1455",
+            connectionTarget: DeviceResolutionTarget(filter: "127.0.0.1:1455"),
             token: "tok1",
             fileConfig: config
         ))
@@ -505,7 +438,7 @@ final class TargetConfigTests: XCTestCase {
         } else {
             XCTFail("Expected error response, got \(response)")
         }
-        XCTAssertEqual(fence.config.deviceFilter, "127.0.0.1:9999")
+        XCTAssertEqual(fence.config.connectionTarget, DeviceResolutionTarget(filter: "127.0.0.1:9999"))
         XCTAssertEqual(fence.config.token, "bad-tok")
         XCTAssertEqual(connectAttempt, 1)
         XCTAssertFalse(fence.handoff.connectionLifecycle.isConnected)
@@ -620,12 +553,4 @@ final class TargetConfigTests: XCTestCase {
         })
     }
 
-    private func environment(_ values: [EnvironmentKey: String]) -> ButtonHeistEnvironment {
-        ButtonHeistEnvironment(
-            device: values[.buttonheistDevice],
-            token: values[.buttonheistToken],
-            sessionTimeout: values[.buttonheistSessionTimeout],
-            connectionTimeout: values[.buttonheistConnectionTimeout]
-        )
-    }
 }

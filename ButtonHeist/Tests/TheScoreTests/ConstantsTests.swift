@@ -34,5 +34,7 @@ final class ConstantsTests: XCTestCase {
         XCTAssertEqual(EnvironmentKey.insideJobId.rawValue, "INSIDEJOB_ID")
         XCTAssertEqual(EnvironmentKey.insideJobScope.rawValue, "INSIDEJOB_SCOPE")
         XCTAssertEqual(EnvironmentKey.insideJobSessionTimeout.rawValue, "INSIDEJOB_SESSION_TIMEOUT")
+        XCTAssertEqual(EnvironmentKey.insideJobFingerprints.rawValue, "INSIDEJOB_FINGERPRINTS")
+        XCTAssertEqual(EnvironmentKey.buttonheistFailureEvidence.rawValue, "BUTTONHEIST_FAILURE_EVIDENCE")
     }
 }

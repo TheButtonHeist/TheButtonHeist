@@ -14,6 +14,8 @@ private let privateStoragePath: RelativeFilePath =
     "ButtonHeist/Sources/TheButtonHeist/Storage/PrivateStorage.swift"
 private let commandArgumentsPath: RelativeFilePath =
     "ButtonHeist/Sources/TheButtonHeist/TheFence/TheFence+CommandArguments.swift"
+private let publicJSONInputPath: RelativeFilePath =
+    "ButtonHeist/Sources/TheButtonHeist/TheFence/PublicJSONInputLimits.swift"
 private let startupConfigurationPath: RelativeFilePath =
     "ButtonHeist/Sources/TheInsideJob/Lifecycle/StartupConfiguration.swift"
 
@@ -336,6 +338,9 @@ private func isAllowedAnyBoundary(
     if path == commandArgumentsPath,
        context.enclosingFunctionName == "expectedDescription" {
         return context.enclosingNominalNames.contains("HeistValuePayloadDecoder")
+    }
+    if path == publicJSONInputPath {
+        return context.enclosingNominalNames.contains("FoundationJSONStructureTraversal")
     }
     return path == startupConfigurationPath
         && context.enclosingFunctionName == "decodeFoundationInfoPlistValue"

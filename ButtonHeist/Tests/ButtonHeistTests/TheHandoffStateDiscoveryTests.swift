@@ -392,7 +392,7 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
             return connection
         }
 
-        try await handoff.connectWithDiscovery(filter: nil, timeout: 0.5)
+        try await handoff.connect(target: DeviceResolutionTarget(filter: nil), timeout: 0.5)
 
         XCTAssertEqual(connectedDeviceID, discoveredDevice.id)
         XCTAssertEqual(handoff.connectionLifecycle.connectedDevice, discoveredDevice)
@@ -431,12 +431,12 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
 
         let previousProvider = makeReachabilityConnection
         makeReachabilityConnection = { _ in
-            XCTFail("connectWithDiscovery target resolution should not probe reachability")
+            XCTFail("discovered target resolution should not probe reachability")
             return MockConnection()
         }
         defer { makeReachabilityConnection = previousProvider }
 
-        try await handoff.connectWithDiscovery(filter: nil, timeout: 0.5)
+        try await handoff.connect(target: DeviceResolutionTarget(filter: nil), timeout: 0.5)
 
         XCTAssertEqual(handoff.connectionLifecycle.connectedDevice, device)
         XCTAssertTrue(handoff.connectionLifecycle.isConnected)
@@ -461,7 +461,7 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         handoff.makeDiscovery = { mockDiscovery }
 
         do {
-            try await handoff.connectWithDiscovery(filter: nil, timeout: 0.5)
+            try await handoff.connect(target: DeviceResolutionTarget(filter: nil), timeout: 0.5)
             XCTFail("Expected ambiguousDeviceTarget to be thrown")
         } catch let error as HandoffConnectionError {
             guard case .ambiguousDeviceTarget(let filter, let matches) = error else {
@@ -514,7 +514,7 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         }
 
         do {
-            try await handoff.connectWithDiscovery(filter: nil, timeout: 0.5)
+            try await handoff.connect(target: DeviceResolutionTarget(filter: nil), timeout: 0.5)
             XCTFail("Expected ambiguousDeviceTarget to be thrown")
         } catch let error as HandoffConnectionError {
             guard case .ambiguousDeviceTarget(let filter, let matches) = error else {
@@ -576,7 +576,7 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         mockDiscovery.discoveredDevices = [replacementDevice]
         handoff.makeDiscovery = { mockDiscovery }
 
-        try await handoff.connectWithDiscovery(filter: nil, timeout: 0.5)
+        try await handoff.connect(target: DeviceResolutionTarget(filter: nil), timeout: 0.5)
 
         XCTAssertFalse(existingConnection.isConnected)
         XCTAssertTrue(replacementConnection.isConnected)

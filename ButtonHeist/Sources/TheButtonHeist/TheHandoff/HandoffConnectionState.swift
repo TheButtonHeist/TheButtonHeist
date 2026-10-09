@@ -18,6 +18,7 @@ enum HandoffConnectionError: Error, LocalizedError, Equatable {
     case serverFailure(ServerError)
     case disconnected(DisconnectReason)
     case timeout
+    case endpointUnreachable(String)
     case noDeviceFound
     case noMatchingDevice(filter: String, available: [String])
     case ambiguousDeviceTarget(filter: String, matches: [String])
@@ -36,6 +37,8 @@ enum HandoffConnectionError: Error, LocalizedError, Equatable {
             return reason.connectionFailureMessage
         case .timeout:
             return "Connection timed out"
+        case .endpointUnreachable(let endpoint):
+            return "Could not reach ButtonHeist server at \(endpoint)"
         case .noDeviceFound:
             return "No device found"
         case .noMatchingDevice(let filter, let available):
@@ -85,6 +88,11 @@ enum HandoffConnectionError: Error, LocalizedError, Equatable {
             return FailureDetails(
                 code: .setupTimeout,
                 hint: Self.recoveryHint
+            )
+        case .endpointUnreachable(let endpoint):
+            return FailureDetails(
+                code: .connectionEndpointUnreachable,
+                hint: "Check that the app is running at \(endpoint), then retry the command."
             )
         case .noDeviceFound:
             return FailureDetails(code: .discoveryNoDeviceFound)

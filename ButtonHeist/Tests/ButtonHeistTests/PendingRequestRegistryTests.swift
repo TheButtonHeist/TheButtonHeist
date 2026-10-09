@@ -325,7 +325,7 @@ final class PendingRequestRegistryTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        guard case FenceError.connectionFailure(let failure) = error else {
+        guard case FenceError.diagnostic(let failure) = error else {
             return XCTFail("Expected protocol mismatch FenceError, got \(error)", file: file, line: line)
         }
 

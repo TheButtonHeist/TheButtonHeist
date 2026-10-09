@@ -123,14 +123,6 @@ extension DiagnosticFailure {
         self = fenceError.diagnosticFailure
     }
 
-    init(connectionError: HandoffConnectionError) {
-        self.init(ConnectionFailure(connectionError: connectionError))
-    }
-
-    private init(_ connectionFailure: ConnectionFailure) {
-        self.init(message: connectionFailure.message, details: connectionFailure.details)
-    }
-
     private init(missingAccessibilityTargetCommand command: TheFence.Command) {
         let commandName = command.rawValue
         let contract = "requires target object with checks"

@@ -55,12 +55,12 @@ if [[ "$MODE" == "report" ]]; then
     exit 0
 fi
 
-# v0.6.33 includes intentional source changes: a typed session timeout, an
-# explicit accessibility-activation Boolean, and an expanded adversarial
-# scenario catalog. This waiver is bound to that baseline and expires when
-# v0.6.34 becomes the API baseline.
-if [[ "$BASELINE_TAG" == "v0.6.33" ]]; then
-    echo "Intentional source changes against $BASELINE_TAG: typed EnvironmentConfig.sessionTimeout, explicit Bool on ActivationTracePhase.accessibilityActivate, and the expanded adversarial scenario catalog."
+# v0.6.38 includes intentional source removals that collapse connection
+# targeting, diagnostic failure, JSON admission, and environment parsing onto
+# their canonical types. This waiver is bound to that baseline and expires
+# when v0.6.39 becomes the API baseline.
+if [[ "$BASELINE_TAG" == "v0.6.38" ]]; then
+    echo "Intentional source removals against $BASELINE_TAG: legacy connection/failure wrappers, duplicate public-JSON adapters and request metadata, permissive environment aliases, validation-error aliases, and obsolete resolver overloads."
     echo "The exemption expires when the next release tag becomes the API baseline."
     exit 0
 fi

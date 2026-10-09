@@ -72,7 +72,7 @@ final class GetScreenCommandTests: XCTestCase {
         let rendered = CLIRunner.renderedOutput(
             for: result,
             format: .json,
-            jsonRenderer: { _, _ in
+            jsonRenderer: { _ in
                 .fallback(
                     fallbackJSON,
                     DiagnosticFailure(

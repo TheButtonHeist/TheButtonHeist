@@ -5,7 +5,7 @@ import TheScore
 
 extension FenceError {
     init(_ connectionError: HandoffConnectionError) {
-        self = .connectionFailure(ConnectionFailure(connectionError: connectionError))
+        self = .diagnostic(DiagnosticFailure(connectionError: connectionError))
     }
 
     init(_ sendFailure: DeviceSendFailure) {
@@ -15,12 +15,12 @@ extension FenceError {
         case .encodingFailed(let failure):
             self = .actionFailed("Failed to send request: \(failure.description)")
         case .transportFailed(let failure):
-            self = .connectionFailure(ConnectionFailure(deviceTransportFailure: failure))
+            self = .diagnostic(DiagnosticFailure(deviceTransportFailure: failure))
         }
     }
 }
 
-private extension ConnectionFailure {
+private extension DiagnosticFailure {
     init(deviceTransportFailure failure: NetworkTransportFailure) {
         self.init(
             message: "Transport send failed: \(failure.description)",

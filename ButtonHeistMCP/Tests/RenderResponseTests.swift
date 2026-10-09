@@ -184,7 +184,10 @@ struct RenderResponseTests {
 
     @Test("error render uses canonical public failure mapping")
     func errorRenderUsesCanonicalDiagnosticFailureMapping() throws {
-        let response = FenceResponse.failure(FenceError.connectionTimeout)
+        let response = FenceResponse.failure(FenceError.diagnostic(DiagnosticFailure(
+            message: "Connection timed out",
+            details: FailureDetails(code: .setupTimeout)
+        )))
         guard case .error(let expected) = response else {
             Issue.record("Expected error response")
             return

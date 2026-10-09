@@ -18,7 +18,7 @@ extension TheFenceHandlerTests {
         mockDiscovery.discoveredDevices = [TheFenceFixtures.testDevice]
 
         let fence = TheFence(configuration: .init(
-            deviceFilter: "MockApp",
+            connectionTarget: DeviceResolutionTarget(filter: "MockApp"),
             autoReconnect: false
         ))
         fence.handoff.makeDiscovery = { mockDiscovery }
@@ -138,7 +138,10 @@ extension TheFenceHandlerTests {
     func testPingDoesNotAutoConnectWhenDisconnected() async {
         let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
         let mockConn = MockConnection()
-        let fence = TheFence(configuration: .init(autoReconnect: false, directDevice: device))
+        let fence = TheFence(configuration: .init(
+            connectionTarget: DeviceResolutionTarget(kind: .direct(device)),
+            autoReconnect: false
+        ))
         fence.handoff.makeConnection = { _ in mockConn }
 
         do {
