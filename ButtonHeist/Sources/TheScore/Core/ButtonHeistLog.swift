@@ -16,7 +16,6 @@ package enum ButtonHeistLog {
         case server
         case serverMessage = "server-message"
         case transport
-        case usbDiscovery = "usb-discovery"
     }
 
     package enum InsideJob: String, Sendable {
