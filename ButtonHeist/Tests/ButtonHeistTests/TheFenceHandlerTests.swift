@@ -389,17 +389,6 @@ final class TheFenceHandlerTests: XCTestCase {
         }
     }
 
-    @ButtonHeistActor
-    func decodedAccessibilityTarget(
-        target: HeistValue? = nil
-    ) throws -> AccessibilityTarget? {
-        var arguments: [String: HeistValue] = [:]
-        if let target {
-            arguments["target"] = target
-        }
-        return try TheFence.CommandArgumentEnvelope(values: arguments).decodedAccessibilityTarget()
-    }
-
     func selectionTestInterface(includeDuplicateGroup: Bool = false) -> Interface {
         let header = makeTestHeistElement(label: "Menu", traits: [.header])
         let submit = makeTestHeistElement(label: "Submit", traits: [.button])

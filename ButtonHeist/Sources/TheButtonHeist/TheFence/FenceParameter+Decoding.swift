@@ -13,7 +13,7 @@ extension TheFence {
 
 extension FenceParameter where Value == String {
     internal static func string(
-        _ key: FenceParameterKey,
+        _ key: String,
         required: Bool = false,
         defaultValue: String? = nil,
         minLength: Int? = nil
@@ -40,7 +40,7 @@ extension FenceParameter where Value == String {
 
 extension FenceParameter where Value == Int {
     internal static func integer(
-        _ key: FenceParameterKey,
+        _ key: String,
         required: Bool = false,
         defaultValue: Int? = nil,
         minimum: Double? = nil,
@@ -66,7 +66,7 @@ extension FenceParameter where Value == Int {
 
 extension FenceParameter where Value == Double {
     internal static func number(
-        _ key: FenceParameterKey,
+        _ key: String,
         required: Bool = false,
         defaultValue: Double? = nil,
         minimum: Double? = nil,
@@ -92,29 +92,9 @@ extension FenceParameter where Value == Double {
     }
 }
 
-extension FenceParameter where Value == GestureDuration {
-    internal static func gestureDuration(_ key: FenceParameterKey) -> Self {
-        let spec = param(
-            key,
-            .number,
-            maximum: GestureDuration.maximumSeconds,
-            exclusiveMinimum: 0
-        )
-        return FenceParameter(
-            key: key,
-            spec: spec,
-            convertValue: { value in
-                guard let seconds = value.numberValue else { return nil }
-                return try GestureDuration(validatingSeconds: seconds)
-            },
-            encodeValue: { jsonSchemaNumber($0.seconds) }
-        )
-    }
-}
-
 extension FenceParameter where Value == HeistTimeout {
     internal static func heistTimeout(
-        _ key: FenceParameterKey,
+        _ key: String,
         defaultValue: HeistTimeout
     ) -> Self {
         let spec = param(
@@ -138,7 +118,7 @@ extension FenceParameter where Value == HeistTimeout {
 
 extension FenceParameter where Value == Bool {
     internal static func boolean(
-        _ key: FenceParameterKey,
+        _ key: String,
         required: Bool = false,
         defaultValue: Bool? = nil
     ) -> Self {
@@ -163,7 +143,7 @@ extension FenceParameter where Value == Bool {
 
 extension FenceParameter where Value: CaseIterable & RawRepresentable, Value.RawValue == String {
     internal static func enumValue(
-        _ key: FenceParameterKey,
+        _ key: String,
         required: Bool = false,
         defaultValue: Value? = nil
     ) -> Self {
@@ -188,19 +168,13 @@ extension FenceParameter where Value: CaseIterable & RawRepresentable, Value.Raw
     }
 }
 
-internal func fenceEnumValues<E>(_ type: E.Type) -> [String]
-where E: CaseIterable & RawRepresentable, E.RawValue == String {
-    type.allCases.map(\.rawValue)
-}
-
 private func validateInteger(
     _ integer: Int,
     source: HeistValue,
     field: String,
-    constraints: FenceParameterScalarConstraints
+    minimum: Double?,
+    maximum: Double?
 ) throws {
-    let minimum = constraints.minimum
-    let maximum = constraints.maximum
     if let minimum, Double(integer) < minimum {
         throw SchemaValidationError(
             field: field,
@@ -221,11 +195,10 @@ private func validateNumber(
     _ number: Double,
     source: HeistValue,
     field: String,
-    constraints: FenceParameterScalarConstraints
+    minimum: Double?,
+    maximum: Double?,
+    exclusiveMinimum: Double?
 ) throws {
-    let minimum = constraints.minimum
-    let maximum = constraints.maximum
-    let exclusiveMinimum = constraints.exclusiveMinimum
     if let exclusiveMinimum, number <= exclusiveMinimum {
         throw SchemaValidationError(
             field: field,
@@ -258,100 +231,32 @@ private func numberBoundsDescription(minimum: Double, maximum: Double?) -> Strin
 }
 
 internal extension FenceParameterSpec {
-    func validatePayload(_ value: HeistValue, field: String) throws {
-        guard !usesCustomPayloadValidation else { return }
-        try validate(value, against: schema, field: field)
-    }
-
-    private func validate(
-        _ value: HeistValue,
-        against schema: FenceParameterSchema,
-        field: String
-    ) throws {
-        switch schema {
-        case .unconstrained:
-            return
-        case .scalar:
-            try validateScalar(value, field: field)
-        case .object(let object):
-            guard case .object(let values) = value else {
-                throw SchemaValidationError(
-                    field: field,
-                    observed: value.schemaObservedDescription,
-                    expected: "object"
-                )
-            }
-            guard let properties = object.properties else { return }
-            if object.additionalProperties == false,
-               let unknown = values.keys.sorted().first(where: { key in
-                   !properties.contains(where: { $0.key == key })
-               }) {
-                throw SchemaValidationError(
-                    field: "\(field).\(unknown)",
-                    observed: values[unknown]?.schemaObservedDescription ?? "missing",
-                    expected: "valid \(field) field"
-                )
-            }
-            for property in properties {
-                let childField = "\(field).\(property.key)"
-                guard let child = values[property.key] else {
-                    guard property.required else { continue }
-                    throw SchemaValidationError(
-                        field: childField,
-                        observed: "missing",
-                        expected: property.expectedTypeDescription
-                    )
-                }
-                try property.validatePayload(child, field: childField)
-            }
-        case .array(let array):
-            guard case .array(let values) = value else {
-                throw SchemaValidationError(
-                    field: field,
-                    observed: value.schemaObservedDescription,
-                    expected: array.kind == .stringArray ? "array of strings" : "array"
-                )
-            }
-            if let minimum = array.constraints.minItems, values.count < minimum {
-                throw SchemaValidationError(
-                    field: field,
-                    observed: value.schemaObservedDescription,
-                    expected: "array with count >= \(minimum)"
-                )
-            }
-            if let maximum = array.constraints.maxItems, values.count > maximum {
-                throw SchemaValidationError(
-                    field: field,
-                    observed: value.schemaObservedDescription,
-                    expected: "array with count <= \(maximum)"
-                )
-            }
-            if let itemSchema = array.items {
-                for (index, item) in values.enumerated() {
-                    try validate(item, against: itemSchema, field: "\(field)[\(index)]")
-                }
-            }
-        }
-    }
-
     func validateScalar(_ value: HeistValue, field: String) throws {
-        guard case .scalar(let scalar) = schema else {
+        guard case .scalar(
+            let kind,
+            let enumValues,
+            _,
+            let minimum,
+            let maximum,
+            let exclusiveMinimum,
+            let minLength
+        ) = schema else {
             preconditionFailure("FenceParameter requires a scalar schema")
         }
 
-        switch scalar.kind {
+        switch kind {
         case .string:
             guard case .string(let string) = value else {
                 throw SchemaValidationError(field: field, observed: value.schemaObservedDescription, expected: "string")
             }
-            if let minLength = scalar.constraints.minLength, string.count < minLength {
+            if let minLength, string.count < minLength {
                 throw SchemaValidationError(
                     field: field,
                     observed: value.schemaObservedDescription,
                     expected: minLength == 1 ? "non-empty string" : "string with length >= \(minLength)"
                 )
             }
-            if let enumValues = scalar.constraints.enumValues, !enumValues.contains(string) {
+            if let enumValues, !enumValues.contains(string) {
                 throw SchemaValidationError(
                     field: field,
                     observed: value.schemaObservedDescription,
@@ -362,12 +267,25 @@ internal extension FenceParameterSpec {
             guard let integer = value.integerValue else {
                 throw SchemaValidationError(field: field, observed: value.schemaObservedDescription, expected: "integer")
             }
-            try validateInteger(integer, source: value, field: field, constraints: scalar.constraints)
+            try validateInteger(
+                integer,
+                source: value,
+                field: field,
+                minimum: minimum,
+                maximum: maximum
+            )
         case .number:
             guard let number = value.numberValue else {
                 throw SchemaValidationError(field: field, observed: value.schemaObservedDescription, expected: "number")
             }
-            try validateNumber(number, source: value, field: field, constraints: scalar.constraints)
+            try validateNumber(
+                number,
+                source: value,
+                field: field,
+                minimum: minimum,
+                maximum: maximum,
+                exclusiveMinimum: exclusiveMinimum
+            )
         case .boolean:
             guard case .bool = value else {
                 throw SchemaValidationError(field: field, observed: value.schemaObservedDescription, expected: "boolean")

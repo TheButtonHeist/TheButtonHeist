@@ -144,7 +144,7 @@ Representative stable codes:
   composition
 - `heist.source.invalid_syntax`: unsupported or malformed source syntax
 - `heist.plan.runtime_safety`: semantic validation failure
-- `heist.plan.non_durable_action`: direct client command admitted into durable
+- `heist.plan.non_durable_action`: non-durable action admitted into durable
   DSL
 
 For the same invalid authoring shape, canonical source and Swift DSL builder
@@ -152,19 +152,20 @@ diagnostics SHOULD share the same code, title, message, path, and hint. Their
 phases and source spans may differ because they originate from different
 frontends.
 
-## Direct client commands
+## Direct client operations
 
-Viewport, debug, observation, and session commands are direct client commands.
+Viewport and debug action types plus observation and session commands are
+direct client operations.
 They are useful for inspecting the live app, selecting the current session,
 capturing pixels, or moving diagnostic viewport state. They are not Button Heist
 DSL.
 
-Direct client commands MUST NOT appear in `HeistPlan` source, `.heist`
+Direct client operations MUST NOT appear in `HeistPlan` source, `.heist`
 artifacts, reusable heist definitions, or canonical DSL examples. Live
 composition MAY use them as scratchpad observations, but they MUST add no
 durable steps.
 
-Direct client commands MAY use live container or viewport context while
+Direct client operations MAY use live container or viewport context while
 inspecting the current interface. Those live names and positions are client
 context only; they MUST NOT be promoted into durable selectors.
 
@@ -443,6 +444,6 @@ runtime IDs, capture-local IDs, generated container names, or session state as
 semantic identity.
 
 Agents SHOULD author or exchange canonical DSL source unless they are passing a
-generated `.heist` artifact. Authors SHOULD keep direct client commands outside
+generated `.heist` artifact. Authors SHOULD keep direct client operations outside
 durable examples so examples can be copied into `run_heist` without changing the
 language boundary.

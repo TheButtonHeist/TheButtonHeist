@@ -46,7 +46,7 @@ buttonheist list_targets
 buttonheist connect
 
 # Commands reuse the configured target
-buttonheist activate --identifier myButton
+buttonheist perform 'Activate(.identifier("myButton"))'
 
 # Take a screenshot over USB; writes an artifact by default
 buttonheist get_screen --output screen.png

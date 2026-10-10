@@ -2,6 +2,7 @@ import ArgumentParser
 @_spi(ButtonHeistTooling) import ButtonHeist
 
 struct GetSessionStateCommand: ConnectedOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.getSessionState
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Report the current connection + session state",

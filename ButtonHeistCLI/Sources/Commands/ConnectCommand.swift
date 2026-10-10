@@ -3,6 +3,7 @@ import ArgumentParser
 
 /// Connect (or reconnect) to an iOS app with Button Heist enabled.
 struct ConnectCommand: ConnectedOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.connect
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Connect to an iOS app with Button Heist enabled",

@@ -28,15 +28,15 @@ extension FenceResponse {
             return formatInterface(interface, detail: detail)
         case .notifications(let notifications):
             return formatNotifications(notifications)
-        case .action(let command, let result, let expectation):
-            var text = formatActionResult(command: command, result: result)
+        case .action(let result, let expectation):
+            var text = formatActionResult(result)
             if result.outcome.isSuccess, let expectation {
                 if expectation.met {
                     text += "  [expectation met]"
                 } else {
                     let tier = expectation.predicate.map(String.init(describing:)) ?? "delivery"
                     text += "  [expectation FAILED: expected \(tier), got \(expectation.actual ?? "nil")]"
-                    if let hint = Self.expectationFailureHint(expectation, command: command, result: result) {
+                    if let hint = Self.expectationFailureHint(expectation, result: result) {
                         text += "  [hint: \(hint)]"
                     }
                 }
@@ -414,9 +414,9 @@ extension FenceResponse {
         return lines.joined(separator: "\n")
     }
 
-    private func formatActionResult(command: TheFence.Command, result: ActionResult) -> String {
-        let methodName = command.rawValue
-        let projection = ActionProjection(method: command.rawValue, result: result, profile: .summary)
+    private func formatActionResult(_ result: ActionResult) -> String {
+        let methodName = result.method.rawValue
+        let projection = ActionProjection(method: methodName, result: result, profile: .summary)
         if let failure = projection.failure {
             return Self.diagnosticText(failure, headline: "Error")
         }

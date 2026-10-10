@@ -81,8 +81,10 @@ extension TheFenceHandlerTests {
             postActionExpectationTimeoutBuffer: 11
         ))
 
-        _ = try await fence.execute(command: .activate, values: [
-            "target": targetValue(label: "Pay"),
+        _ = try await fence.execute(command: .action, values: [
+            "action": try TheFence.HeistValuePayloadEncoder.encode(
+                HeistActionCommand.activate(.label("Pay"))
+            ),
         ])
 
         XCTAssertEqual(
@@ -100,8 +102,10 @@ extension TheFenceHandlerTests {
             postActionExpectationTimeoutBuffer: 11
         ))
 
-        _ = try await fence.execute(command: .activate, values: [
-            "target": targetValue(label: "Pay"),
+        _ = try await fence.execute(command: .action, values: [
+            "action": try TheFence.HeistValuePayloadEncoder.encode(
+                HeistActionCommand.activate(.label("Pay"))
+            ),
             "expect": .object([
                 "type": .string("changed"),
                 "scope": .string("screen"),
@@ -160,8 +164,10 @@ extension TheFenceHandlerTests {
             postActionExpectationTimeoutBuffer: 11
         ))
 
-        _ = try await fence.execute(command: .activate, values: [
-            "target": targetValue(label: "Pay"),
+        _ = try await fence.execute(command: .action, values: [
+            "action": try TheFence.HeistValuePayloadEncoder.encode(
+                HeistActionCommand.activate(.label("Pay"))
+            ),
             "timeout": .double(19),
         ])
 
@@ -180,7 +186,7 @@ extension TheFenceHandlerTests {
 
         let budget = try TheFence.HeistExecutionBudget.project(
             plan: plan,
-            timeoutSource: .singleStep(actionTimeoutOverride: nil),
+            timeoutSource: .projected(actionTimeoutOverride: nil),
             configuration: .init(
                 actionExpectationTimeoutPolicy: policy,
                 postActionExpectationTimeoutBuffer: 11
@@ -203,7 +209,7 @@ extension TheFenceHandlerTests {
         for headroom in [-1, .infinity, .nan] {
             XCTAssertThrowsError(try TheFence.HeistExecutionBudget.project(
                 plan: plan,
-                timeoutSource: .runHeist(nil),
+                timeoutSource: .requested(nil),
                 configuration: .init(postActionExpectationTimeoutBuffer: headroom)
             )) { error in
                 guard let error = error as? TheFence.HeistExecutionBudget.Error,
@@ -224,7 +230,7 @@ extension TheFenceHandlerTests {
 
         XCTAssertThrowsError(try TheFence.HeistExecutionBudget.project(
             plan: plan,
-            timeoutSource: .runHeist(timeout),
+            timeoutSource: .requested(timeout),
             configuration: .init(postActionExpectationTimeoutBuffer: .greatestFiniteMagnitude)
         )) { error in
             guard let error = error as? TheFence.HeistExecutionBudget.Error,

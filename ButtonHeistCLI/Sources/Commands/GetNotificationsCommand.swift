@@ -2,6 +2,7 @@ import ArgumentParser
 @_spi(ButtonHeistTooling) import ButtonHeist
 
 struct GetNotificationsCommand: ConnectedOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.getNotifications
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Read retained accessibility notifications",

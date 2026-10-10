@@ -248,8 +248,8 @@ make that intent visible:
 oneFingerTap(ScreenPoint(x: 120, y: 400))
 ```
 
-Viewport/debug/session commands such as `scroll`, `scroll_to_edge`, and
-`scroll_to_visible` are direct client commands, not durable Swift Heist
+Viewport/debug/session action types such as `scroll`, `scrollToEdge`, and
+`scrollToVisible` are direct `action` inputs, not durable Swift Heist
 primitives. Normal semantic actions do not need pre-action viewport movement.
 `Activate`, `TypeText`, `Increment`, `Decrement`, custom actions, and rotors own
 reveal, element inflation, and live geometry through the runtime pipeline.

@@ -4,6 +4,7 @@ import Foundation
 import TheScore
 
 struct GetScreenCommand: OneShotCLICommand {
+    static let fenceCommand = TheFence.Command.getScreen
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Capture a screenshot from the connected device"
@@ -71,17 +72,17 @@ struct ScreenDestinationInput: ParsableArguments {
         switch (inline, output) {
         case (true, nil):
             return [
-                CommandArgumentFields.value(.inlineData, true),
+                CommandArgumentFields.value("inlineData", true),
                 CommandArgumentFields.optional(
-                    .mode,
+                    "mode",
                     accessibility ? ScreenCaptureMode.accessibility.rawValue : nil
                 ),
             ].compactMap { $0 }
         case (false, let output):
             return [
-                CommandArgumentFields.optional(.output, output),
+                CommandArgumentFields.optional("output", output),
                 CommandArgumentFields.optional(
-                    .mode,
+                    "mode",
                     accessibility ? ScreenCaptureMode.accessibility.rawValue : nil
                 ),
             ].compactMap { $0 }

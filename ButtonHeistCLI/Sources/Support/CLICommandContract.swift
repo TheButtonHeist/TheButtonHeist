@@ -6,7 +6,7 @@ import TheScore
 
 struct CommandArgumentFields {
     struct Field {
-        let key: FenceParameterKey
+        let key: String
         let value: HeistValue
     }
 
@@ -18,7 +18,7 @@ struct CommandArgumentFields {
 
     init(_ fields: [Field?]) {
         values = Dictionary(uniqueKeysWithValues: fields.compactMap { field in
-            field.map { ($0.key.rawValue, $0.value) }
+            field.map { ($0.key, $0.value) }
         })
     }
 
@@ -35,30 +35,30 @@ struct CommandArgumentFields {
 
     mutating func insert(_ field: Field?) {
         guard let field else { return }
-        values[field.key.rawValue] = field.value
+        values[field.key] = field.value
     }
 
     mutating func insert(_ fields: [Field?]) {
         fields.forEach { insert($0) }
     }
 
-    static func value(_ key: FenceParameterKey, _ value: HeistValue) -> Field {
+    static func value(_ key: String, _ value: HeistValue) -> Field {
         Field(key: key, value: value)
     }
 
-    static func value(_ key: FenceParameterKey, _ value: String) -> Field {
+    static func value(_ key: String, _ value: String) -> Field {
         self.value(key, .string(value))
     }
 
-    static func value(_ key: FenceParameterKey, _ value: Int) -> Field {
+    static func value(_ key: String, _ value: Int) -> Field {
         self.value(key, .int(value))
     }
 
-    static func value(_ key: FenceParameterKey, _ value: Double) -> Field {
+    static func value(_ key: String, _ value: Double) -> Field {
         self.value(key, .double(value))
     }
 
-    static func value(_ key: FenceParameterKey, _ value: Bool) -> Field {
+    static func value(_ key: String, _ value: Bool) -> Field {
         self.value(key, .bool(value))
     }
 
@@ -66,27 +66,27 @@ struct CommandArgumentFields {
         self.value(parameter.key, parameter.heistValue(for: value))
     }
 
-    static func encoded<Value: Encodable>(_ key: FenceParameterKey, _ value: Value) -> Field {
+    static func encoded<Value: Encodable>(_ key: String, _ value: Value) -> Field {
         self.value(key, encodedValue(value))
     }
 
-    static func optional(_ key: FenceParameterKey, _ value: HeistValue?) -> Field? {
+    static func optional(_ key: String, _ value: HeistValue?) -> Field? {
         value.map { self.value(key, $0) }
     }
 
-    static func optional(_ key: FenceParameterKey, _ value: String?) -> Field? {
+    static func optional(_ key: String, _ value: String?) -> Field? {
         value.map { self.value(key, $0) }
     }
 
-    static func optional(_ key: FenceParameterKey, _ value: Int?) -> Field? {
+    static func optional(_ key: String, _ value: Int?) -> Field? {
         value.map { self.value(key, $0) }
     }
 
-    static func optional(_ key: FenceParameterKey, _ value: Double?) -> Field? {
+    static func optional(_ key: String, _ value: Double?) -> Field? {
         value.map { self.value(key, $0) }
     }
 
-    static func optional(_ key: FenceParameterKey, _ value: Bool?) -> Field? {
+    static func optional(_ key: String, _ value: Bool?) -> Field? {
         value.map { self.value(key, $0) }
     }
 
@@ -94,7 +94,7 @@ struct CommandArgumentFields {
         value.map { self.value(parameter, $0) }
     }
 
-    static func optionalEncoded<Value: Encodable>(_ key: FenceParameterKey, _ value: Value?) -> Field? {
+    static func optionalEncoded<Value: Encodable>(_ key: String, _ value: Value?) -> Field? {
         value.map { self.encoded(key, $0) }
     }
 
@@ -108,6 +108,8 @@ struct CommandArgumentFields {
 }
 
 protocol OneShotCLICommand: AsyncParsableCommand {
+    static var fenceCommand: TheFence.Command { get }
+
     var runnerConnection: ConnectionOptions { get }
     var runnerFormat: OutputFormat? { get }
     var runnerExecutionMode: CLIRunner.ExecutionMode { get }
@@ -172,73 +174,45 @@ enum CLICommandCatalog {
     // ArgumentParser adapter types. It must not carry product command
     // semantics: public names, defaults, parameters, and help all
     // project from FenceCommandDescriptor/FenceParameterSpec below.
-    private static let commandTypesByFenceCommand: [TheFence.Command: OneShotCLICommand.Type] = [
-        .ping: PingCommand.self,
-        .listDevices: ListDevicesCommand.self,
-        .getInterface: GetInterfaceCommand.self,
-        .getScreen: GetScreenCommand.self,
-        .wait: WaitCommand.self,
-        .oneFingerTap: OneFingerTapCommand.self,
-        .longPress: LongPressCommand.self,
-        .swipe: SwipeCommand.self,
-        .drag: DragCommand.self,
-        .scroll: ScrollCommand.self,
-        .scrollToVisible: ScrollToVisibleCommand.self,
-        .scrollToEdge: ScrollToEdgeCommand.self,
-        .activate: ActivateCommand.self,
-        .rotor: RotorCommand.self,
-        .typeText: TypeTextCommand.self,
-        .editAction: EditActionCommand.self,
-        .setPasteboard: SetPasteboardCommand.self,
-        .getPasteboard: GetPasteboardCommand.self,
-        .getNotifications: GetNotificationsCommand.self,
-        .dismissKeyboard: DismissKeyboardCommand.self,
-        .runHeist: RunHeistCommand.self,
-        .validateHeist: ValidateHeistCommand.self,
-        .listHeists: ListHeistsCommand.self,
-        .describeHeist: DescribeHeistCommand.self,
-        .getSessionState: GetSessionStateCommand.self,
-        .connect: ConnectCommand.self,
-        .listTargets: ListTargetsCommand.self,
+    private static let commandTypes: [OneShotCLICommand.Type] = [
+        PingCommand.self,
+        ListDevicesCommand.self,
+        GetInterfaceCommand.self,
+        GetScreenCommand.self,
+        GetPasteboardCommand.self,
+        GetNotificationsCommand.self,
+        ActionCommand.self,
+        PerformCommand.self,
+        RunHeistCommand.self,
+        ValidateHeistCommand.self,
+        ListHeistsCommand.self,
+        DescribeHeistCommand.self,
+        GetSessionStateCommand.self,
+        ConnectCommand.self,
+        ListTargetsCommand.self,
     ]
 
     static let subcommands: [ParsableCommand.Type] = {
         let directDescriptors = TheFence.Command.cliDirectCommandDescriptors
         let directCommandSet = Set(directDescriptors.map(\.command))
+        var registeredCommands: Set<TheFence.Command> = []
+        for commandType in commandTypes {
+            registeredCommands.insert(commandType.fenceCommand)
+        }
         precondition(
-            Set(commandTypesByFenceCommand.keys) == directCommandSet,
+            registeredCommands.count == commandTypes.count
+                && registeredCommands == directCommandSet,
             """
-            CLI command map must cover exactly the Fence descriptors marked directCommand. \
-            Update CLICommandCatalog.commandTypesByFenceCommand when descriptor CLI exposure changes.
+            CLI command types must cover exactly the Fence descriptors marked directCommand.
             """
         )
-
-        let directCommands = directDescriptors.map { descriptor -> ParsableCommand.Type in
-            guard let commandType = commandTypesByFenceCommand[descriptor.command] else {
-                preconditionFailure("Missing CLI command type for direct Fence command \(descriptor.command.rawValue)")
-            }
-            return commandType
-        }
-        return directCommands + [AdversarialCatalogCommand.self, JSONLinesCommand.self]
+        return commandTypes + [AdversarialCatalogCommand.self, JSONLinesCommand.self]
     }()
-
-    static func descriptor(for commandType: OneShotCLICommand.Type) -> FenceCommandDescriptor? {
-        commandTypesByFenceCommand.first {
-            ObjectIdentifier($0.value) == ObjectIdentifier(commandType)
-        }?.key.descriptor
-    }
 }
 
 extension OneShotCLICommand {
     static var fenceDescriptor: FenceCommandDescriptor {
-        guard let descriptor = CLICommandCatalog.descriptor(for: Self.self) else {
-            fatalError("No Fence command descriptor registered for CLI command \(Self.self)")
-        }
-        return descriptor
-    }
-
-    static var fenceCommand: TheFence.Command {
-        fenceDescriptor.command
+        fenceCommand.descriptor
     }
 
     static var cliCommandName: String {
@@ -250,7 +224,7 @@ extension OneShotCLICommand {
         _ fields: CommandArgumentFields.Field?...
     ) -> TheFence.CommandArgumentEnvelope {
         var fields = CommandArgumentFields(fields)
-        fields.insert(CommandArgumentFields.optionalEncoded(.target, target))
+        fields.insert(CommandArgumentFields.optionalEncoded("target", target))
         return fields.envelope
     }
 

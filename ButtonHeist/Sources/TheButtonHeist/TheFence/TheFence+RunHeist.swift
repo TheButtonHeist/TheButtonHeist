@@ -11,14 +11,14 @@ extension TheFence {
         try await dispatchHeistPlan(
             request.plan,
             argument: request.argument,
-            timeoutSource: .runHeist(request.timeout)
+            timeoutSource: .requested(request.timeout)
         )
     }
 
     func handlePerform(_ request: PerformRequest) async throws -> FenceResponse {
         try await dispatchHeistPlan(
             request.plan,
-            timeoutSource: .perform
+            timeoutSource: .projected(actionTimeoutOverride: nil)
         )
     }
 
@@ -55,31 +55,26 @@ extension TheFence {
         )
     }
 
-    // MARK: - Single-Step Execution
+    // MARK: - Durable Action Execution
 
-    /// Project an admitted single-step execution onto the canonical plan runtime.
-    func singleStepHeistPlan(for execution: SingleStepHeistExecution) throws -> HeistPlan {
-        switch execution {
-        case .wait(let step):
-            return try HeistPlan(version: HeistPlan.currentVersion, body: [.wait(step)])
-        case .action(let action, let expectationPayload):
-            let expectationPolicy = expectationPayload.expectation.map {
-                ActionExpectationPolicy.expect(ActionExpectation(
-                    predicate: $0,
-                    timeout: expectationPayload.timeout
-                ))
-            } ?? .default
-            return try HeistPlan(version: HeistPlan.currentVersion, body: [
-                .action(ActionStep(command: action.action, expectationPolicy: expectationPolicy))
-            ])
-        }
+    /// Project an admitted durable action onto the canonical plan runtime.
+    func durableActionPlan(for execution: DurableActionExecution) throws -> HeistPlan {
+        let expectationPolicy = execution.expectation.expectation.map {
+            ActionExpectationPolicy.expect(ActionExpectation(
+                predicate: $0,
+                timeout: execution.expectation.timeout
+            ))
+        } ?? .default
+        return try HeistPlan(version: HeistPlan.currentVersion, body: [
+            .action(ActionStep(command: execution.action, expectationPolicy: expectationPolicy))
+        ])
     }
 
-    func executeSingleStepHeist(_ execution: SingleStepHeistExecution) async throws -> FenceResponse {
-        let plan = try singleStepHeistPlan(for: execution)
+    func executeDurableAction(_ execution: DurableActionExecution) async throws -> FenceResponse {
+        let plan = try durableActionPlan(for: execution)
         return try await dispatchHeistPlan(
             plan,
-            timeoutSource: .singleStep(
+            timeoutSource: .projected(
                 actionTimeoutOverride: execution.actionTimeoutOverride
             )
         )
@@ -96,23 +91,11 @@ extension TheFence {
     }
 }
 
-extension TheFence.SingleStepHeistExecution {
-    var actionTimeoutOverride: WaitTimeout? {
-        guard case .action(_, let expectation) = self,
-              expectation.expectation == nil
-        else {
-            return nil
-        }
-        return expectation.timeout
-    }
-}
-
 extension TheFence {
     struct HeistExecutionBudget: Sendable {
         enum TimeoutSource: Sendable {
-            case runHeist(HeistTimeout?)
-            case perform
-            case singleStep(actionTimeoutOverride: WaitTimeout?)
+            case requested(HeistTimeout?)
+            case projected(actionTimeoutOverride: WaitTimeout?)
         }
 
         enum Error: Swift.Error, Sendable, Equatable {
@@ -174,15 +157,9 @@ extension TheFence {
             policy: ActionExpectationTimeoutPolicy
         ) throws -> HeistTimeout {
             switch source {
-            case .runHeist(let requestedTimeout):
+            case .requested(let requestedTimeout):
                 return requestedTimeout ?? .default
-            case .perform:
-                return try projectedSingleStepTimeout(
-                    in: plan,
-                    actionTimeoutOverride: nil,
-                    policy: policy
-                )
-            case .singleStep(let actionTimeoutOverride):
+            case .projected(let actionTimeoutOverride):
                 return try projectedSingleStepTimeout(
                     in: plan,
                     actionTimeoutOverride: actionTimeoutOverride,
@@ -234,50 +211,5 @@ extension TheFence {
             type == .typeText ? .longAction : .standardAction
         }
 
-        static func fixedActionTimeoutClass(for command: Command) -> FenceCommandFixedTimeout? {
-            actionCommandType(for: command).map(fixedActionTimeoutClass(for:))
-        }
-
-        static func requiredFixedActionTimeoutClass(for command: Command) -> FenceCommandFixedTimeout {
-            guard let timeout = fixedActionTimeoutClass(for: command) else {
-                preconditionFailure("\(command.rawValue) does not dispatch a fixed-timeout action")
-            }
-            return timeout
-        }
-
-        private static func actionCommandType(for command: Command) -> HeistActionCommandType? {
-            return switch command {
-            case .oneFingerTap:
-                .oneFingerTap
-            case .longPress:
-                .longPress
-            case .swipe:
-                .swipe
-            case .drag:
-                .drag
-            case .scroll:
-                .scroll
-            case .scrollToVisible:
-                .scrollToVisible
-            case .scrollToEdge:
-                .scrollToEdge
-            case .activate:
-                .activate
-            case .rotor:
-                .rotor
-            case .typeText:
-                .typeText
-            case .editAction:
-                .editAction
-            case .setPasteboard:
-                .setPasteboard
-            case .dismissKeyboard:
-                .dismissKeyboard
-            case .ping, .listDevices, .getInterface, .getScreen, .getNotifications, .wait,
-                 .getPasteboard, .perform, .runHeist, .validateHeist, .listHeists,
-                 .describeHeist, .getSessionState, .connect, .listTargets:
-                nil
-            }
-        }
     }
 }

@@ -2,6 +2,7 @@ import ArgumentParser
 @_spi(ButtonHeistTooling) import ButtonHeist
 
 struct GetPasteboardCommand: ConnectedOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.getPasteboard
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Read text from the general pasteboard",

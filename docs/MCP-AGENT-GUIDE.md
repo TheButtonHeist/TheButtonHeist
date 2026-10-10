@@ -13,9 +13,9 @@ level is `HeistPlan`, or a generated `.heist` artifact path. `perform(step:)`
 MUST receive exactly one durable DSL step. Runtime wire JSON IR is
 internal/generated and MUST NOT be used as the authoring language.
 
-Viewport, debug, observation, and session tools are direct client commands. They
-MAY inspect or control the current live session, but they MUST NOT appear inside
-`HeistPlan` source or `.heist` artifacts.
+Observation and session tools are direct client commands. Non-durable viewport
+and debug action types remain outside MCP's durable `perform` surface and MUST
+NOT appear inside `HeistPlan` source or `.heist` artifacts.
 
 ## Core loop
 

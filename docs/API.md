@@ -50,7 +50,7 @@ module map and the wire boundary are drawn in the
 | Homebrew release | Public install surface | `buttonheist`, `buttonheist-mcp`, `heist-plan`, installed `ThePlans` compiler artifacts | `Formula/buttonheist.rb` and `scripts/release-contract.sh` | Formula and release archives use SemVer `MAJOR.MINOR.PATCH`. |
 | CLI commands | Public command surface | `buttonheist <command>` | `TheFence.Command` descriptors and `buttonheist --help` | Command names, CLI exposure, and parameters are descriptor-owned. |
 | JSON-lines input | Public CLI session surface | `buttonheist json_lines` | `TheFence.Command` descriptors and command help | Each line is one ordered JSON command and produces one ordered response. MCP-only tools are excluded. Raw plan IR fields are not the public `run_heist` input shape. |
-| MCP tools | Public agent tool surface | `buttonheist-mcp` tools | MCP `tools/list` schemas projected from `TheFence.Command` descriptors | Tool names and schemas are descriptor-owned. `perform` is MCP-only and accepts one durable DSL instruction; `run_heist` accepts durable source `plan` or generated `.heist` `path`. |
+| MCP tools | Public agent tool surface | `buttonheist-mcp` tools | MCP `tools/list` schemas projected from `TheFence.Command` descriptors | Tool names and schemas are descriptor-owned. `perform` accepts one durable DSL instruction; `run_heist` accepts durable source `plan` or generated `.heist` `path`. |
 | `.heist` artifact format | Public generated artifact | `<name>.heist/manifest.json` and `plan.json` | [Heist Format](HEIST-FORMAT.md) | Generated package artifact. Do not hand-author it; regenerate artifacts when the plan or manifest contract changes. |
 | Plan DSL/source | Public authoring source | Swift DSL files, canonical ButtonHeist source strings, `heist-plan compile`, `run_heist --plan`, MCP `run_heist(plan:)` | [Swift Heist Authoring](SWIFT-HEIST-AUTHORING.md) and [Heist Format](HEIST-FORMAT.md) | Source must compile to canonical `HeistPlan` IR. MCP and JSON-lines should pass source or paths, not raw IR fields. |
 | Config and environment keys | Public runtime configuration | `.buttonheist.json`, `~/.config/buttonheist/config.json`, `BUTTONHEIST_*`, `INSIDEJOB_*` | This document, [Authentication](AUTH.md), and command help | Explicit flags and target config win over environment values where command-specific precedence applies. Unknown keys must fail or be ignored only as documented. |
@@ -196,11 +196,11 @@ state. The resolution flowchart is drawn in the
 decision tree is drawn in the
 [activation policy diagram](diagrams/activation-policy.md).
 
-Explicit viewport commands are different: `scroll`, `scroll_to_visible`, and
-`scroll_to_edge` expose viewport state because moving the viewport is the
-caller's intent. They are direct client viewport/debug commands, not HeistPlan
-DSL or durable heist primitives, and they execute through direct client
-dispatch as public side-effecting commands.
+Explicit viewport action types are different: `scroll`, `scrollToVisible`, and
+`scrollToEdge` expose viewport state because moving the viewport is the
+caller's intent. They are canonical `HeistActionCommand` payloads admitted by
+the single public `action` command, not HeistPlan DSL or durable heist
+primitives, and they execute through direct client dispatch.
 
 ## Accessibility Node Identity
 
@@ -387,9 +387,9 @@ coordination through TheHandoff, typed responses, heist planning, expectations,
 results, and replay integration.
 
 Raw command key/value envelopes exist only at routing and Fence admission.
-Admission produces a `FenceOperationRequest`; execution and transport lowering
-consume typed commands, targets, predicates, and action values rather than
-re-reading the raw dictionary.
+Admission produces an `AdmittedFenceCommand` containing one typed
+`CommandExecution`; execution and transport lowering consume typed targets,
+predicates, and action values rather than re-reading the raw dictionary.
 
 Use `buttonheist --help`, `buttonheist <command> --help`, and MCP
 `tools/list` for command names, parameters, and MCP input schemas. Those
@@ -399,7 +399,10 @@ surfaces are projected from the Fence command descriptors.
 
 - `connect` verifies transport, handshake/authentication, and session
   ownership. Observation still starts with `get_interface`.
-- `perform` accepts one durable ButtonHeist DSL instruction.
+- `action` accepts one canonical `HeistActionCommand` object. Durable actions
+  enter the one-step heist pipeline; transient viewport and session actions
+  enter direct dispatch.
+- `perform` accepts one durable ButtonHeist DSL instruction on CLI and MCP.
 - `run_heist` accepts a durable source plan string or generated `.heist`
   package at public boundaries; execution uses the typed `HeistPlan` contract
   after source/package loading. Its whole-heist `timeout` is optional and

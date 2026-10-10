@@ -12,8 +12,8 @@ struct ButtonHeistApp: AsyncParsableCommand {
             Common starter flow:
               buttonheist list_devices                      # Find devices
               buttonheist get_interface                     # Inspect UI hierarchy
-              buttonheist activate -l "My Button"           # Tap a control
-              buttonheist type_text --text "hello"          # Type text
+              buttonheist perform 'Activate(.label("My Button"))'
+              buttonheist perform 'TypeText("hello")'
               buttonheist get_screen                        # Capture screen
 
             Use `buttonheist json_lines` for canonical JSON commands on stdin, or read the generated command reference for the full command contract.

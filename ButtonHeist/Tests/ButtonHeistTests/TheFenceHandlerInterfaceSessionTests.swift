@@ -69,22 +69,6 @@ extension TheFenceHandlerTests {
         }
     }
 
-    // MARK: - Pasteboard Validation
-
-    func testSetPasteboardCatalogDeclaresNonEmptyText() throws {
-        let parameter = try XCTUnwrap(
-            TheFence.Command.setPasteboard.descriptor.parameters.first {
-                $0.key == FenceParameterKey.text.rawValue
-            }
-        )
-
-        XCTAssertEqual(parameter.minLength, 1)
-        guard case .object(let schema) = parameter.schema.heistValue else {
-            return XCTFail("Expected text parameter schema")
-        }
-        XCTAssertEqual(schema["minLength"], .int(1))
-    }
-
     @ButtonHeistActor
     func testGetPasteboardRejectsExpectationBecauseItIsARead() async {
         await assertValidationError(
@@ -198,9 +182,12 @@ extension TheFenceHandlerTests {
     func testCommandContractsRejectInvalidParameters() async {
         let cases: [(TheFence.Command, [String: HeistValue], String)] = [
             (
-                .activate,
-                ["target": targetValue(identifier: "save"), "mode": .string("tap")],
-                "schema validation failed for mode: observed string \"tap\"; expected valid activate parameter"
+                .action,
+                [
+                    "action": .object(["type": .string("dismiss")]),
+                    "mode": .string("tap"),
+                ],
+                "schema validation failed for mode: observed string \"tap\"; expected valid action parameter"
             ),
             (
                 .getScreen,

@@ -43,7 +43,7 @@ struct ToolSyncTests {
             #expect(fields["cliExposure"]?.stringValue != nil)
             #expect(fields["mcpExposure"]?.stringValue != nil)
             let timeoutKind = try #require(timeout["kind"]?.stringValue)
-            let hasFixedBase = timeoutKind == "fixed" || timeoutKind == "singleStepAction"
+            let hasFixedBase = timeoutKind == "fixed"
             #expect((timeout["base"] != nil) == hasFixedBase)
             #expect((timeout["seconds"] != nil) == hasFixedBase)
             #expect(digest.utf8.count == 64)
@@ -169,69 +169,22 @@ struct ToolSyncTests {
         }
     }
 
-    @Test("StringMatch command schemas advertise canonical object form")
-    func stringMatchCommandSchemasAdvertiseCanonicalObjectForm() throws {
-        let removedFlatFields = ["label", "identifier", "value"]
-        let schemaCases: [(command: TheFence.Command, basePath: [String], label: String)] = [
-            (.activate, ["properties", "target", "properties"], "target"),
-            (.oneFingerTap, ["properties", "element", "properties"], "gesture element"),
-            (.wait, ["properties", "predicate", "properties", "target", "properties"], "wait.predicate.target"),
-            (.activate, ["properties", "expect", "properties", "target", "properties"], "expect.target"),
-            (.getInterface, ["properties", "subtree", "properties"], "subtree"),
-        ]
+    @Test("Action schema delegates canonical action decoding to the domain type")
+    func actionSchemaUsesOneOpaqueDomainPayload() throws {
+        let action = try inputSchemaValue(for: .action)
 
-        for schemaCase in schemaCases {
-            let inputSchema = try inputSchemaValue(for: schemaCase.command)
-            for field in removedFlatFields {
-                #expect(
-                    schemaValue(at: schemaCase.basePath + [field], in: inputSchema) == nil,
-                    "\(schemaCase.command.rawValue) \(schemaCase.label).\(field) must not expose flat matcher aliases"
-                )
-            }
-
-            let checksPath = schemaCase.basePath + ["checks"]
-            let checksSchema = try #require(
-                schemaValue(at: checksPath, in: inputSchema),
-                "\(schemaCase.command.rawValue) \(schemaCase.label).checks missing from input schema"
-            )
-            #expect(checksSchema.objectValue?["type"] == .string("array"))
-            #expect(
-                schemaValue(at: checksPath + ["items", "properties", "kind", "enum"], in: inputSchema) == .array([
-                    .string("label"),
-                    .string("identifier"),
-                    .string("value"),
-                    .string("hint"),
-                    .string("traits"),
-                    .string("actions"),
-                    .string("customContent"),
-                    .string("rotors"),
-                    .string("exclude"),
-                ])
-            )
-            let matchSchema = try #require(
-                schemaValue(at: checksPath + ["items", "properties", "match"], in: inputSchema),
-                "\(schemaCase.command.rawValue) \(schemaCase.label).checks[].match missing from input schema"
-            )
-            assertStringMatchSchema(
-                matchSchema,
-                path: "\(schemaCase.command.rawValue).inputSchema.\((checksPath + ["items", "properties", "match"]).joined(separator: "."))"
-            )
-        }
+        #expect(schemaValue(at: ["properties", "action", "type"], in: action) == .string("object"))
+        #expect(schemaValue(at: ["properties", "action", "properties"], in: action) == nil)
+        #expect(schemaValue(at: ["required"], in: action) == .array([.string("action")]))
     }
 
-    @Test("Predicate and target schemas expose only canonical fields")
-    func predicateAndTargetSchemasExposeOnlyCanonicalFields() throws {
-        let activate = try inputSchemaValue(for: .activate)
-        let targetProperties = try #require(
-            schemaValue(at: ["properties", "target", "properties"], in: activate)?.objectValue
+    @Test("Expectation and target schemas expose only canonical fields")
+    func expectationAndTargetSchemasExposeOnlyCanonicalFields() throws {
+        let action = try inputSchemaValue(for: .action)
+        let expectationProperties = try #require(
+            schemaValue(at: ["properties", "expect", "properties"], in: action)?.objectValue
         )
-        #expect(Set(targetProperties.keys) == ["checks", "ref", "ordinal", "container", "target"])
-
-        let wait = try inputSchemaValue(for: .wait)
-        let predicateProperties = try #require(
-            schemaValue(at: ["properties", "predicate", "properties"], in: wait)?.objectValue
-        )
-        #expect(Set(predicateProperties.keys) == [
+        #expect(Set(expectationProperties.keys) == [
             "type",
             "target",
             "match",
@@ -240,44 +193,48 @@ struct ToolSyncTests {
             "text",
             "element",
         ])
-        // The authored vocabulary, which is what an agent can write. `noChange`
-        // is absent because it is not authorable: it exists only on the resolved
-        // predicate, where settlement uses it as its gate.
         #expect(
-            schemaValue(at: ["properties", "predicate", "properties", "type", "enum"], in: wait)
+            schemaValue(at: ["properties", "expect", "properties", "type", "enum"], in: action)
                 == .array(AccessibilityPredicate.wireTypeValues.map(Value.string))
         )
-    }
 
-    @Test("AccessibilityTarget schema recursion reaches beyond one nested target")
-    func accessibilityTargetSchemaRecursesBeyondOneNestedTarget() throws {
-        let activate = try inputSchemaValue(for: .activate)
-        let secondNestedTargetPath = [
-            "properties", "target", "properties",
-            "target", "properties",
-            "target", "properties",
-        ]
-        let secondNestedTargetProperties = try #require(
-            schemaValue(at: secondNestedTargetPath, in: activate)?.objectValue
+        let getInterface = try inputSchemaValue(for: .getInterface)
+        let targetProperties = try #require(
+            schemaValue(at: ["properties", "subtree", "properties"], in: getInterface)?.objectValue
         )
-
-        #expect(Set(secondNestedTargetProperties.keys) == ["checks", "ref", "ordinal", "container", "target"])
+        #expect(Set(targetProperties.keys) == ["checks", "ref", "ordinal", "container", "target"])
+        for removedAlias in ["label", "identifier", "value"] {
+            #expect(targetProperties[removedAlias] == nil)
+        }
+        let matchSchema = try #require(
+            schemaValue(
+                at: ["properties", "subtree", "properties", "checks", "items", "properties", "match"],
+                in: getInterface
+            )
+        )
+        assertStringMatchSchema(matchSchema, path: "get_interface.inputSchema.properties.subtree.checks.match")
     }
 
     @Test("AccessibilityTarget schema recursion uses one local definition")
     func accessibilityTargetSchemaRecursionUsesOneLocalDefinition() throws {
-        let activate = try inputSchemaValue(for: .activate)
+        let getInterface = try inputSchemaValue(for: .getInterface)
         let reference = Value.object(["$ref": .string("#/$defs/AccessibilityTarget")])
 
-        #expect(schemaValue(at: ["properties", "target"], in: activate, resolvingFinalReference: false) == reference)
         #expect(
             schemaValue(
-                at: ["$defs", "AccessibilityTarget", "properties", "target"],
-                in: activate,
+                at: ["properties", "subtree"],
+                in: getInterface,
                 resolvingFinalReference: false
             ) == reference
         )
-        #expect(schemaValue(at: ["$defs", "AccessibilityTarget", "properties", "checks"], in: activate) != nil)
+        #expect(
+            schemaValue(
+                at: ["$defs", "AccessibilityTarget", "properties", "target"],
+                in: getInterface,
+                resolvingFinalReference: false
+            ) == reference
+        )
+        #expect(schemaValue(at: ["$defs", "AccessibilityTarget", "properties", "checks"], in: getInterface) != nil)
     }
 
     @Test("get_interface subtree container is an object-only predicate")

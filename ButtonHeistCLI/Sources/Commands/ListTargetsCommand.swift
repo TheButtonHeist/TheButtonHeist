@@ -2,6 +2,7 @@ import ArgumentParser
 @_spi(ButtonHeistTooling) import ButtonHeist
 
 struct ListTargetsCommand: ConnectedOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.listTargets
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "List device targets defined in .buttonheist.json",

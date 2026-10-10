@@ -3,6 +3,7 @@ import Foundation
 @_spi(ButtonHeistTooling) import ButtonHeist
 
 struct GetInterfaceCommand: ConnectedOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.getInterface
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Read the app accessibility hierarchy from the connected device"
@@ -20,13 +21,13 @@ struct GetInterfaceCommand: ConnectedOneShotCLICommand {
 
     func requestArguments() throws -> TheFence.CommandArgumentEnvelope {
         return Self.fenceArguments(
-            CommandArgumentFields.optionalEncoded(.subtree, try subtree.parsedTarget()),
+            CommandArgumentFields.optionalEncoded("subtree", try subtree.parsedTarget()),
             CommandArgumentFields.optional(
-                .maxScrollsPerContainer,
+                "maxScrollsPerContainer",
                 discoveryLimits.maxScrollsPerContainer
             ),
             CommandArgumentFields.optional(
-                .maxScrollsPerDiscovery,
+                "maxScrollsPerDiscovery",
                 discoveryLimits.maxScrollsPerDiscovery
             )
         )

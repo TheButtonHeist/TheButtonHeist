@@ -33,7 +33,7 @@ version.
 
 The Button Heist has one product command contract: `TheFence.Command`. CLI,
 session JSON, MCP tools, and heist execution adapt to command names
-such as `get_interface`, `activate`, and `scroll_to_visible`.
+such as `get_interface`, `action`, `perform`, and `run_heist`.
 
 The wire protocol is lower-level transport. Its `type` values are TheScore
 message discriminators such as `requestInterface`, `requestScreen`, `status`,
@@ -41,18 +41,20 @@ message discriminators such as `requestInterface`, `requestScreen`, `status`,
 boundaries and wire discriminators only when speaking raw TCP.
 
 Side-effecting app interactions are not raw command dictionaries on the wire.
-Durable mutations such as `activate`, `type_text`, `wait`, and `set_pasteboard`
-cross as one-step or composed `heistPlan` messages. Non-durable viewport/debug
-commands cross as typed `runtimeAction` messages. In both cases, Fence admission
-has already parsed the canonical name into `TheFence.Command`, validated the
-descriptor-owned parameter schema, and converted `FenceCommandInput` into the
-typed `FenceOperationRequest` consumed by execution.
+Durable `HeistActionCommand` values such as `activate`, `typeText`, and
+`setPasteboard`, plus `WaitFor` statements, cross as one-step or composed
+`heistPlan` messages. Non-durable viewport/debug action values cross as typed
+`runtimeAction` messages. In both cases, Fence admission has parsed the public
+command name into `TheFence.Command`, decoded the canonical domain value, and
+converted `FenceCommandInput` into the typed `AdmittedFenceCommand` consumed by
+execution.
 
-Fence command names are snake case. Inside `HeistActionCommand`, the canonical
+Fence command names are snake case. The single `action` command accepts a
+canonical `HeistActionCommand` object. Its canonical
 `type` values are the Swift raw values from `HeistActionCommandType`, including
 `performCustomAction`, `oneFingerTap`, `typeText`, `scrollToVisible`,
 `scrollToEdge`, and `dismissKeyboard`. Raw clients must not substitute
-Fence spellings such as `type_text` inside a heist action payload.
+deleted command spellings such as `type_text` inside a heist action payload.
 
 ## Transport
 
@@ -456,10 +458,11 @@ continuity, evidence, or diagnostic controls. Action-linked evidence and
 automatic timeout diagnostics remain runtime-internal; no opt-in, token, or
 result field crosses the wire.
 
-Explicit viewport commands such as `scroll`, `scroll_to_edge`, and
-`scroll_to_visible` remain public Fence commands because moving the viewport is
-the requested behavior. They are non-durable debug operations and cross the
-device wire as typed `runtimeAction` requests, not as `heistPlan` steps.
+Explicit viewport action types such as `scroll`, `scrollToEdge`, and
+`scrollToVisible` are accepted through the public `action` command because
+moving the viewport is the requested behavior. They are non-durable debug
+operations and cross the device wire as typed `runtimeAction` requests, not as
+`heistPlan` steps.
 
 ### Screen Capture
 
@@ -477,8 +480,9 @@ media only through explicit, size-bounded opt-ins.
 {"buttonHeistVersion":"<semver>","type":"heistPlan","payload":{"plan":{"version":3,"parameter":{"type":"none"},"body":[{"type":"wait","wait":{"predicate":{"type":"changed","scope":"screen"},"timeout":30}}]},"argument":{"type":"none"},"timeout":60,"action_expectation_timeout_policy":{"standard":3,"screen_transition":10}}}
 ```
 
-The host lowers a standalone wait to a one-step `HeistPlan`; it performs no
-action dispatch. The machine opens an invocation-local Vault history boundary,
+The host lowers a standalone `WaitFor` submitted through `perform` to a one-step
+`HeistPlan`; it performs no action dispatch. The machine opens an
+invocation-local Vault history boundary,
 so the wait cannot consume prior action or heist evidence. `exists` and
 `missing` evaluate the current admitted snapshot. Temporal assertions require
 ordered post-boundary events and never pass from an implied final state.

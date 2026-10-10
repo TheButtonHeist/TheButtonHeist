@@ -49,13 +49,9 @@ struct ButtonHeistMCPServer {
         defer { context.idleMonitor?.resetTimer() }
         do {
             let arguments = try MCPValueBridge.commandEnvelope(from: params.arguments)
-            switch TheFence.Command.routeToolRequest(named: params.name, arguments: arguments) {
-            case .success(let input):
-                let response = try await context.fence.execute(try context.fence.admit(input))
-                return renderResponse(response)
-            case .failure(let error):
-                return renderResponse(.failure(error))
-            }
+            let input = try TheFence.Command.routeToolRequest(named: params.name, arguments: arguments)
+            let response = try await context.fence.execute(try context.fence.admit(input))
+            return renderResponse(response)
         } catch {
             let response = FenceResponse.failure(error)
             return renderResponse(response)

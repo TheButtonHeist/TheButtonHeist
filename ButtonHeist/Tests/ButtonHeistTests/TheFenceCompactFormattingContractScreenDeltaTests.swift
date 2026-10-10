@@ -20,7 +20,6 @@ extension TheFenceCompactFormattingContractTests {
             screenChanged: true
         )
         let response = FenceResponse.action(
-            command: .activate,
             result: ActionResult.success(
                 payload: .activate,
                 observation: .observed(evidence)
@@ -73,7 +72,6 @@ extension TheFenceCompactFormattingContractTests {
             coverage: .incomplete(.historyUnavailable)
         )
         let response = FenceResponse.action(
-            command: .activate,
             result: ActionResult.success(
                 payload: .activate,
                 observation: .observed(evidence)

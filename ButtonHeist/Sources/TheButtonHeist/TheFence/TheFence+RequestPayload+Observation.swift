@@ -73,17 +73,17 @@ extension TheFence {
     }
 
     private func decodeInterfaceSubtreeTarget(_ arguments: CommandArgumentEnvelope) throws -> AccessibilityTarget? {
-        guard let subtree = arguments.value(for: .subtree) else { return nil }
+        guard let subtree = arguments.value(for: "subtree") else { return nil }
         guard case .object(let object) = subtree else {
             throw SchemaValidationError(
-                field: arguments.field(.subtree),
+                field: arguments.field("subtree"),
                 observed: subtree.schemaObservedDescription,
                 expected: "object"
             )
         }
         return try CommandArgumentEnvelope(
             values: object,
-            fieldPrefix: arguments.field(.subtree)
+            fieldPrefix: arguments.field("subtree")
         ).decodeAccessibilityTargetPayload()
     }
 

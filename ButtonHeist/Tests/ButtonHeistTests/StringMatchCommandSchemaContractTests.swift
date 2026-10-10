@@ -214,9 +214,9 @@ final class StringMatchCommandSchemaContractTests: XCTestCase {
     }
 
     func testPredicateSchemaLeavesPropertySpecificUpdateMatchesToCanonicalDecoder() throws {
-        let predicateSpec = try XCTUnwrap(TheFence.Command.wait.descriptor.parameter(named: .predicate))
+        let predicateSpec = try XCTUnwrap(TheFence.Command.action.descriptor.parameter(named: "expect"))
         let assertions = try XCTUnwrap(
-            predicateSpec.objectProperties.first { $0.key == FenceParameterKey.assertions.rawValue }
+            predicateSpec.objectProperties.first { $0.key == "assertions" }
         )
         let specsByKey = Dictionary(uniqueKeysWithValues: assertions.arrayItemProperties.map { ($0.key, $0) })
 
@@ -227,25 +227,22 @@ final class StringMatchCommandSchemaContractTests: XCTestCase {
     }
 
     func testPredicateSchemaUsesCanonicalRootTypesAndExposesAnnouncementMatch() throws {
-        let predicateSpecs = [FenceParameterBlocks.expect, FenceParameterBlocks.predicate]
+        let specsByKey = Dictionary(
+            uniqueKeysWithValues: FenceParameterBlocks.expect.objectProperties.map { ($0.key, $0) }
+        )
 
-        for predicateSpec in predicateSpecs {
-            let specsByKey = Dictionary(
-                uniqueKeysWithValues: predicateSpec.objectProperties.map { ($0.key, $0) }
-            )
-
-            XCTAssertEqual(
-                specsByKey["type"]?.enumValues,
-                AccessibilityPredicate.wireTypeValues
-            )
-            XCTAssertEqual(specsByKey["match"]?.type, .stringMatch)
-            XCTAssertEqual(specsByKey["match"]?.required, false)
-        }
+        XCTAssertEqual(specsByKey["type"]?.enumValues, AccessibilityPredicate.wireTypeValues)
+        XCTAssertEqual(specsByKey["match"]?.type, .stringMatch)
+        XCTAssertEqual(specsByKey["match"]?.required, false)
     }
 
     @ButtonHeistActor
     private func decodedAccessibilityTarget(target: HeistValue) throws -> AccessibilityTarget? {
-        try TheFence.CommandArgumentEnvelope(values: ["target": target]).decodedAccessibilityTarget()
+        try TheFence.HeistValuePayloadDecoder.decode(
+            target,
+            field: "target",
+            as: AccessibilityTarget.self
+        )
     }
 }
 

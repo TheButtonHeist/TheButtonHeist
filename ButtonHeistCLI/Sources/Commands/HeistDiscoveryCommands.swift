@@ -3,6 +3,7 @@ import ArgumentParser
 import ThePlans
 
 struct ListHeistsCommand: LocalOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.listHeists
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "List reusable heists in a .heist artifact or inline ButtonHeist source",
@@ -42,6 +43,7 @@ struct ListHeistsCommand: LocalOneShotCLICommand {
 }
 
 struct DescribeHeistCommand: LocalOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.describeHeist
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Describe one reusable heist in a .heist artifact or inline ButtonHeist source",
@@ -72,7 +74,7 @@ struct DescribeHeistCommand: LocalOneShotCLICommand {
             path: path,
             entry: nil,
             commandName: Self.cliCommandName,
-            additionalFields: [CommandArgumentFields.value(.heist, name)]
+            additionalFields: [CommandArgumentFields.value("heist", name)]
         )
     }
 }

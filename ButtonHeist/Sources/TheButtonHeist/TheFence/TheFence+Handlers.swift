@@ -26,7 +26,7 @@ extension TheFence {
             .getPasteboard,
             timeout: timeout
         )
-        return .action(command: .getPasteboard, result: result)
+        return .action(result: result)
     }
 
     func handleGetNotifications(timeout: TimeInterval) async throws -> FenceResponse {
@@ -38,12 +38,12 @@ extension TheFence {
 
     // MARK: - Direct Action Execution
 
-    func executeDirectAction(_ execution: DirectActionExecution, command: Command) async throws -> FenceResponse {
+    func executeDirectAction(_ execution: DirectActionExecution) async throws -> FenceResponse {
         let result = try await sendAndAwaitAction(
             .runtimeAction(execution.action),
             timeout: execution.timeout
         )
-        return .action(command: command, result: result)
+        return .action(result: result)
     }
 
 }

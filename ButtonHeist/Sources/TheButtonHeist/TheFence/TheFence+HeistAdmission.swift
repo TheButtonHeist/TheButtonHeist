@@ -113,7 +113,7 @@ extension TheFence {
         return ValidateHeistRequest(
             source: source,
             argument: try decodeRootHeistArgument(from: arguments),
-            argumentProvided: arguments.value(for: .argument) != nil,
+            argumentProvided: arguments.value(for: "argument") != nil,
             lintMode: try arguments.value(
                 FenceParameters.heistValidationLint,
                 defaultFrom: Command.validateHeist.descriptor
@@ -241,7 +241,7 @@ private extension TheFence {
     }
 
     func decodeRootHeistArgument(from arguments: CommandArgumentEnvelope) throws -> HeistArgument {
-        guard let value = arguments.value(for: .argument) else { return .none }
+        guard let value = arguments.value(for: "argument") else { return .none }
         let data = try JSONEncoder().encode(value)
         do {
             return try HeistArgumentAdmission.decodeJSON(

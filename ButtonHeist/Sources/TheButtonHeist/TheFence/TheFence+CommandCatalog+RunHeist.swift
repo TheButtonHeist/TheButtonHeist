@@ -65,10 +65,10 @@ extension TheFence.Command {
 
     static var rootArgumentParameter: FenceParameterSpec {
         objectParam(
-            .argument,
+            "argument",
             properties: [
                 param(
-                    .type,
+                    "type",
                     .string,
                     required: true,
                     enumValues: [
@@ -77,9 +77,9 @@ extension TheFence.Command {
                         HeistParameterKind.accessibilityTarget.rawValue,
                     ]
                 ),
-                param(.value, .string),
-                param(.valueRef, .string),
-                accessibilityTargetParam(.target),
+                param("value", .string),
+                param("value_ref", .string),
+                accessibilityTargetParam("target"),
             ],
             additionalProperties: false
         )

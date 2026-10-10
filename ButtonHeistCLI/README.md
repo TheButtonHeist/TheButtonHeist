@@ -34,7 +34,7 @@ installation ID, instance ID, simulator UDID, or a named target from config.
 
 ```bash
 buttonheist --device a1b2 get_interface
-buttonheist --device demo activate --identifier loginButton
+buttonheist --device demo perform 'Activate(.identifier("loginButton"))'
 ```
 
 Without `--device`, direct commands require exactly one reachable target.
@@ -58,26 +58,27 @@ and local command help disagree, the descriptor-backed help wins.
 ```bash
 buttonheist get_interface
 buttonheist get_interface --label "Checkout" --traits button
-buttonheist activate --label "Sign In" --traits button
-buttonheist type_text "user@example.com" --identifier emailField
+buttonheist perform 'Activate(.element(.label("Sign In"), .traits([.button])))'
+buttonheist perform 'TypeText("user@example.com", into: .identifier("emailField"))'
 ```
 
-Semantic commands identify elements by matcher fields. The Button Heist resolves
-the target, moves the viewport if needed, refreshes, and uses fresh live
-geometry before acting.
+Semantic statements identify elements in the canonical Button Heist language.
+The Button Heist resolves the target, moves the viewport if needed, refreshes,
+and uses fresh live geometry before acting.
 
 ### Viewport and screenshots
 
 ```bash
-buttonheist scroll --direction down
-buttonheist scroll_to_visible --identifier submitButton
+buttonheist action '{"type":"scroll","payload":{"direction":"down"}}'
+buttonheist action '{"type":"scrollToVisible","payload":{"target":{"checks":[{"kind":"identifier","match":{"mode":"exact","value":"submitButton"}}]}}}'
 buttonheist get_screen --output screen.png
 ```
 
-Explicit viewport commands expose viewport state because moving the viewport is
-the command's purpose. They are not setup for ordinary semantic actions.
-Screenshots write artifact files by default; inline PNG data is an explicit raw
-output mode.
+The low-level `action` command accepts exactly one canonical
+`HeistActionCommand` JSON object. Explicit viewport actions expose viewport
+state because moving the viewport is their purpose; they are not setup for
+ordinary semantic actions. Screenshots write artifact files by default; inline
+PNG data is an explicit raw output mode.
 
 ### Replay authored heists
 

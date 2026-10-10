@@ -2,143 +2,45 @@ import ThePlans
 import TheScore
 
 internal enum FenceParameterBlocks: Sendable {
-    internal static let inlineAccessibilityTargetFields = accessibilityTargetProperties()
-
-    internal static let target: [FenceParameterSpec] = [
-        accessibilityTargetParam(.target),
-    ]
-    internal static let gestureElement = accessibilityTargetParam(.element)
-    internal static let gestureUnitPoint = objectParam(.unitPoint, properties: unitPoint)
-    internal static let gesturePoint = objectParam(.point, properties: screenPoint)
-
-    internal static let gesturePointSelection: [FenceParameterSpec] = [
-        gestureElement,
-        gestureUnitPoint,
-        gesturePoint,
-    ]
-
-    internal static let swipeElementDirection = objectParam(
-        .elementDirection,
-        properties: [
-            gestureElement,
-            FenceParameters.swipeDirection.spec,
-        ]
-    )
-
-    internal static let swipeElementUnitPoints = objectParam(
-        .elementUnitPoints,
-        properties: [
-            gestureElement,
-            objectParam(.start, required: true, properties: unitPoint),
-            objectParam(.end, required: true, properties: unitPoint),
-        ]
-    )
-
-    internal static let swipePointToPoint = objectParam(
-        .pointToPoint,
-        properties: [
-            objectParam(.start, required: true, properties: screenPoint),
-            objectParam(.end, required: true, properties: screenPoint),
-        ]
-    )
-
-    internal static let swipePointDirection = objectParam(
-        .pointDirection,
-        properties: [
-            objectParam(.start, required: true, properties: screenPoint),
-            FenceParameters.swipeDirection.spec,
-        ]
-    )
-
-    internal static let swipeIntents = [
-        swipeElementDirection,
-        swipeElementUnitPoints,
-        swipePointToPoint,
-        swipePointDirection,
-    ]
-
-    internal static let dragElementToPoint = objectParam(
-        .elementToPoint,
-        properties: [
-            gestureElement,
-            objectParam(.start, properties: unitPoint),
-            objectParam(.end, required: true, properties: screenPoint),
-        ]
-    )
-
-    internal static let dragPointToPoint = objectParam(
-        .pointToPoint,
-        properties: [
-            objectParam(.start, required: true, properties: screenPoint),
-            objectParam(.end, required: true, properties: screenPoint),
-        ]
-    )
-
-    internal static let dragIntents = [
-        dragElementToPoint,
-        dragPointToPoint,
-    ]
-
-    internal static let interfaceSubtree: FenceParameterSpec = accessibilityTargetParam(.subtree)
+    internal static let interfaceSubtree = accessibilityTargetParam("subtree")
 
     private static let assertionProperties: [FenceParameterSpec] = [
-        param(.type, .string, required: true, enumValues: PredicateAssertionType.allCases.map(\.rawValue)),
-        accessibilityTargetParam(.target),
+        param("type", .string, required: true, enumValues: PredicateAssertionType.allCases.map(\.rawValue)),
+        accessibilityTargetParam("target"),
         FenceParameters.elementProperty.spec,
-        unconstrainedParam(.before, validation: .customPayload),
-        unconstrainedParam(.after, validation: .customPayload),
+        unconstrainedParam("before"),
+        unconstrainedParam("after"),
     ]
 
-    /// Canonical root predicate shape shared by `expect` and `wait.predicate`.
+    /// Canonical predicate shape used by action expectations.
     private static let accessibilityPredicateProperties: [FenceParameterSpec] = [
         param(
-            .type,
+            "type",
             .string,
             required: true,
             enumValues: AccessibilityPredicate.wireTypeValues
         ),
-        accessibilityTargetParam(.target),
-        stringMatchParam(.text),
+        accessibilityTargetParam("target"),
+        stringMatchParam("text"),
         objectParam(
-            .element,
-            properties: [predicateChecksParam(.checks)],
-            validation: .customPayload
+            "element",
+            properties: [predicateChecksParam("checks")]
         ),
-        stringMatchParam(.match),
-        param(.scope, .string, enumValues: ChangedScope.allCases.map(\.rawValue)),
+        stringMatchParam("match"),
+        param("scope", .string, enumValues: ChangedScope.allCases.map(\.rawValue)),
         arrayParam(
-            .assertions,
+            "assertions",
             items: .object(properties: assertionProperties, additionalProperties: false)
         ),
     ]
 
     internal static let expect: FenceParameterSpec = objectParam(
-        .expect,
-        properties: accessibilityPredicateProperties,
-        validation: .customPayload
-    )
-
-    internal static let predicate: FenceParameterSpec = objectParam(
-        .predicate, required: true,
-        properties: accessibilityPredicateProperties,
-        validation: .customPayload
+        "expect",
+        properties: accessibilityPredicateProperties
     )
 
     internal static let expectationTimeout = FenceParameters.timeout.spec
     internal static let expectation: [FenceParameterSpec] = [expect, expectationTimeout]
-
-    /// Parameters for the unified `wait` command: a predicate plus a timeout.
-    internal static let wait: [FenceParameterSpec] = [predicate, expectationTimeout]
-
-    internal static let unitPoint: [FenceParameterSpec] = [
-        FenceParameters.unitPointX.spec,
-        FenceParameters.unitPointY.spec,
-    ]
-    internal static let screenPoint: [FenceParameterSpec] = [
-        FenceParameters.screenPointX.spec,
-        FenceParameters.screenPointY.spec,
-    ]
-    internal static let gestureDuration = FenceParameters.gestureDuration.spec
 
 }
 

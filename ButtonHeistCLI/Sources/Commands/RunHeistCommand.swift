@@ -5,6 +5,7 @@ import ThePlans
 import TheScore
 
 struct RunHeistCommand: ConnectedOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.runHeist
     typealias SwiftHeistCompilation = @Sendable (
         _ source: URL,
         _ entry: HeistEntrySymbol
@@ -182,8 +183,8 @@ struct RunHeistCommand: ConnectedOneShotCLICommand {
             }
             // Forward the artifact path; the fence reads the package into a HeistPlan.
             var fields = CommandArgumentFields(
-                CommandArgumentFields.value(.path, path),
-                CommandArgumentFields.optional(.argument, try argument.map(parseRootArgument))
+                CommandArgumentFields.value("path", path),
+                CommandArgumentFields.optional("argument", try argument.map(parseRootArgument))
             )
             fields.insert(additionalFields.map(Optional.some))
             return fields.envelope
@@ -200,8 +201,8 @@ struct RunHeistCommand: ConnectedOneShotCLICommand {
             throw ValidationError("--plan must be ButtonHeist DSL source")
         }
         var fields = CommandArgumentFields(
-            CommandArgumentFields.value(.plan, inline),
-            CommandArgumentFields.optional(.argument, try argument.map(parseRootArgument))
+            CommandArgumentFields.value("plan", inline),
+            CommandArgumentFields.optional("argument", try argument.map(parseRootArgument))
         )
         fields.insert(additionalFields.map(Optional.some))
         return fields.envelope

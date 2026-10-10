@@ -105,10 +105,6 @@ extension DiagnosticFailure {
                 message: inputError.message,
                 details: FailureDetails(code: .requestInvalid)
             )
-        case let missingTarget as TheFence.MissingAccessibilityTarget:
-            self.init(missingAccessibilityTargetCommand: missingTarget.command)
-        case let containerTarget as TheFence.ContainerTargetRequiresElement:
-            self.init(containerTargetRequiresElementCommand: containerTarget.command)
         case let routingError as FenceOperationRoutingError:
             self.init(message: routingError.message, details: routingError.details)
         default:
@@ -123,28 +119,6 @@ extension DiagnosticFailure {
         self = fenceError.diagnosticFailure
     }
 
-    private init(missingAccessibilityTargetCommand command: TheFence.Command) {
-        let commandName = command.rawValue
-        let contract = "requires target object with checks"
-        let next = "get_interface()"
-        let targetHint = "target.checks"
-        let message = "\(commandName) request contract failed: missing target; \(contract). " +
-            "Next: \(next) to inspect the current app accessibility state, then retry \(commandName) with \(targetHint)."
-        self.init(
-            message: message,
-            details: FailureDetails(
-                code: .requestMissingTarget,
-                hint: next
-            )
-        )
-    }
-
-    private init(containerTargetRequiresElementCommand command: TheFence.Command) {
-        self.init(
-            message: "Command \"\(command.rawValue)\" requires an accessibility element target; container-only targets are not valid",
-            details: FailureDetails(code: .requestValidationError)
-        )
-    }
 }
 
 /// Typed response from TheFence command execution.
@@ -161,7 +135,7 @@ extension DiagnosticFailure {
     case devices([DiscoveredDevice])
     case interface(Interface, detail: InterfaceDetail = .summary)
     case notifications([Observation.Notification])
-    case action(command: TheFence.Command, result: ActionResult, expectation: ExpectationResult? = nil)
+    case action(result: ActionResult, expectation: ExpectationResult? = nil)
     /// Screenshot written to disk. `path` is the resolved filesystem location.
     case screenshot(path: String, payload: ScreenPayload, options: ScreenshotResponseOptions = ScreenshotResponseOptions())
     /// Screenshot held in memory as base64 PNG. Returned only when inline data
@@ -192,7 +166,7 @@ extension DiagnosticFailure {
             return false
         case .error:
             return true
-        case .action(_, let result, let expectation):
+        case .action(let result, let expectation):
             if !result.outcome.isSuccess { return true }
             if let expectation, !expectation.met { return true }
             return false

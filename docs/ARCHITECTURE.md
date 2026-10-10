@@ -37,12 +37,13 @@ the same pull request.
 
 There is one product command contract: `TheFence.Command`. CLI arguments, MCP
 JSON, session JSON, and heist files accept canonical command strings such as
-`activate`, `type_text`, and `scroll_to_visible`; those strings are parsed once
-at the boundary and routed as typed values inside the stack.
+`action`, `perform`, and `run_heist`; those strings are parsed once at the
+boundary and routed as typed values inside the stack. The `action` payload then
+decodes once into the canonical `HeistActionCommand` enum.
 
 Raw command dictionaries end at Fence admission. `FenceCommandInput` is the
-unadmitted edge value; `FenceOperationRequest` contains the typed operation that
-execution consumes.
+unadmitted edge value; `AdmittedFenceCommand` contains the typed
+`CommandExecution` that execution consumes.
 
 Raw machine JSON is size- and shape-checked at the Foundation boundary, then
 decoded directly into its destination contract. MCP converts its existing
@@ -850,7 +851,7 @@ flowchart TD
     Plan --> Walk["HeistPlanTraversal<br/>Event walk + stack-owned cycle observation"]
     Walk --> Discovery["Catalog + descriptions + semantic surfaces<br/>local event reduction"]
     Plan --> OfflineReport["validate_heist<br/>plan + invocation + lint report"]
-    Plan --> FenceCommand["Fence command<br/>run_heist / perform / wait"]
+    Plan --> FenceCommand["Fence command<br/>run_heist / perform / action"]
     FenceCommand --> HandoffSocket["Handoff socket<br/>client version == app version"]
     HandoffSocket --> Executor["TheBrains-owned InteractionRequestExecutor<br/>one UI FIFO"]
 
@@ -934,9 +935,9 @@ matches only after a committed snapshot proves no semantic or geometry change.
 ### Act
 
 1. TheFence parses a boundary request into `TheFence.Command`.
-2. Fence admission converts `FenceCommandInput` into `FenceOperationRequest`,
-   then lowers it into a one-step or composed `HeistPlan` and sends
-   `ClientMessage.heistPlan`.
+2. Fence admission converts `FenceCommandInput` into `AdmittedFenceCommand`.
+   Durable actions lower into a one-step `HeistPlan`; composed source lowers
+   into the same plan currency before `ClientMessage.heistPlan` is sent.
 3. TheGetaway routes the plan to one `HeistExecution` reducer.
 4. When the reducer reaches an action it resolves the semantic target and
    answers `.perform(...)`; the MainActor host performs the effect

@@ -1,10 +1,8 @@
 import Foundation
 import ThePlans
-
 import TheScore
 
 extension TheFence {
-
     /// Raw command arguments retained only until command admission.
     @_spi(ButtonHeistTooling) public struct CommandArgumentEnvelope: Sendable {
         let values: [String: HeistValue]
@@ -18,13 +16,13 @@ extension TheFence {
             argumentFieldPrefix = fieldPrefix
         }
 
-        @_spi(ButtonHeistTooling) public func value(for key: FenceParameterKey) -> HeistValue? {
-            values[key.rawValue]
+        @_spi(ButtonHeistTooling) public func value(for key: String) -> HeistValue? {
+            values[key]
         }
 
-        func dropping(_ key: FenceParameterKey) -> CommandArgumentEnvelope {
+        func dropping(_ key: String) -> CommandArgumentEnvelope {
             var copy = values
-            copy.removeValue(forKey: key.rawValue)
+            copy.removeValue(forKey: key)
             return CommandArgumentEnvelope(
                 values: copy,
                 fieldPrefix: argumentFieldPrefix
@@ -237,8 +235,8 @@ extension TheFence.CommandArgumentEnvelope {
         try value(parameter) ?? descriptor.requiredDefaultValue(for: parameter)
     }
 
-    func observedDescription(for key: FenceParameterKey) -> String? {
-        values[key.rawValue]?.schemaObservedDescription
+    func observedDescription(for key: String) -> String? {
+        values[key]?.schemaObservedDescription
     }
 
     func observedDescription(forUnknownKey key: String) -> String? {
@@ -249,8 +247,8 @@ extension TheFence.CommandArgumentEnvelope {
         "object"
     }
 
-    func field(_ key: FenceParameterKey) -> String {
-        field(forRawKey: key.rawValue)
+    func field(_ key: String) -> String {
+        field(forRawKey: key)
     }
 
     func field(forUnknownKey key: String) -> String {
