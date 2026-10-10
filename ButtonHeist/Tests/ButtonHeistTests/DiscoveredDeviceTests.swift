@@ -65,13 +65,14 @@ final class DiscoveredDeviceTests: XCTestCase {
         XCTAssertEqual(String(data: try encoder.encode(deviceID), encoding: .utf8), #""DemoApp#abc123""#)
     }
 
-    func testDiscoveryDeviceIDFactoriesPreserveRawValues() throws {
+    func testDiscoveryDeviceIDHostPortFactoryPreservesRawValue() throws {
         let hostPort = DiscoveryDeviceID.hostPort(host: "127.0.0.1", port: 5555)
-        let usb = DiscoveryDeviceID.usbIdentifier("00008120")
 
         XCTAssertEqual(hostPort, "127.0.0.1:5555")
-        XCTAssertEqual(usb, "usb-00008120")
-        XCTAssertEqual(String(data: try JSONEncoder().encode(usb), encoding: .utf8), #""usb-00008120""#)
+        XCTAssertEqual(
+            String(data: try JSONEncoder().encode(hostPort), encoding: .utf8),
+            #""127.0.0.1:5555""#
+        )
     }
 
     func testDeviceResolutionTargetTrimsQueryAndTreatsBlankAsAutomatic() {
@@ -178,11 +179,11 @@ final class DiscoveredDeviceTests: XCTestCase {
         XCTAssertEqual(device.deviceName, "Office iPhone")
     }
 
-    func testExplicitConnectionTypeDoesNotDependOnIdPrefix() {
+    func testExplicitConnectionTypeIsPreserved() {
         let endpoint = DiscoveredDeviceEndpoint.hostPort(host: "::1", port: 1234)
         let device = DiscoveredDevice(
             id: "00008120-1111111111111111",
-            name: "Alpha Phone (USB)",
+            name: "Alpha Phone",
             endpoint: endpoint,
             displayDeviceName: "Alpha Phone",
             connectionType: .usb

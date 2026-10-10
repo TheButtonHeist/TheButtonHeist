@@ -20,53 +20,62 @@ When an iOS device is connected via USB and recognized by Xcode/CoreDevice:
    - Device: `fd9a:6190:eed7::1`
 3. **TCP connections can be made** directly to the device's IPv6 address
 
-### USB Discovery
+### Endpoint Configuration
 
-> **Note:** `USBDeviceDiscovery` (in the ButtonHeist framework) is defined but not currently wired into `TheHandoff`. Public discovery starts from Bonjour and named targets. With the default `simulator,usb` scope, Bonjour is not published because LAN visibility is disabled; use a named/direct target or a fixed `INSIDEJOB_PORT` for USB workflows that must avoid network scope.
-
-The `USBDeviceDiscovery` implementation is available for this flow:
-
-1. Polls `xcrun devicectl list devices` to find connected devices
-2. Parses `lsof -i -P -n` output to locate the CoreDevice IPv6 tunnel address
-3. Constructs an `NWEndpoint` with the IPv6 address and port
-4. Produces a `DiscoveredDevice` — identical to Bonjour-discovered devices
-
-### Port Discovery
-
-TheInsideJob uses an OS-assigned port by default, or a fixed port from `INSIDEJOB_PORT` / `InsideJobPort`. When Bonjour is enabled, the same port is advertised and is reachable via the CoreDevice IPv6 tunnel.
+Button Heist does not auto-discover CoreDevice tunnels. Use a fixed
+`INSIDEJOB_PORT` / `InsideJobPort`, find the device tunnel address, and store
+the resulting `[IPv6]:port` endpoint as a named target. This keeps USB on the
+same direct-target connection path as every other explicitly configured
+endpoint.
 
 ### Requirements
 
 1. **Device must be "connected"** in devicectl (USB cable attached, trusted)
 2. **TheInsideJob must use IPv6 dual-stack** (enabled by default)
 3. **App must be running** on the device with TheInsideJob started
-4. **Xcode command line tools** installed (`xcrun` must be available)
+4. **A fixed InsideJob port and named target** configured for the tunnel endpoint
+5. **Xcode command line tools** installed (`xcrun` must be available)
 
 ## Usage
 
 ### CLI
 
 ```bash
-# List Bonjour-advertised devices and named targets
-buttonheist list_devices
+# List configured targets and connect to the default target
+buttonheist list_targets
+buttonheist connect
 
-# Connect to a USB device by name when advertised or configured as a target
-buttonheist activate --device "iPhone 15 Pro" --identifier myButton
+# Commands reuse the configured target
+buttonheist activate --identifier myButton
 
 # Take a screenshot over USB; writes an artifact by default
-buttonheist get_screen --device "iPhone 15 Pro" --output screen.png
+buttonheist get_screen --output screen.png
 ```
 
 ### MCP Server
 
-Target a USB device in `.mcp.json`:
+Configure the fixed tunnel endpoint in `.buttonheist.json`:
+
+```json
+{
+  "targets": {
+    "usb": {
+      "device": "[fd9a:6190:eed7::1]:7331",
+      "token": "my-token"
+    }
+  },
+  "default": "usb"
+}
+```
+
+The MCP server resolves that same default target, so `.mcp.json` only needs
+the server command:
 
 ```json
 {
   "mcpServers": {
     "buttonheist": {
-      "command": "./ButtonHeistMCP/.build/release/buttonheist-mcp",
-      "args": ["--device", "iPhone 15 Pro"]
+      "command": "./ButtonHeistMCP/.build/release/buttonheist-mcp"
     }
   }
 }
@@ -118,35 +127,12 @@ Test Phone 15 Pro     Test-Phone-15-Pro.coredevice.local    ...   connected   iP
 lsof -i -P -n | grep CoreDev | grep -oE '\[fd[0-9a-f:]+::[12]\]' | head -1
 ```
 
-## USB Discovery Flow
-
-```mermaid
-sequenceDiagram
-    participant USB as USBDeviceDiscovery
-    participant XC as xcrun devicectl
-    participant LS as lsof
-    participant EV as onEvent callback
-
-    loop Every 3 seconds (poll)
-        USB->>XC: discoverConnectedDevices()<br>xcrun devicectl list devices
-        XC-->>USB: Device names with "connected" status
-
-        USB->>LS: findIPv6Tunnel()<br>lsof -i -P -n
-        LS-->>USB: CoreDevice fd-prefix IPv6 address
-
-        alt New device found
-            USB->>USB: Construct NWEndpoint<br>hostPort(ipv6Address, port)
-            USB->>USB: Create DiscoveredDevice<br>id: "usb-{name}"
-            USB->>EV: .found(device)
-        else Device disappeared
-            USB->>EV: .lost(device)
-        end
-    end
-```
-
 ### Manual Connection (for debugging)
 
-The protocol requires TLS before any JSON messages and token authentication before commands. Plain `nc` is not a valid production client. For manual debugging, prefer `buttonheist connect --device host:port` or an MCP named target that carries the endpoint and token.
+The protocol requires TLS before any JSON messages and token authentication
+before commands. Plain `nc` is not a valid production client. For manual
+debugging, put the tunnel endpoint and token in a named target, then run
+`buttonheist connect`.
 
 ## Message Protocol
 
@@ -216,10 +202,11 @@ Common issues that USB bypasses:
 - Wrong IPv6 prefix (check `lsof -i -P -n | grep CoreDev`)
 - Tunnel interface not up (reconnect USB cable)
 
-### USB device not appearing in `buttonheist list_devices`
+### USB target does not connect
 - Verify device shows as "connected" in `xcrun devicectl list devices`
 - Ensure app is running on the device
-- Remember that default `simulator,usb` scope does not publish Bonjour; use a named/direct target or enable `network` scope only when LAN discovery is acceptable
+- Verify the named target contains the current CoreDevice IPv6 address and fixed InsideJob port
+- Remember that default `simulator,usb` scope does not publish Bonjour; USB targets do not appear in `buttonheist list_devices`
 
 ## Connection Scopes
 

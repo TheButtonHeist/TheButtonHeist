@@ -12,10 +12,6 @@ public struct DiscoveryDeviceID: NonBlankStringValue, CustomDebugStringConvertib
     static func hostPort(host: String, port: UInt16) -> DiscoveryDeviceID {
         DiscoveryDeviceID(stringLiteral: "\(host):\(port)")
     }
-
-    static func usbIdentifier(_ identifier: String) -> DiscoveryDeviceID {
-        DiscoveryDeviceID(stringLiteral: "usb-\(identifier)")
-    }
 }
 
 enum DiscoveryIdentity: Hashable, Sendable {
@@ -54,8 +50,8 @@ struct DiscoveryResolutionQuery: Equatable, Sendable, CustomStringConvertible {
 
 /// A discovered iOS device running TheInsideJob.
 ///
-/// `id` is the public endpoint identifier: Bonjour service name, USB device
-/// identifier, or direct `host:port`. `name` is
+/// `id` is the public endpoint identifier: a Bonjour service name or a
+/// direct/named target identifier. `name` is
 /// the advertised service label. Human-facing display text is derived separately
 /// by `displayName(among:)` so target resolution does not depend on formatting.
 public struct DiscoveredDevice: Identifiable, Hashable, Sendable {
@@ -89,7 +85,6 @@ public struct DiscoveredDevice: Identifiable, Hashable, Sendable {
         self.advertisedDeviceName = displayDeviceName
         self.instanceId = instanceId
         self.connectionType = connectionType ?? Self.inferConnectionType(
-            id: id,
             simulatorUDID: simulatorUDID
         )
     }
@@ -171,9 +166,8 @@ public struct DiscoveredDevice: Identifiable, Hashable, Sendable {
             normalized.hasPrefix("127.")
     }
 
-    private static func inferConnectionType(id: DiscoveryDeviceID, simulatorUDID: SimulatorUDID?) -> ConnectionScope {
+    private static func inferConnectionType(simulatorUDID: SimulatorUDID?) -> ConnectionScope {
         if simulatorUDID != nil { return .simulator }
-        if id.description.hasPrefix("usb-") { return .usb }
         return .network
     }
 
