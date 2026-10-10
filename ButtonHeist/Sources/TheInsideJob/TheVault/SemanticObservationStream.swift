@@ -11,12 +11,12 @@ enum AccessibilityNotificationIngress {
 
     func start(deliveringTo bus: AccessibilityNotificationBus) {
         guard self == .process else { return }
-        AccessibilityNotificationObserver.shared.subscribe(bus)
+        AccessibilityNotificationObserver.shared.attach(bus)
     }
 
     func stop(deliveringTo bus: AccessibilityNotificationBus) {
         guard self == .process else { return }
-        AccessibilityNotificationObserver.shared.unsubscribe(bus)
+        AccessibilityNotificationObserver.shared.detach(bus)
     }
 }
 
@@ -124,7 +124,11 @@ internal final class Stream {
         self.notificationIngress = notificationIngress
         self.pulseIngress = pulseIngress
         self.schedulingBoundary = schedulingBoundary
-        self.readTripwireSignal = { tripwire.tripwireSignal() }
+        self.readTripwireSignal = {
+            tripwire.tripwireSignal().recordingAccessibilityNotifications(
+                through: vault.accessibilityNotifications.latestSequence
+            )
+        }
     }
 
     internal func start() {
@@ -293,6 +297,13 @@ internal final class Stream {
     /// receives display-link readings and deterministic callers author the same
     /// value directly.
     internal func deliver(_ pulse: TheTripwire.PulseReading) {
+        let pulse = TheTripwire.PulseReading(
+            tick: pulse.tick,
+            elapsed: pulse.elapsed,
+            tripwireSignal: pulse.tripwireSignal.recordingAccessibilityNotifications(
+                through: vault.accessibilityNotifications.latestSequence
+            )
+        )
         cycle.receive(pulse) { [weak self] request in
             Task { @MainActor [weak self] in
                 guard let self else { return }

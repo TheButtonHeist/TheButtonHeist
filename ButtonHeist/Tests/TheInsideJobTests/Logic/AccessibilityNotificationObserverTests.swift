@@ -9,51 +9,24 @@ import XCTest
 
 @MainActor
 final class AccessibilityNotificationObserverTests: XCTestCase {
-    func testSubscribeDuringCallbackRemovalReinstallsForTheNewSubscriber() async {
-        let harness = CallbackRegistrationHarness()
+    func testObserverInstallsOneCallbackAcrossDestinationLifetimes() async {
+        var installCount = 0
         let observer = AccessibilityNotificationObserver(
-            installCallbackForTesting: { harness.install() },
-            uninstallCallbackForTesting: { harness.uninstall() }
+            installCallbackForTesting: { installCount += 1 }
         )
-        harness.observer = observer
         let original = AccessibilityNotificationBus()
         let replacement = AccessibilityNotificationBus()
 
-        observer.subscribe(original)
-        harness.subscriberAddedDuringUninstall = replacement
-        observer.unsubscribe(original)
-
-        XCTAssertTrue(observer.hasSubscribers)
+        observer.attach(original)
+        observer.detach(original)
+        XCTAssertFalse(observer.hasDestination)
         XCTAssertTrue(observer.isInstalled)
-        XCTAssertEqual(observer.lifecycleState, .subscribed(callbackInstalled: true, unitTestModeArmed: true))
-        XCTAssertTrue(harness.isInstalled)
-        XCTAssertEqual(harness.installCount, 2)
-        XCTAssertEqual(harness.uninstallCount, 1)
 
-        observer.unsubscribe(replacement)
-        XCTAssertFalse(observer.hasSubscribers)
-        XCTAssertFalse(observer.isInstalled)
-        XCTAssertEqual(observer.lifecycleState, .unsubscribed)
-        XCTAssertFalse(harness.isInstalled)
-    }
-
-    func testUnsubscribeDuringCallbackInstallationRemovesUnneededRegistration() async {
-        let harness = CallbackRegistrationHarness()
-        let observer = AccessibilityNotificationObserver(
-            installCallbackForTesting: { harness.install() },
-            uninstallCallbackForTesting: { harness.uninstall() }
-        )
-        harness.observer = observer
-        let subscriber = AccessibilityNotificationBus()
-        harness.subscriberRemovedDuringInstall = subscriber
-
-        observer.subscribe(subscriber)
-
-        XCTAssertFalse(observer.hasSubscribers)
-        XCTAssertFalse(observer.isInstalled)
-        XCTAssertFalse(harness.isInstalled)
-        XCTAssertEqual(harness.installCount, 1)
-        XCTAssertEqual(harness.uninstallCount, 1)
+        observer.attach(replacement)
+        XCTAssertTrue(observer.hasDestination)
+        XCTAssertEqual(installCount, 1)
+        XCTAssertTrue(observer.isInstalled)
+        observer.detach(replacement)
     }
 
     func testActionWindowProvidesCoverageAfterItsCursorWithoutDrainingIngress() async throws {
@@ -351,50 +324,41 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         )
     }
 
-    func testObserverPublishesOneMonotonicPayloadSequenceToEverySubscriber() async throws {
+    func testObserverPublishesOneMonotonicPayloadSequence() async throws {
         var callback: AccessibilityNotificationCallback?
         let observer = AccessibilityNotificationObserver(
-            installCallbackForTesting: { callback = $0 },
-            uninstallCallbackForTesting: {}
+            installCallbackForTesting: { callback = $0 }
         )
-        defer { observer.uninstall() }
-        let first = AccessibilityNotificationBus()
-        let second = AccessibilityNotificationBus()
-        observer.subscribe(first)
-        observer.subscribe(second)
+        let bus = AccessibilityNotificationBus()
+        observer.attach(bus)
+        defer { observer.detach(bus) }
         let publish = try XCTUnwrap(callback)
 
         publish(1001, nil, nil)
         publish(1005, "75%" as NSString, nil)
         publish(1008, "Done" as NSString, nil)
 
-        let firstEvents = first.checkpoint(after: .origin, selection: .all).events
-        let secondEvents = second.checkpoint(after: .origin, selection: .all).events
-        XCTAssertEqual(firstEvents.map(\.sequence), [1, 2, 3])
-        XCTAssertEqual(secondEvents.map(\.sequence), [1, 2, 3])
+        let events = bus.checkpoint(after: .origin, selection: .all).events
+        XCTAssertEqual(events.map(\.sequence), [1, 2, 3])
         XCTAssertEqual(
-            firstEvents.map(\.kind),
+            events.map(\.kind),
             [.layoutChanged, .elementUpdate, .announcement]
         )
-        XCTAssertEqual(secondEvents.map(\.kind), firstEvents.map(\.kind))
-        XCTAssertEqual(observer.latestSequence, 3)
-        guard case .string(let firstValue) = firstEvents[1].notificationData,
-              case .string(let secondValue) = secondEvents[1].notificationData else {
-            return XCTFail("Expected both subscribers to receive the captured string payload")
+        XCTAssertEqual(bus.latestSequence, 3)
+        guard case .string(let value) = events[1].notificationData else {
+            return XCTFail("Expected the captured string payload")
         }
-        XCTAssertEqual(firstValue, "75%")
-        XCTAssertEqual(secondValue, firstValue)
+        XCTAssertEqual(value, "75%")
     }
 
     func testPrivateCallbackFromBackgroundQueuePublishesOnMainInIngressOrder() async throws {
         var callback: ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock?
         let observer = AccessibilityNotificationObserver(
-            installPrivateCallbackForTesting: { callback = $0 },
-            uninstallCallbackForTesting: {}
+            installPrivateCallbackForTesting: { callback = $0 }
         )
-        defer { observer.uninstall() }
         let bus = AccessibilityNotificationBus()
-        observer.subscribe(bus)
+        observer.attach(bus)
+        defer { observer.detach(bus) }
         let privateCallback = BackgroundPrivateCallback(
             try XCTUnwrap(callback)
         )
@@ -423,30 +387,23 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         XCTAssertEqual(text, "Delivered from background")
     }
 
-    func testObserverAdvancesPastSubscriberSequenceFromAnotherIngressSource() async throws {
+    func testObserverAppendsAfterInjectedIngress() async throws {
         var callback: AccessibilityNotificationCallback?
         let observer = AccessibilityNotificationObserver(
-            installCallbackForTesting: { callback = $0 },
-            uninstallCallbackForTesting: {}
+            installCallbackForTesting: { callback = $0 }
         )
-        defer { observer.uninstall() }
         let bus = AccessibilityNotificationBus()
-        observer.subscribe(bus)
-        bus.record(
-            sequence: 7,
-            rawCode: 1005,
-            timestamp: Date(timeIntervalSince1970: 0),
-            notificationData: .none,
-            associatedElement: .none
-        )
+        observer.attach(bus)
+        defer { observer.detach(bus) }
+        bus.recordForTesting(code: 1005, notificationData: .none, associatedElement: .none)
 
         try XCTUnwrap(callback)(1001, nil, nil)
 
         XCTAssertEqual(
             bus.checkpoint(after: .origin, selection: .all).events.map(\.sequence),
-            [7, 8]
+            [1, 2]
         )
-        XCTAssertEqual(observer.latestSequence, 8)
+        XCTAssertEqual(bus.latestSequence, 2)
     }
 
     func testProbeObservesOnlyElementUpdateNotifications() throws {
@@ -526,22 +483,16 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         XCTAssertEqual(bus.latestScopedScreenChangedSequence, 5)
     }
 
-    func testExplicitNotificationEventsPreservePublisherSequence() async {
+    func testNotificationBusOwnsMonotonicSequence() async {
         let bus = AccessibilityNotificationBus()
-        bus.record(
-            sequence: 7,
-            rawCode: 1005,
-            timestamp: Date(timeIntervalSince1970: 0),
-            notificationData: .none,
-            associatedElement: .none
-        )
+        bus.recordForTesting(code: 1005, notificationData: .none, associatedElement: .none)
         bus.recordForTesting(code: 1001, notificationData: .none, associatedElement: .none)
 
         XCTAssertEqual(
             bus.checkpoint(after: .origin, selection: .all).events.map(\.sequence),
-            [7, 8]
+            [1, 2]
         )
-        XCTAssertEqual(bus.latestSequence, 8)
+        XCTAssertEqual(bus.latestSequence, 2)
     }
 
     func testCheckpointIncludesScopedEventsAndExcludesAmbientEvents() {
@@ -584,32 +535,6 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
             viewportFrames: observation.tree.viewportFrames,
             geometryTolerance: CoarseFrameComparison.currentGeometryTolerance
         )
-    }
-
-    @MainActor
-    private final class CallbackRegistrationHarness {
-        weak var observer: AccessibilityNotificationObserver?
-        var subscriberRemovedDuringInstall: AccessibilityNotificationBus?
-        var subscriberAddedDuringUninstall: AccessibilityNotificationBus?
-        private(set) var installCount = 0
-        private(set) var uninstallCount = 0
-        private(set) var isInstalled = false
-
-        func install() {
-            installCount += 1
-            isInstalled = true
-            guard let subscriber = subscriberRemovedDuringInstall else { return }
-            subscriberRemovedDuringInstall = nil
-            observer?.unsubscribe(subscriber)
-        }
-
-        func uninstall() {
-            uninstallCount += 1
-            isInstalled = false
-            guard let subscriber = subscriberAddedDuringUninstall else { return }
-            subscriberAddedDuringUninstall = nil
-            observer?.subscribe(subscriber)
-        }
     }
 
     /// The C block is deliberately invoked from a foreign queue in this test,

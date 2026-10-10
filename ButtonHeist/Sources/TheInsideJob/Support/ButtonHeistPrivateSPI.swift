@@ -28,11 +28,6 @@ enum ButtonHeistPrivateSPI {
         AnyObject // observerKey
     ) -> Void
 
-    // AXRemoveNotificationCallback.
-    typealias RemoveAccessibilityNotificationCallbackFunction = @convention(c) (
-        AnyObject // observerKey
-    ) -> Void
-
     // IOHIDEventCreateDigitizerEvent.
     typealias IOHIDEventCreateDigitizerEventFunction = @convention(c) (
         CFAllocator?, // allocator
@@ -91,9 +86,7 @@ enum ButtonHeistPrivateSPI {
 
     enum SPISymbolName: String {
         case accessibilityAddNotificationCallback = "AXAddNotificationCallback"
-        case accessibilityRemoveNotificationCallback = "AXRemoveNotificationCallback"
         case accessibilitySetApplicationAccessibilityEnabled = "_AXSSetApplicationAccessibilityEnabled"
-        case accessibilitySetAutomationEnabled = "_AXSSetAutomationEnabled"
         case accessibilitySetUnitTestMode = "_AXSSetInUnitTestMode"
         case ioHIDEventAppendEvent = "IOHIDEventAppendEvent"
         case ioHIDEventCreateDigitizerEvent = "IOHIDEventCreateDigitizerEvent"
@@ -105,14 +98,6 @@ enum ButtonHeistPrivateSPI {
         case ioKit = "/System/Library/Frameworks/IOKit.framework/IOKit"
         case libAccessibility = "/usr/lib/libAccessibility.dylib"
         case uiAccessibility = "/System/Library/PrivateFrameworks/UIAccessibility.framework/UIAccessibility"
-        case uiKit = "/System/Library/Frameworks/UIKit.framework/UIKit"
-        case uiKitCore = "/System/Library/PrivateFrameworks/UIKitCore.framework/UIKitCore"
-
-        static let accessibilityNotificationCallbackFallbackSearchOrder: [SPIFrameworkPath] = [
-            .uiAccessibility,
-            .uiKitCore,
-            .uiKit,
-        ]
 
         var usesSimulatorRoot: Bool {
             self == .libAccessibility
@@ -213,18 +198,12 @@ extension ButtonHeistPrivateSPI.CFunction where Signature == ButtonHeistPrivateS
     static let accessibilitySetApplicationAccessibilityEnabled = Self(
         .accessibilitySetApplicationAccessibilityEnabled
     )
-    static let accessibilitySetAutomationEnabled = Self(.accessibilitySetAutomationEnabled)
     static let accessibilitySetUnitTestMode = Self(.accessibilitySetUnitTestMode)
 }
 
 extension ButtonHeistPrivateSPI.CFunction
 where Signature == ButtonHeistPrivateSPI.AddAccessibilityNotificationCallbackFunction {
     static let accessibilityAddNotificationCallback = Self(.accessibilityAddNotificationCallback)
-}
-
-extension ButtonHeistPrivateSPI.CFunction
-where Signature == ButtonHeistPrivateSPI.RemoveAccessibilityNotificationCallbackFunction {
-    static let accessibilityRemoveNotificationCallback = Self(.accessibilityRemoveNotificationCallback)
 }
 
 extension ButtonHeistPrivateSPI.CFunction

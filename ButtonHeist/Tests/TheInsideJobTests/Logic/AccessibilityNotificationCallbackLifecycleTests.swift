@@ -7,16 +7,15 @@ import TheScore
 
 @MainActor
 final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
-    func testStopRejectsCallbackRetainedByPrivateSPI() async throws {
+    func testDetachedDestinationRejectsCallbackRetainedByPrivateSPI() async throws {
         let harness = CallbackHarness()
         let observer = makeObserver(harness: harness)
-        defer { observer.uninstall() }
         let bus = AccessibilityNotificationBus()
-        observer.subscribe(bus)
+        observer.attach(bus)
         let callback = try XCTUnwrap(harness.callbacks.first)
         let actionWindow = bus.beginActionWindow()
 
-        observer.uninstall()
+        observer.detach(bus)
         callback(1000, nil, nil)
 
         let admittedCoverage = await actionWindow.admitCausallyCovered { Optional($0) }
@@ -32,44 +31,28 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
         XCTAssertTrue(
             bus.checkpoint(after: .origin, selection: .all).events.isEmpty
         )
-        XCTAssertEqual(observer.latestSequence, 0)
-        XCTAssertEqual(harness.uninstallCount, 1)
+        XCTAssertEqual(bus.latestSequence, 0)
     }
 
-    func testRemovedCallbackCannotPublishIntoLaterActionWindow() async throws {
+    func testInstalledCallbackFollowsTheSingleDestination() async throws {
         let harness = CallbackHarness()
         let observer = makeObserver(harness: harness)
-        defer { observer.uninstall() }
         let original = AccessibilityNotificationBus()
         let replacement = AccessibilityNotificationBus()
-        observer.subscribe(original)
-        let removedCallback = try XCTUnwrap(harness.callbacks.first)
+        observer.attach(original)
+        let callback = try XCTUnwrap(harness.callbacks.first)
 
-        observer.unsubscribe(original)
-        observer.subscribe(replacement)
-        XCTAssertEqual(harness.callbacks.count, 2)
-        let actionWindow = replacement.beginActionWindow()
+        observer.detach(original)
+        callback(1000, nil, nil)
+        XCTAssertEqual(original.latestSequence, 0)
 
-        removedCallback(1000, nil, nil)
-        removedCallback(1005, nil, nil)
-        removedCallback(1008, "Stale announcement" as NSString, nil)
-
-        let admittedStaleCoverage = await actionWindow.admitCausallyCovered { Optional($0) }
-        let staleCoverage = try XCTUnwrap(admittedStaleCoverage)
-        XCTAssertEqual(actionWindow.cursor.sequence, 0)
-        XCTAssertEqual(staleCoverage.after.sequence, 0)
-        XCTAssertEqual(staleCoverage.through.sequence, 0)
-        XCTAssertEqual(staleCoverage.scopedScreenChangedThrough, 0)
-        XCTAssertTrue(
-            replacement.checkpoint(after: .origin, selection: .all).events.isEmpty
-        )
-        XCTAssertEqual(observer.latestSequence, 0)
-
-        let activeCallback = try XCTUnwrap(harness.callbacks.last)
+        observer.attach(replacement)
+        defer { observer.detach(replacement) }
+        XCTAssertEqual(harness.callbacks.count, 1)
         let activeWindow = replacement.beginActionWindow()
-        activeCallback(1000, nil, nil)
-        activeCallback(1005, nil, nil)
-        activeCallback(1008, "Current announcement" as NSString, nil)
+        callback(1000, nil, nil)
+        callback(1005, nil, nil)
+        callback(1008, "Current announcement" as NSString, nil)
 
         let admittedActiveCoverage = await activeWindow.admitCausallyCovered { Optional($0) }
         let activeCoverage = try XCTUnwrap(admittedActiveCoverage)
@@ -86,15 +69,15 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
             [.screenChanged, .elementUpdate, .announcement]
         )
         XCTAssertEqual(activeEvents.map(\.provenance), [.scoped, .scoped, .scoped])
-        XCTAssertEqual(observer.latestSequence, 3)
+        XCTAssertEqual(replacement.latestSequence, 3)
     }
 
     func testCallbacksDeliveredIntoOpenActionWindowHaveCompleteCausalCoverage() async throws {
         let harness = CallbackHarness()
         let observer = makeObserver(harness: harness)
-        defer { observer.uninstall() }
         let bus = AccessibilityNotificationBus()
-        observer.subscribe(bus)
+        observer.attach(bus)
+        defer { observer.detach(bus) }
         let callback = try XCTUnwrap(harness.callbacks.first)
         let actionWindow = bus.beginActionWindow()
 
@@ -115,12 +98,12 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
         XCTAssertEqual(events.map(\.provenance), [.scoped, .scoped])
     }
 
-    func testIngressBarrierOrdersNotificationsIndependentOfMainActorWork() async throws {
+    func testMainActorDeliveryOrdersNotificationsBeforeLaterWork() async throws {
         let harness = CallbackHarness()
         let observer = makeObserver(harness: harness)
-        defer { observer.uninstall() }
         let bus = AccessibilityNotificationBus()
-        observer.subscribe(bus)
+        observer.attach(bus)
+        defer { observer.detach(bus) }
         let callback = try XCTUnwrap(harness.callbacks.first)
         let heist = bus.beginHeistScope()
         defer { heist.cancel() }
@@ -129,7 +112,7 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
         var unrelatedWorkRan = false
         let laterMainActorWork = Task { @MainActor in
             unrelatedWorkRan = true
-            callback(1008, "After barrier" as NSString, nil)
+            callback(1008, "After scheduled work" as NSString, nil)
         }
 
         let admittedCoverage = await action.admitCausallyCovered {
@@ -144,7 +127,7 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
         guard events.count == 2,
               case .action = events[0].owner
         else {
-            return XCTFail("Expected the pre-barrier notification to belong to the action")
+            return XCTFail("Expected the first notification to belong to the action")
         }
         XCTAssertEqual(events[1].owner, .heist(heist.cursor))
     }
@@ -241,9 +224,9 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
     func testCallbackImmediatelyNormalizesMutableObjectiveCPayload() async throws {
         let harness = CallbackHarness()
         let observer = makeObserver(harness: harness)
-        defer { observer.uninstall() }
         let bus = AccessibilityNotificationBus()
-        observer.subscribe(bus)
+        observer.attach(bus)
+        defer { observer.detach(bus) }
         let callback = try XCTUnwrap(harness.callbacks.first)
         let mutablePayload = NSMutableString(string: "Original announcement")
         let actionWindow = bus.beginActionWindow()
@@ -270,9 +253,6 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
         AccessibilityNotificationObserver(
             installCallbackForTesting: { callback in
                 harness.install(callback)
-            },
-            uninstallCallbackForTesting: {
-                harness.uninstall()
             }
         )
     }
@@ -280,14 +260,9 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
     @MainActor
     private final class CallbackHarness {
         private(set) var callbacks: [AccessibilityNotificationCallback] = []
-        private(set) var uninstallCount = 0
 
         func install(_ callback: @escaping AccessibilityNotificationCallback) {
             callbacks.append(callback)
-        }
-
-        func uninstall() {
-            uninstallCount += 1
         }
     }
 

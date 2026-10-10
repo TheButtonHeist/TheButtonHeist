@@ -877,7 +877,6 @@ final class DeterministicRuntimeScenarioDriver {
         in vault: TheVault
     ) {
         vault.accessibilityNotifications.record(
-            sequence: vault.accessibilityNotifications.latestSequence + 1,
             rawCode: fixture.rawCode,
             timestamp: fixture.timestamp,
             notificationData: fixture.notificationData.pendingPayload,

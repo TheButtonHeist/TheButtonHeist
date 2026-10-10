@@ -11,6 +11,7 @@ flowchart LR
     Demand["visible or discovery demand"] --> Stream["Observation.Stream<br/>one serialized cycle"]
     Link["TheTripwire CADisplayLink"] -->|"pulse while demanded"| Stream
     Script["Deterministic input<br/>typed pulse + virtual elapsed"] -->|"injected pulse in logic tests"| Stream
+    Callback["one process callback<br/>one MainActor hop"] --> Notice
     Notice["AccessibilityNotificationBus<br/>ordered ingress"] -->|"freeze exact claim"| Stream
     UIKit["UIKit hierarchy"] -->|"capture + parse once"| Stream
     Stream -->|"commit Snapshot + Event"| Vault["TheVault<br/>current phase + Observation.History"]

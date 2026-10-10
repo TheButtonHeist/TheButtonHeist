@@ -10,34 +10,24 @@ final class AccessibilityNotificationObserverHostedTests: XCTestCase {
         case timedOut(AccessibilityNotificationKind)
     }
 
-    override func tearDown() async throws {
-        AccessibilityNotificationObserver.shared.uninstall()
-        try await super.tearDown()
-    }
-
-    func testUnsubscribeRemovesSubscriberAndTearsDownInstalledCallback() async throws {
+    func testDetachKeepsTheProcessCallbackInstalled() async throws {
         let bus = AccessibilityNotificationBus()
 
-        AccessibilityNotificationObserver.shared.subscribe(bus)
+        AccessibilityNotificationObserver.shared.attach(bus)
         let installed = AccessibilityNotificationObserver.shared.isInstalled
-        guard case .subscribed(let callbackInstalled, _) =
-            AccessibilityNotificationObserver.shared.lifecycleState
-        else {
-            return XCTFail("Expected the shared observer to report a subscribed lifecycle")
-        }
-        XCTAssertEqual(callbackInstalled, installed)
+        XCTAssertTrue(AccessibilityNotificationObserver.shared.hasDestination)
 
-        AccessibilityNotificationObserver.shared.unsubscribe(bus)
+        AccessibilityNotificationObserver.shared.detach(bus)
 
-        XCTAssertFalse(AccessibilityNotificationObserver.shared.hasSubscribers)
-        XCTAssertEqual(AccessibilityNotificationObserver.shared.lifecycleState, .unsubscribed)
-        XCTAssertFalse(AccessibilityNotificationObserver.shared.isInstalled)
+        XCTAssertFalse(AccessibilityNotificationObserver.shared.hasDestination)
+        XCTAssertEqual(AccessibilityNotificationObserver.shared.isInstalled, installed)
     }
 
     func testObserverReceivesPostedPayloadShapes() async throws {
         let bus = AccessibilityNotificationBus()
 
-        AccessibilityNotificationObserver.shared.subscribe(bus)
+        AccessibilityNotificationObserver.shared.attach(bus)
+        defer { AccessibilityNotificationObserver.shared.detach(bus) }
         guard AccessibilityNotificationObserver.shared.isInstalled else {
             return XCTFail("Expected _AXAddNotificationCallback to be available in the supported runtime")
         }
