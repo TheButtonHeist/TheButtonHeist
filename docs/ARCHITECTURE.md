@@ -618,7 +618,7 @@ pipelines are explicit:
 | Result private storage codec | `HeistExecutionStepNode.swift` and `HeistExecutionStepNode+Codable.swift` | External result JSON projection only |
 | Action semantic and wire payload | `ActionResult.Payload` with `ActionResult` custom `Codable` | Runtime construction and wire encoding/decoding |
 | Heist result transport | `ServerMessage.heistResult(HeistResult)` | Fence and in-app clients consume the aggregate directly; production failures use `ServerMessage.error` |
-| Result interpretation | `HeistReport.project(result:)` in `HeistResult+Report.swift` | JSON, compact, human, JUnit, doctor, and metric renderers |
+| Result interpretation | `HeistReport.project(result:)` in `HeistResult+Report.swift` | JSON, compact, human, JUnit, and metric renderers |
 | Result recording decision | `HeistResult.Outcome` and `HeistResultRecordingMode` | `HeistResultRecording` filesystem boundary |
 | Offline validation algebra | `HeistValidation.Result<Value>` composed by `HeistValidation.Report` | Public JSON and text projections |
 | Complete-heist progress | One `HeistExecution` reducer; its answer is `Decision` | `HeistExecution.Host` executes effects and returns facts |
@@ -638,11 +638,9 @@ tree. Failure capture is diagnostic evidence, never an execution node. Custom
 result coding encodes it directly in the optional `failureCapture` result field.
 `HeistReport.project(result:)` walks the execution tree once and owns its
 semantic nodes, summary, metrics, failure and warning facts, and diagnostics.
-JSON, compact text, human text, JUnit, doctor, and metric boundaries render
-that report instead of interpreting `HeistResult` independently. Doctor projects
-each recorded result once, selects report nodes, and reads their report-owned
-action evidence; there is no competing execution report or Fence-owned report
-projection.
+JSON, compact text, human text, JUnit, and metric boundaries render that report
+instead of interpreting `HeistResult` independently; there is no competing
+execution report or Fence-owned report projection.
 
 Failure categories map once to the canonical `ActionFailure.Kind`. The report
 retains that typed classification even when an action or wait has no observation

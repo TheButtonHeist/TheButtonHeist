@@ -420,7 +420,6 @@ Explicit mechanical gestures stay available for maps, canvases, drawing surfaces
 | Author heists | [Swift heist authoring](docs/SWIFT-HEIST-AUTHORING.md), [Heist format](docs/HEIST-FORMAT.md), [Design rationale](docs/DESIGN-RATIONALE.md), [Examples](examples/README.md) |
 | Run heists in CI | [CI integration](docs/CI.md) |
 | Integrate an app | [API](docs/API.md), [Auth](docs/AUTH.md), [USB connectivity](docs/USB_DEVICE_CONNECTIVITY.md) |
-| See evidence and experiments | [Heist Doctor](docs/HEIST-DOCTOR.md) |
 
 Command names, help, and MCP schemas are projected from the Fence command descriptors at runtime.
 

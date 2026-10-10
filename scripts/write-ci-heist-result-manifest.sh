@@ -81,8 +81,5 @@ fi
     if [[ -d "$DEST_DIR/diagnostics" ]]; then
         echo "diagnosticsDirectory=diagnostics"
     fi
-    if [[ "$result_count" -eq 0 ]]; then
-        echo "diagnosis=no result JSON files were found; the artifact is not doctor-ready"
-    fi
     echo "createdAt=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 } > "$MANIFEST"

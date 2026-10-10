@@ -163,7 +163,6 @@ let macFrameworkTestTargetNames = [
     "ButtonHeistSupportTests",
     "ThePlansTests",
     "TheScoreTests",
-    "HeistDoctorCoreTests",
     "ButtonHeistTests",
 ]
 
@@ -216,21 +215,6 @@ let project = Project(
             dependencies: [
                 .target(name: "ThePlans"),
                 .external(name: "AccessibilitySnapshotModel"),
-            ]
-        ),
-
-        // MARK: - Result Diagnosis (macOS tooling core)
-        .target(
-            name: "HeistDoctorCore",
-            destinations: .macOS,
-            product: .framework,
-            bundleId: "com.buttonheist.heistdoctorcore",
-            deploymentTargets: .macOS("14.0"),
-            infoPlist: .default,
-            sources: ["ButtonHeist/Sources/HeistDoctorCore/**"],
-            dependencies: [
-                .target(name: "ThePlans"),
-                .target(name: "TheScore"),
             ]
         ),
 
@@ -351,22 +335,6 @@ let project = Project(
             ]
         ),
 
-        // MARK: - HeistDoctorCore Tests
-        .target(
-            name: "HeistDoctorCoreTests",
-            destinations: .macOS,
-            product: .unitTests,
-            bundleId: "com.buttonheist.heistdoctorcore.tests",
-            deploymentTargets: .macOS("14.0"),
-            infoPlist: .default,
-            sources: ["ButtonHeist/Tests/HeistDoctorCoreTests/**"],
-            dependencies: [
-                .target(name: "ButtonHeistTestSupport"),
-                .target(name: "HeistDoctorCore"),
-                .target(name: "TheScore"),
-            ]
-        ),
-
         // MARK: - ThePlans Tests
         .target(
             name: "ThePlansTests",
@@ -426,10 +394,8 @@ let project = Project(
         frameworkScheme(name: "ButtonHeistSupport"),
         frameworkScheme(name: "ButtonHeistTesting"),
         frameworkScheme(name: "ButtonHeistTestSupport"),
-        frameworkScheme(name: "HeistDoctorCore"),
         frameworkScheme(name: "TheInsideJob"),
         testScheme(name: "ButtonHeistSupportTests"),
-        testScheme(name: "HeistDoctorCoreTests"),
         .scheme(
             name: "ThePlansTests",
             buildAction: .buildAction(targets: [

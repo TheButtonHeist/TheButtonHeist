@@ -11,7 +11,6 @@ let package = Package(
         .library(name: "ThePlans", targets: ["ThePlans"]),
         .library(name: "TheScore", targets: ["TheScore"]),
         .executable(name: "heist-plan", targets: ["HeistPlanTool"]),
-        .executable(name: "heist-doctor", targets: ["HeistDoctorTool"]),
         // TheInsideJob with auto-start: includes both Swift implementation and ObjC loader
         .library(name: "TheInsideJob", targets: ["TheInsideJob", "ThePlant"]),
         .library(name: "ButtonHeistTesting", targets: ["ButtonHeistTesting"]),
@@ -53,23 +52,6 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
             path: "ButtonHeist/Sources/HeistPlanTool"
-        ),
-        .target(
-            name: "HeistDoctorCore",
-            dependencies: [
-                "ThePlans",
-                "TheScore",
-            ],
-            path: "ButtonHeist/Sources/HeistDoctorCore"
-        ),
-        .executableTarget(
-            name: "HeistDoctorTool",
-            dependencies: [
-                "HeistDoctorCore",
-                "TheScore",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
-            path: "ButtonHeist/Sources/HeistDoctorTool"
         ),
         // Swift implementation of TheInsideJob
         .target(
@@ -150,15 +132,6 @@ let package = Package(
             name: "ThePlansTests",
             dependencies: ["ButtonHeistTestSupport", "ThePlans"],
             path: "ButtonHeist/Tests/ThePlansTests"
-        ),
-        .testTarget(
-            name: "HeistDoctorCoreTests",
-            dependencies: [
-                "ButtonHeistTestSupport",
-                "HeistDoctorCore",
-                "TheScore",
-            ],
-            path: "ButtonHeist/Tests/HeistDoctorCoreTests"
         ),
         .testTarget(
             name: "ButtonHeistTests",

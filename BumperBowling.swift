@@ -40,30 +40,6 @@ let bumper = BumperProject {
             Applies(.buttonHeistNoAccessibilityParserAuthority)
         }
 
-        Component(.doctorCore) {
-            Owns("ButtonHeist/Sources/HeistDoctorCore")
-            Modules("HeistDoctorCore")
-            MayDependOn(.plans, .score)
-            Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoNetworkAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
-        }
-
-        Component(.doctorTool) {
-            Owns("ButtonHeist/Sources/HeistDoctorTool")
-            Modules("HeistDoctorTool")
-            MayDependOn(.doctorCore, .score)
-            Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoNetworkAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
-        }
-
         Component(.embeddedRuntime) {
             Owns(
                 "ButtonHeist/Sources/TheInsideJob",
