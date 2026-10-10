@@ -262,7 +262,6 @@ extension TheVaultResolutionTests {
         let initial = requireCommittedObservation(
             state.commitObservation(
                 stateAdmission(for: committedObservation),
-                sourceObservation: committedObservation,
                 beginningNewBaseline: false
             )
         )
@@ -286,14 +285,9 @@ extension TheVaultResolutionTests {
         XCTAssertThrowsError(
             try rawObservation.replacingTreeWithCurrentCapture(committedObservation.tree)
         )
-        let rejected = state.commitObservation(
-            stateAdmission(for: committedObservation),
-            sourceObservation: rawObservation,
-            beginningNewBaseline: false
+        XCTAssertThrowsError(
+            try rawObservation.replacingTreeWithCurrentCapture(committedObservation.tree)
         )
-        guard case .failure(.liveCaptureReattachmentFailed) = rejected else {
-            return XCTFail("Expected mismatched live evidence to reject the commit")
-        }
         XCTAssertEqual(state.history.endIndex, priorHistoryEnd)
         XCTAssertEqual(state.notificationIndex, priorNotificationIndex)
         XCTAssertEqual(state.current, priorCurrent)
@@ -460,7 +454,7 @@ extension TheVaultResolutionTests {
 @MainActor
 private func stateAdmission(for observation: InterfaceObservation) -> Observation.Admission {
     Observation.Admission(
-        tree: observation.tree,
+        sourceObservation: observation,
         tripwireSignal: .empty,
         discoveryCommitPolicy: .mergeIntoInterface,
         lineage: .resting,

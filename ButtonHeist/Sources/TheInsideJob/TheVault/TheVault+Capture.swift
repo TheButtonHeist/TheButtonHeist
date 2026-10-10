@@ -36,8 +36,8 @@ extension TheVault {
         let viewSpace: HeistElement.Geometry.ViewSpace
     }
 
-    /// Capture-local UIKit evidence before identity assignment and durable projection.
-    struct CaptureResult {
+    /// One capture-local tree with semantic values, path annotations, and live evidence.
+    struct CaptureTree {
         struct RootScreenSpace {
             let offset: CGPoint
             let bounds: CGRect
@@ -47,23 +47,85 @@ extension TheVault {
         let objectsByPath: [TreePath: NSObject]
         let containerObjectsByPath: [TreePath: NSObject]
         let scrollViewsByPath: [TreePath: UIScrollView]
-        let rootScreenSpacesByPath: [TreePath: RootScreenSpace]
         let inventoryEnumeration: InventoryEnumeration.Result
+        let containers: [CapturedContainer]
+        let elements: [CapturedElement]
+        let scroll: ScrollFacts
+        let focus: FocusFacts
 
+        @MainActor
         init(
             hierarchy: [AccessibilityHierarchy],
             objectsByPath: [TreePath: NSObject] = [:],
             containerObjectsByPath: [TreePath: NSObject] = [:],
             scrollViewsByPath: [TreePath: UIScrollView] = [:],
             rootScreenSpacesByPath: [TreePath: RootScreenSpace] = [:],
-            inventoryEnumeration: InventoryEnumeration.Result = .init()
+            inventoryEnumeration: InventoryEnumeration.Result = .init(),
+            scroll: ScrollFacts? = nil,
+            focus: FocusFacts? = nil
         ) {
-            self.hierarchy = hierarchy
+            func translated(
+                _ hierarchy: AccessibilityHierarchy,
+                at path: TreePath,
+                inheritedScreenSpace: RootScreenSpace?
+            ) -> AccessibilityHierarchy {
+                let screenSpace = rootScreenSpacesByPath[path] ?? inheritedScreenSpace
+                let offset = screenSpace?.offset ?? .zero
+                switch hierarchy {
+                case .element(let element, let traversalIndex):
+                    return .element(
+                        element.translatedBy(
+                            x: offset.x,
+                            y: offset.y,
+                            screenBounds: screenSpace?.bounds
+                        ),
+                        traversalIndex: traversalIndex
+                    )
+                case .container(let container, let children):
+                    return .container(
+                        container.translatedBy(x: offset.x, y: offset.y),
+                        children: children.enumerated().map { index, child in
+                            translated(
+                                child,
+                                at: path.appending(index),
+                                inheritedScreenSpace: screenSpace
+                            )
+                        }
+                    )
+                }
+            }
+
+            let screenHierarchy = hierarchy.enumerated().map { rootIndex, root in
+                translated(
+                    root,
+                    at: TreePath([rootIndex]),
+                    inheritedScreenSpace: nil
+                )
+            }
+            let scrollableContainerPaths = scroll?.contextContainerPaths
+                ?? TheVault.scrollContextContainerPaths(scrollViewsByPath: scrollViewsByPath)
+            let annotations = TheVault.captureAnnotations(
+                hierarchy: screenHierarchy,
+                viewHierarchy: hierarchy,
+                scrollableContainerPaths: scrollableContainerPaths
+            )
+
+            self.hierarchy = screenHierarchy
             self.objectsByPath = objectsByPath
             self.containerObjectsByPath = containerObjectsByPath
             self.scrollViewsByPath = scrollViewsByPath
-            self.rootScreenSpacesByPath = rootScreenSpacesByPath
             self.inventoryEnumeration = inventoryEnumeration
+            self.containers = annotations.containers
+            self.elements = annotations.elements
+            self.scroll = scroll ?? TheVault.captureScrollFacts(
+                elements: annotations.elements,
+                containers: annotations.containers,
+                scrollableContainerPaths: scrollableContainerPaths,
+                objectsByPath: objectsByPath,
+                scrollViewsByPath: scrollViewsByPath,
+                reportedCountsByContainerPath: inventoryEnumeration.reportedCountsByContainerPath
+            )
+            self.focus = focus ?? TheVault.captureFocusFacts(objectsByPath: objectsByPath)
         }
     }
 
@@ -73,7 +135,7 @@ extension TheVault {
 
     /// Read the live accessibility tree without mutating any state.
     /// Returns capture-local evidence or nil if no accessible windows exist.
-    func capture() -> CaptureResult? {
+    func capture() -> CaptureTree? {
         let windows = tripwire.captureAccessibleWindows()
         guard !windows.isEmpty else { return nil }
 
@@ -91,7 +153,7 @@ extension TheVault {
         var objectsByPath: [TreePath: NSObject] = [:]
         var containerObjectsByPath: [TreePath: NSObject] = [:]
         var scrollViewsByPath: [TreePath: UIScrollView] = [:]
-        var rootScreenSpacesByPath: [TreePath: CaptureResult.RootScreenSpace] = [:]
+        var rootScreenSpacesByPath: [TreePath: CaptureTree.RootScreenSpace] = [:]
 
         let isMultiWindow = windows.count > 1
 
@@ -137,7 +199,7 @@ extension TheVault {
 
                 for (localIndex, root) in captured.enumerated() {
                     let rootPath = rootPathPrefix(localIndex)
-                    rootScreenSpacesByPath[rootPath] = CaptureResult.RootScreenSpace(
+                    rootScreenSpacesByPath[rootPath] = CaptureTree.RootScreenSpace(
                         offset: rootView.convert(.zero, to: nil),
                         bounds: window.windowScene?.screen.bounds ?? ScreenMetrics.current.bounds
                     )
@@ -167,7 +229,7 @@ extension TheVault {
             scrollViewsByPath: canonicalScrollViewsByPath
         )
 
-        return CaptureResult(
+        return CaptureTree(
             hierarchy: allHierarchy,
             objectsByPath: objectsByPath,
             containerObjectsByPath: containerObjectsByPath,

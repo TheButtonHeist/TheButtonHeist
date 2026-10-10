@@ -11,10 +11,8 @@ extension TheVault {
 
     // MARK: - Build Interface Observation From Parse
 
-    /// Build an `InterfaceObservation` from a parse result. UIKit/Objective-C reads are
-    /// extracted into typed facts first; projection then assigns heistIds,
-    /// resolves context, computes container names, and applies live facts.
-    static func buildObservation(from result: CaptureResult) -> InterfaceObservation {
+    /// Build an `InterfaceObservation` from one annotated capture tree.
+    static func buildObservation(from result: CaptureTree) -> InterfaceObservation {
         do {
             return try admitObservation(from: result)
         } catch {
@@ -22,62 +20,16 @@ extension TheVault {
         }
     }
 
-    static func admitObservation(from result: CaptureResult) throws -> InterfaceObservation {
-        let hierarchy = screenCoordinateHierarchy(from: result)
-        let identityContext = buildIdentityContext(
-            hierarchy: hierarchy,
-            viewHierarchy: result.hierarchy,
-            scrollableContainerPaths: BuildFacts.scrollContextContainerPaths(
-                from: result
-            )
-        )
-        let facts = BuildFacts.extract(
-            from: result,
-            identityContext: identityContext
-        )
-        let projection = buildObservationProjection(
-            identityContext: identityContext,
-            facts: facts,
-            offscreenScrollElements: result.inventoryEnumeration.offscreenElements
-        )
-        return try admitObservation(
-            from: projection,
-            result: result
-        )
-    }
-
-    /// Entry used by focused tests with synthetic facts. Projection stays pure;
-    /// live refs are attached afterward at the live-capture boundary.
-    static func buildObservation(from result: CaptureResult, facts: BuildFacts) -> InterfaceObservation {
-        let identityContext = buildIdentityContext(
-            hierarchy: screenCoordinateHierarchy(from: result),
-            viewHierarchy: result.hierarchy,
-            scrollableContainerPaths: facts.scroll.contextContainerPaths
-        )
-        let projection = buildObservationProjection(
-            identityContext: identityContext,
-            facts: facts,
-            offscreenScrollElements: []
-        )
-        return requireObservation(
-            from: projection,
-            result: result
-        )
-    }
-
-    private static func buildObservationProjection(
-        identityContext: IdentityContext,
-        facts: BuildFacts,
-        offscreenScrollElements: [OffscreenScrollElement]
-    ) -> ObservationBuildProjection {
+    static func admitObservation(from result: CaptureTree) throws -> InterfaceObservation {
         let containerNamesByPath = buildContainerNamesByPath(
-            identityContext: identityContext
+            containers: result.containers
         )
 
         let entries = buildObservationEntries(
-            indexedElements: identityContext.elements,
-            offscreenScrollElements: offscreenScrollElements,
-            facts: facts
+            indexedElements: result.elements,
+            offscreenScrollElements: result.inventoryEnumeration.offscreenElements,
+            scroll: result.scroll,
+            focus: result.focus
         )
         let heistIdsByPath = Dictionary(
             uniqueKeysWithValues: entries.compactMap { entry in
@@ -85,9 +37,9 @@ extension TheVault {
             }
         )
         let containersByPath = viewportContainers(
-            identityContext: identityContext,
+            containers: result.containers,
             containerNamesByPath: containerNamesByPath,
-            facts: facts
+            scroll: result.scroll
         )
 
         let firstResponders = entries.filter(\.isFirstResponder)
@@ -96,7 +48,7 @@ extension TheVault {
             : nil
 
         let snapshot = LiveCapture.Snapshot(
-            hierarchy: identityContext.hierarchy,
+            hierarchy: result.hierarchy,
             heistIdsByPath: heistIdsByPath,
             firstResponderHeistId: firstResponderHeistId
         )
@@ -107,24 +59,14 @@ extension TheVault {
             containers: containersByPath,
             viewportCapture: snapshot
         )
-        return ObservationBuildProjection(
-            tree: tree,
-            entries: entries
-        )
-    }
-
-    private static func admitObservation(
-        from projection: ObservationBuildProjection,
-        result: CaptureResult
-    ) throws -> InterfaceObservation {
         let liveReferences = ObservationLiveReferences(
             result: result,
-            hierarchy: projection.tree.viewportCapture.hierarchy,
-            entries: projection.entries
+            hierarchy: tree.viewportCapture.hierarchy,
+            entries: entries
         )
         let dispatchReferences = LiveCapture.DispatchReferences(
             elementRefs: Dictionary(
-                uniqueKeysWithValues: projection.entries.compactMap { entry in
+                uniqueKeysWithValues: entries.compactMap { entry in
                     liveReferences.elementRef(for: entry).map { (entry.heistId, $0) }
                 }
             ),
@@ -132,33 +74,23 @@ extension TheVault {
             scrollableContainerViewsByPath: liveReferences.scrollableContainerViewsByPath
         )
         return try InterfaceObservation.build(
-            tree: projection.tree,
+            tree: tree,
             dispatchReferences: dispatchReferences
         )
     }
 
-    private static func requireObservation(
-        from projection: ObservationBuildProjection,
-        result: CaptureResult
-    ) -> InterfaceObservation {
-        do {
-            return try admitObservation(from: projection, result: result)
-        } catch {
-            preconditionFailure("InterfaceObservation build failed validation: \(error)")
-        }
-    }
-
     private static func buildObservationEntries(
-        indexedElements: [ElementIdentity],
+        indexedElements: [CapturedElement],
         offscreenScrollElements: [OffscreenScrollElement],
-        facts: BuildFacts
+        scroll: ScrollFacts,
+        focus: FocusFacts
     ) -> [ObservationBuildEntry] {
         let candidates = indexedElements.map(ObservationElementCandidate.viewport)
             + offscreenScrollElements.map(ObservationElementCandidate.offscreenScrollInventory)
         let heistIds = HeistIdAssignment.assign(candidates.map { candidate in
             HeistIdAssignment.Input(
                 element: candidate.element,
-                duplicateOrder: candidate.duplicateOrder(facts: facts)
+                duplicateOrder: candidate.duplicateOrder(scroll: scroll)
             )
         })
         precondition(
@@ -173,81 +105,37 @@ extension TheVault {
                 treeElement: InterfaceTree.Element(
                     heistId: heistId,
                     path: candidate.path,
-                    scrollMembership: candidate.scrollMembership(facts: facts),
-                    geometry: candidate.geometry(facts: facts),
+                    scrollMembership: candidate.scrollMembership(scroll: scroll),
+                    geometry: candidate.geometry(scroll: scroll),
                     element: candidate.element
                 ),
-                isFirstResponder: candidate.isFirstResponder(facts: facts),
+                isFirstResponder: candidate.isFirstResponder(focus: focus),
                 isInParserHierarchy: candidate.isInParserHierarchy
             )
         }
     }
 
     private static func viewportContainers(
-        identityContext: IdentityContext,
+        containers: [CapturedContainer],
         containerNamesByPath: [TreePath: ContainerName],
-        facts: BuildFacts
+        scroll: ScrollFacts
     ) -> [TreePath: InterfaceTree.Container] {
         Dictionary(
-            uniqueKeysWithValues: identityContext.containers.map { identity in
+            uniqueKeysWithValues: containers.map { identity in
                 (
                     identity.path,
                     InterfaceTree.Container(
                         container: identity.container,
                         path: identity.path,
                         containerName: containerNamesByPath[identity.path],
-                        viewSpace: facts.scroll.containerViewSpacesByPath[identity.path]
+                        viewSpace: scroll.containerViewSpacesByPath[identity.path]
                             ?? identity.viewSpace,
                         scrollMembership: identity.scrollMembership,
-                        scrollInventory: facts.scroll.inventoriesByPath[identity.path]
+                        scrollInventory: scroll.inventoriesByPath[identity.path]
                     )
                 )
             }
         )
-    }
-
-    /// The snapshot parser emits geometry and visibility in its parsing root's
-    /// local coordinate space. Restore screen coordinates, then reject elements
-    /// that are visible inside a presented root while that root is still outside
-    /// its screen.
-    private static func screenCoordinateHierarchy(from result: CaptureResult) -> [AccessibilityHierarchy] {
-        func translated(
-            _ hierarchy: AccessibilityHierarchy,
-            at path: TreePath,
-            inheritedScreenSpace: CaptureResult.RootScreenSpace?
-        ) -> AccessibilityHierarchy {
-            let screenSpace = result.rootScreenSpacesByPath[path] ?? inheritedScreenSpace
-            let offset = screenSpace?.offset ?? .zero
-            switch hierarchy {
-            case .element(let element, let traversalIndex):
-                return .element(
-                    element.translatedBy(
-                        x: offset.x,
-                        y: offset.y,
-                        screenBounds: screenSpace?.bounds
-                    ),
-                    traversalIndex: traversalIndex
-                )
-            case .container(let container, let children):
-                return .container(
-                    container.translatedBy(x: offset.x, y: offset.y),
-                    children: children.enumerated().map { index, child in
-                        translated(
-                            child,
-                            at: path.appending(index),
-                            inheritedScreenSpace: screenSpace
-                        )
-                    }
-                )
-            }
-        }
-        return result.hierarchy.enumerated().map { rootIndex, root in
-            translated(
-                root,
-                at: TreePath([rootIndex]),
-                inheritedScreenSpace: nil
-            )
-        }
     }
 
     nonisolated static func onscreenSpace(
@@ -275,9 +163,9 @@ extension TheVault {
     // MARK: - Container Name Index
 
     private static func buildContainerNamesByPath(
-        identityContext: IdentityContext
+        containers: [CapturedContainer]
     ) -> [TreePath: ContainerName] {
-        let candidates = identityContext.containers.map { identity in
+        let candidates = containers.map { identity in
             ContainerNameCandidate(
                 path: identity.path,
                 readableName: containerName(for: identity.container)
@@ -319,7 +207,7 @@ extension TheVault {
     }
 
     private enum ObservationElementCandidate {
-        case viewport(ElementIdentity)
+        case viewport(CapturedElement)
         case offscreenScrollInventory(OffscreenScrollElement)
 
         var path: TreePath {
@@ -349,10 +237,10 @@ extension TheVault {
             }
         }
 
-        func scrollMembership(facts: BuildFacts) -> InterfaceTree.ScrollMembership? {
+        func scrollMembership(scroll: ScrollFacts) -> InterfaceTree.ScrollMembership? {
             switch self {
             case .viewport(let identity):
-                facts.scroll.element(at: identity.path)?.membership
+                scroll.element(at: identity.path)?.membership
             case .offscreenScrollInventory(let element):
                 InterfaceTree.ScrollMembership(
                     containerPath: element.scrollContainerPath,
@@ -362,11 +250,11 @@ extension TheVault {
         }
 
         func geometry(
-            facts: BuildFacts
+            scroll: ScrollFacts
         ) -> HeistElement.Geometry {
             let view = switch self {
             case .viewport(let identity):
-                facts.scroll.element(at: identity.path)?.viewSpace ?? identity.viewSpace
+                scroll.element(at: identity.path)?.viewSpace ?? identity.viewSpace
             case .offscreenScrollInventory(let element):
                 element.viewSpace
             }
@@ -381,19 +269,19 @@ extension TheVault {
             return HeistElement.Geometry(screen: screen, view: view)
         }
 
-        func isFirstResponder(facts: BuildFacts) -> Bool {
+        func isFirstResponder(focus: FocusFacts) -> Bool {
             switch self {
             case .viewport(let identity):
-                facts.focus.isFirstResponder(at: identity.path)
+                focus.isFirstResponder(at: identity.path)
             case .offscreenScrollInventory:
                 false
             }
         }
 
-        func duplicateOrder(facts: BuildFacts) -> HeistIdAssignment.DuplicateOrder? {
+        func duplicateOrder(scroll: ScrollFacts) -> HeistIdAssignment.DuplicateOrder? {
             switch self {
             case .viewport(let identity):
-                if let membership = facts.scroll.element(at: identity.path)?.membership,
+                if let membership = scroll.element(at: identity.path)?.membership,
                    let index = membership.index {
                     return .scrollMembership(containerPath: membership.containerPath, index: index)
                 }
@@ -425,7 +313,7 @@ extension TheVault {
         let scrollableContainerViewsByPath: [TreePath: LiveCapture.ScrollableViewRef]
 
         init(
-            result: CaptureResult,
+            result: CaptureTree,
             hierarchy: [AccessibilityHierarchy],
             entries: [ObservationBuildEntry]
         ) {
@@ -475,14 +363,9 @@ extension TheVault {
         }
     }
 
-    private struct ObservationBuildProjection {
-        let tree: InterfaceTree
-        let entries: [ObservationBuildEntry]
-    }
-
 }
 
-private extension AccessibilityElement {
+extension AccessibilityElement {
     func translatedBy(
         x: CGFloat,
         y: CGFloat,
@@ -537,7 +420,7 @@ private extension AccessibilityElement.CustomRotor.ResultMarker {
     }
 }
 
-private extension AccessibilityContainer {
+extension AccessibilityContainer {
     func translatedBy(x: CGFloat, y: CGFloat) -> AccessibilityContainer {
         AccessibilityContainer(
             type: type,

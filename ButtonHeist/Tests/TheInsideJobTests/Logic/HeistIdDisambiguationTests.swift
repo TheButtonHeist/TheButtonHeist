@@ -32,11 +32,11 @@ final class HeistIdDisambiguationTests: XCTestCase {
         try await super.tearDown()
     }
 
-    /// Build a `CaptureResult` with one scrollable container whose children are
+    /// Build a `CaptureTree` with one scrollable container whose children are
     /// the given elements.
     private func makeScrollableParseResult(
         elements: [AccessibilityElement]
-    ) -> TheVault.CaptureResult {
+    ) -> TheVault.CaptureTree {
         let scrollView = UIScrollView(frame: CGRect(x: 0, y: 0, width: 320, height: 2000))
         scrollView.contentSize = CGSize(width: 320, height: 4000)
         anchorWindow?.addSubview(scrollView)
@@ -48,7 +48,7 @@ final class HeistIdDisambiguationTests: XCTestCase {
         let children: [AccessibilityHierarchy] = elements.enumerated().map { index, element in
             .element(element, traversalIndex: index)
         }
-        return TheVault.CaptureResult(
+        return TheVault.CaptureTree(
             hierarchy: [.container(container, children: children)],
             scrollViewsByPath: [TreePath([0]): scrollView]
         )

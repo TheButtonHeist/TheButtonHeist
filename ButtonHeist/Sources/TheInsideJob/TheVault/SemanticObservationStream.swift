@@ -50,15 +50,15 @@ internal final class Stream {
     }
 
     internal struct PositionedEventInstallation {
-        internal let subscription: SemanticObservationSubscription
+        internal let subscription: SemanticObservationLease<UInt64>
         internal let replay: Result<[Publication.Entry], History.ReadError>
     }
 
     internal struct ExecutionAdmission {
         internal let baseline: TheVault.State.Current?
         internal let retainedHistoryIndex: Int
-        internal let subscription: SemanticObservationSubscription
-        internal let demand: SemanticObservationDemand
+        internal let subscription: SemanticObservationLease<UInt64>
+        internal let demand: SemanticObservationLease<Void>
     }
 
     private struct CycleResult {
@@ -158,10 +158,14 @@ internal final class Stream {
     /// Holding a scope is how a caller says how hard to look; the vault reads at
     /// the widest scope anyone holds. Event delivery is a separate question, and
     /// only the running heist asks for it.
-    internal func subscribe(scope: SemanticObservationScope) -> SemanticObservationSubscription {
+    internal func subscribe(scope: SemanticObservationScope) -> SemanticObservationLease<UInt64> {
         let id = scopePressure.addSubscription(scope: scope)
         updateCycleDemand()
-        return SemanticObservationSubscription(id: id, scope: scope, stream: self)
+        return SemanticObservationLease(
+            value: id,
+            stream: self,
+            release: { stream in stream.removeSubscription(id) }
+        )
     }
 
     /// Raises the scope and atomically installs positioned live delivery beside
@@ -186,7 +190,7 @@ internal final class Stream {
             }
         }
         eventReceiver = EventReceiver(
-            subscriptionID: subscription.id,
+            subscriptionID: subscription.value,
             receive: receive,
             delivery: delivery,
             pending: [],
@@ -215,9 +219,9 @@ internal final class Stream {
         drain(subscriptionID: receiver.subscriptionID)
     }
 
-    internal func activateExecutionDelivery(_ subscription: SemanticObservationSubscription) {
+    internal func activateExecutionDelivery(_ subscription: SemanticObservationLease<UInt64>) {
         guard var receiver = eventReceiver,
-              receiver.subscriptionID == subscription.id
+              receiver.subscriptionID == subscription.value
         else { return }
         receiver.delivery = .all
         eventReceiver = receiver
@@ -264,17 +268,19 @@ internal final class Stream {
         return await movement()
     }
 
-    internal func beginActiveObservationDemand() -> SemanticObservationDemand {
-        let demand = SemanticObservationDemand(
-            id: scopePressure.addActiveDemand(),
-            stream: self
+    internal func beginActiveObservationDemand() -> SemanticObservationLease<Void> {
+        scopePressure.addActiveDemand()
+        let demand = SemanticObservationLease(
+            value: (),
+            stream: self,
+            release: { stream in stream.removeActiveObservationDemand() }
         )
         updateCycleDemand()
         return demand
     }
 
-    internal func removeActiveObservationDemand(_ id: UInt64) {
-        scopePressure.removeActiveDemand(id)
+    internal func removeActiveObservationDemand() {
+        scopePressure.removeActiveDemand()
         updateCycleDemand()
     }
 

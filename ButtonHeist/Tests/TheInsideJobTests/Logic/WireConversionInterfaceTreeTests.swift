@@ -35,7 +35,7 @@ extension WireConverterTests {
             frame: .zero,
             isModalBoundary: true
         )
-        let parse = TheVault.CaptureResult(
+        let parse = TheVault.CaptureTree(
             hierarchy: [.container(container, children: [.element(element, traversalIndex: 0)])],
         )
         let screen = TheVault.buildObservation(from: parse)

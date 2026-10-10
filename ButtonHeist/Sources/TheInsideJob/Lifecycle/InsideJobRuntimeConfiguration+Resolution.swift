@@ -5,7 +5,7 @@ import Foundation
 import ThePlans
 import TheScore
 
-enum StartupConfigurationSource: String, Sendable {
+enum InsideJobConfigurationSource: String, Sendable {
     case api
     case environment
     case infoPlist
@@ -28,14 +28,14 @@ enum StartupConfigurationSource: String, Sendable {
     }
 }
 
-struct ResolvedStartupValue<Value: Equatable & Sendable>: Equatable, Sendable {
+struct ResolvedConfigurationValue<Value: Equatable & Sendable>: Equatable, Sendable {
     let value: Value
-    let source: StartupConfigurationSource
+    let source: InsideJobConfigurationSource
 }
 
-enum StartupConfigurationWarning: Equatable, Sendable {
-    case emptyValueIgnored(key: String, source: StartupConfigurationSource)
-    case invalidValueIgnored(key: String, source: StartupConfigurationSource, value: String)
+enum InsideJobConfigurationWarning: Equatable, Sendable {
+    case emptyValueIgnored(key: String, source: InsideJobConfigurationSource)
+    case invalidValueIgnored(key: String, source: InsideJobConfigurationSource, value: String)
 
     var message: String {
         switch self {
@@ -255,48 +255,87 @@ struct StartupEnvironment: Equatable, Sendable {
     }
 }
 
-struct StartupConfiguration: Equatable, Sendable {
+struct InsideJobRuntimeConfiguration: Equatable, Sendable {
+    private struct ResolutionInput {
+        let token: SessionAuthToken?
+        let instanceId: InsideJobInstanceID?
+        let usesConfiguredInstanceId: Bool
+        let allowedScopes: Set<ConnectionScope>?
+        let preferredPort: UInt16?
+        let addressFamily: ListenerAddressFamily
+        let fingerprintsEnabled: Bool?
+        let authenticationPolicy: InsideJobAuthenticationPolicy
+    }
+
     static let defaultSessionTimeout: TimeInterval = 30.0
     static let minimumSessionTimeout: TimeInterval = 1.0
     static let maximumSessionTimeout: TimeInterval = 3600.0
 
-    let disableAutoStart: ResolvedStartupValue<Bool>
-    let fingerprintsEnabled: ResolvedStartupValue<Bool>
-    let token: ResolvedStartupValue<SessionAuthToken?>
-    let instanceId: ResolvedStartupValue<InsideJobInstanceID?>
-    let preferredPort: ResolvedStartupValue<UInt16>
-    let allowedScopes: ResolvedStartupValue<Set<ConnectionScope>>
-    let sessionTimeout: ResolvedStartupValue<TimeInterval>
-    let failureEvidencePolicy: ResolvedStartupValue<FailureEvidencePolicy>
-    let warnings: [StartupConfigurationWarning]
-
-    init(
-        disableAutoStart: ResolvedStartupValue<Bool>,
-        token: ResolvedStartupValue<SessionAuthToken?>,
-        instanceId: ResolvedStartupValue<InsideJobInstanceID?>,
-        preferredPort: ResolvedStartupValue<UInt16>,
-        allowedScopes: ResolvedStartupValue<Set<ConnectionScope>>,
-        sessionTimeout: ResolvedStartupValue<TimeInterval>,
-        failureEvidencePolicy: ResolvedStartupValue<FailureEvidencePolicy> = ResolvedStartupValue(value: .screenshot, source: .defaultValue),
-        fingerprintsEnabled: ResolvedStartupValue<Bool> = ResolvedStartupValue(value: true, source: .defaultValue),
-        warnings: [StartupConfigurationWarning]
-    ) {
-        self.disableAutoStart = disableAutoStart
-        self.fingerprintsEnabled = fingerprintsEnabled
-        self.token = token
-        self.instanceId = instanceId
-        self.preferredPort = preferredPort
-        self.allowedScopes = allowedScopes
-        self.sessionTimeout = sessionTimeout
-        self.failureEvidencePolicy = failureEvidencePolicy
-        self.warnings = warnings
-    }
+    let disableAutoStart: ResolvedConfigurationValue<Bool>
+    let token: ResolvedConfigurationValue<SessionAuthToken>
+    let preferredPort: ResolvedConfigurationValue<UInt16>
+    let allowedScopes: ResolvedConfigurationValue<Set<ConnectionScope>>
+    let addressFamily: ListenerAddressFamily
+    let sessionReleaseTimeout: ResolvedConfigurationValue<TimeInterval>
+    let fingerprintsEnabled: ResolvedConfigurationValue<Bool>
+    let failureEvidencePolicy: ResolvedConfigurationValue<FailureEvidencePolicy>
+    let authenticationPolicy: InsideJobAuthenticationPolicy
+    let sessionIdentity: InsideJobSessionIdentity
+    let warnings: [InsideJobConfigurationWarning]
 
     static func resolve(
         env: StartupEnvironment = .current,
         infoPlist: StartupInfoPlist = .main
-    ) -> StartupConfiguration {
-        var warnings: [StartupConfigurationWarning] = []
+    ) -> InsideJobRuntimeConfiguration {
+        resolve(
+            env: env,
+            infoPlist: infoPlist,
+            input: ResolutionInput(
+                token: nil,
+                instanceId: nil,
+                usesConfiguredInstanceId: true,
+                allowedScopes: nil,
+                preferredPort: nil,
+                addressFamily: .dualStack,
+                fingerprintsEnabled: nil,
+                authenticationPolicy: .default
+            )
+        )
+    }
+
+    static func resolve(
+        env: StartupEnvironment = .current,
+        infoPlist: StartupInfoPlist = .main,
+        token: String?,
+        instanceId: String?,
+        allowedScopes: Set<ConnectionScope>?,
+        port: UInt16,
+        addressFamily: ListenerAddressFamily = .dualStack,
+        fingerprintsEnabled: Bool? = nil,
+        authenticationPolicy: InsideJobAuthenticationPolicy = .default
+    ) throws(InsideJobConfigurationError) -> InsideJobRuntimeConfiguration {
+        try resolve(
+            env: env,
+            infoPlist: infoPlist,
+            input: ResolutionInput(
+                token: admitToken(token),
+                instanceId: admitInstanceId(instanceId),
+                usesConfiguredInstanceId: false,
+                allowedScopes: allowedScopes,
+                preferredPort: port,
+                addressFamily: addressFamily,
+                fingerprintsEnabled: fingerprintsEnabled,
+                authenticationPolicy: authenticationPolicy
+            )
+        )
+    }
+
+    private static func resolve(
+        env: StartupEnvironment,
+        infoPlist: StartupInfoPlist,
+        input: ResolutionInput
+    ) -> InsideJobRuntimeConfiguration {
+        var warnings: [InsideJobConfigurationWarning] = []
         let plist = infoPlist
         let disableAutoStart = resolveBool(
             envKey: .disableAutoStart,
@@ -314,7 +353,7 @@ struct StartupConfiguration: Equatable, Sendable {
             plist: plist,
             warnings: &warnings
         )
-        let token = resolveString(
+        let configuredToken = resolveString(
             envKey: .token,
             plistKey: .token,
             as: SessionAuthToken.self,
@@ -323,7 +362,7 @@ struct StartupConfiguration: Equatable, Sendable {
             absentSource: .generated,
             warnings: &warnings
         )
-        let instanceId = resolveString(
+        let configuredInstanceId = resolveString(
             envKey: .instanceId,
             plistKey: .instanceId,
             as: InsideJobInstanceID.self,
@@ -332,8 +371,8 @@ struct StartupConfiguration: Equatable, Sendable {
             absentSource: .generated,
             warnings: &warnings
         )
-        let preferredPort = resolvePort(env: env, plist: plist, warnings: &warnings)
-        let allowedScopes = resolveAllowedScopes(env: env, plist: plist, warnings: &warnings)
+        let configuredPort = resolvePort(env: env, plist: plist, warnings: &warnings)
+        let configuredAllowedScopes = resolveAllowedScopes(env: env, plist: plist, warnings: &warnings)
         let sessionTimeout = resolveTimeInterval(
             envKey: .sessionTimeout,
             plistKey: .sessionTimeout,
@@ -349,17 +388,63 @@ struct StartupConfiguration: Equatable, Sendable {
             warnings: &warnings
         )
 
-        return StartupConfiguration(
+        let token = input.token.map {
+            ResolvedConfigurationValue(value: $0, source: .api)
+        } ?? configuredToken.value.map {
+            ResolvedConfigurationValue(value: $0, source: configuredToken.source)
+        } ?? ResolvedConfigurationValue(value: generatedSessionToken(), source: .generated)
+        let instanceId = input.instanceId.map {
+            ResolvedConfigurationValue<InsideJobInstanceID?>(value: $0, source: .api)
+        } ?? (input.usesConfiguredInstanceId
+            ? configuredInstanceId
+            : ResolvedConfigurationValue(value: nil, source: .generated))
+
+        return InsideJobRuntimeConfiguration(
             disableAutoStart: disableAutoStart,
             token: token,
-            instanceId: instanceId,
-            preferredPort: preferredPort,
-            allowedScopes: allowedScopes,
-            sessionTimeout: sessionTimeout,
+            preferredPort: input.preferredPort.map {
+                ResolvedConfigurationValue(value: $0, source: $0 == 0 ? .defaultValue : .api)
+            } ?? configuredPort,
+            allowedScopes: input.allowedScopes.map {
+                ResolvedConfigurationValue(value: $0, source: .api)
+            } ?? configuredAllowedScopes,
+            addressFamily: input.addressFamily,
+            sessionReleaseTimeout: sessionTimeout,
+            fingerprintsEnabled: input.fingerprintsEnabled.map {
+                ResolvedConfigurationValue(value: $0, source: .api)
+            } ?? fingerprintsEnabled,
             failureEvidencePolicy: failureEvidencePolicy,
-            fingerprintsEnabled: fingerprintsEnabled,
+            authenticationPolicy: input.authenticationPolicy,
+            sessionIdentity: InsideJobSessionIdentity.resolve(instanceId: instanceId),
             warnings: warnings
         )
+    }
+
+    private static func generatedSessionToken() -> SessionAuthToken {
+        // Console access is already the authority boundary for this debug tool.
+        // UUID v4 remains easy to recognize, copy, and pass between processes.
+        guard let token = try? SessionAuthToken(validating: UUID().uuidString.lowercased()) else {
+            preconditionFailure("UUID generation produced a blank session token")
+        }
+        return token
+    }
+
+    private static func admitToken(_ value: String?) throws(InsideJobConfigurationError) -> SessionAuthToken? {
+        guard let value else { return nil }
+        do {
+            return try SessionAuthToken(validating: value)
+        } catch {
+            throw .blankToken
+        }
+    }
+
+    private static func admitInstanceId(_ value: String?) throws(InsideJobConfigurationError) -> InsideJobInstanceID? {
+        guard let value else { return nil }
+        do {
+            return try InsideJobInstanceID(validating: value)
+        } catch {
+            throw .blankInstanceID
+        }
     }
 
     private static func resolveString<Value: NonBlankStringValue>(
@@ -368,34 +453,34 @@ struct StartupConfiguration: Equatable, Sendable {
         as _: Value.Type,
         env: StartupEnvironment,
         plist: StartupInfoPlist,
-        absentSource: StartupConfigurationSource,
-        warnings: inout [StartupConfigurationWarning]
-    ) -> ResolvedStartupValue<Value?> {
+        absentSource: InsideJobConfigurationSource,
+        warnings: inout [InsideJobConfigurationWarning]
+    ) -> ResolvedConfigurationValue<Value?> {
         if let envValue = env[envKey] {
             if let value = try? Value(validating: envValue) {
-                return ResolvedStartupValue(value: value, source: .environment)
+                return ResolvedConfigurationValue(value: value, source: .environment)
             }
             warnings.append(.emptyValueIgnored(key: envKey.rawValue, source: .environment))
         }
 
         if let plistValue = plist[plistKey]?.string {
             if let value = try? Value(validating: plistValue) {
-                return ResolvedStartupValue(value: value, source: .infoPlist)
+                return ResolvedConfigurationValue(value: value, source: .infoPlist)
             }
             warnings.append(.emptyValueIgnored(key: plistKey.rawValue, source: .infoPlist))
         }
 
-        return ResolvedStartupValue(value: nil, source: absentSource)
+        return ResolvedConfigurationValue(value: nil, source: absentSource)
     }
 
     private static func resolvePort(
         env: StartupEnvironment,
         plist: StartupInfoPlist,
-        warnings: inout [StartupConfigurationWarning]
-    ) -> ResolvedStartupValue<UInt16> {
+        warnings: inout [InsideJobConfigurationWarning]
+    ) -> ResolvedConfigurationValue<UInt16> {
         if let envValue = env[.port] {
             if let parsed = parsePort(envValue) {
-                return ResolvedStartupValue(value: parsed, source: .environment)
+                return ResolvedConfigurationValue(value: parsed, source: .environment)
             }
             warnings.append(.invalidValueIgnored(
                 key: StartupEnvironmentKey.port.rawValue,
@@ -406,7 +491,7 @@ struct StartupConfiguration: Equatable, Sendable {
 
         if let plistValue = plist[.port],
            let parsed = parsePort(plistValue) {
-            return ResolvedStartupValue(value: parsed, source: .infoPlist)
+            return ResolvedConfigurationValue(value: parsed, source: .infoPlist)
         } else if let plistValue = plist[.port] {
             warnings.append(.invalidValueIgnored(
                 key: StartupInfoPlistKey.port.rawValue,
@@ -415,7 +500,7 @@ struct StartupConfiguration: Equatable, Sendable {
             ))
         }
 
-        return ResolvedStartupValue(value: 0, source: .defaultValue)
+        return ResolvedConfigurationValue(value: 0, source: .defaultValue)
     }
 
     private static func parsePort(_ value: String) -> UInt16? {
@@ -439,18 +524,18 @@ struct StartupConfiguration: Equatable, Sendable {
         clamp: (TimeInterval) -> TimeInterval,
         env: StartupEnvironment,
         plist: StartupInfoPlist,
-        warnings: inout [StartupConfigurationWarning]
-    ) -> ResolvedStartupValue<TimeInterval> {
+        warnings: inout [InsideJobConfigurationWarning]
+    ) -> ResolvedConfigurationValue<TimeInterval> {
         if let envValue = env[envKey] {
             if let parsed = parseTimeInterval(envValue) {
-                return ResolvedStartupValue(value: clamp(parsed), source: .environment)
+                return ResolvedConfigurationValue(value: clamp(parsed), source: .environment)
             }
             warnings.append(.invalidValueIgnored(key: envKey.rawValue, source: .environment, value: envValue))
         }
 
         if let plistValue = plist[plistKey] {
             if let parsed = parseTimeInterval(plistValue) {
-                return ResolvedStartupValue(value: clamp(parsed), source: .infoPlist)
+                return ResolvedConfigurationValue(value: clamp(parsed), source: .infoPlist)
             }
             warnings.append(.invalidValueIgnored(
                 key: plistKey.rawValue,
@@ -459,7 +544,7 @@ struct StartupConfiguration: Equatable, Sendable {
             ))
         }
 
-        return ResolvedStartupValue(value: defaultValue, source: .defaultValue)
+        return ResolvedConfigurationValue(value: defaultValue, source: .defaultValue)
     }
 
     private static func parseTimeInterval(_ value: String) -> TimeInterval? {
@@ -473,11 +558,11 @@ struct StartupConfiguration: Equatable, Sendable {
     private static func resolveAllowedScopes(
         env: StartupEnvironment,
         plist: StartupInfoPlist,
-        warnings: inout [StartupConfigurationWarning]
-    ) -> ResolvedStartupValue<Set<ConnectionScope>> {
+        warnings: inout [InsideJobConfigurationWarning]
+    ) -> ResolvedConfigurationValue<Set<ConnectionScope>> {
         if let envValue = env[.scope] {
             if let parsed = ConnectionScope.parse(envValue) {
-                return ResolvedStartupValue(value: parsed, source: .environment)
+                return ResolvedConfigurationValue(value: parsed, source: .environment)
             }
             warnings.append(.invalidValueIgnored(
                 key: StartupEnvironmentKey.scope.rawValue,
@@ -488,7 +573,7 @@ struct StartupConfiguration: Equatable, Sendable {
 
         if let plistValue = plist[.scope] {
             if let parsed = parseScopes(plistValue) {
-                return ResolvedStartupValue(value: parsed, source: .infoPlist)
+                return ResolvedConfigurationValue(value: parsed, source: .infoPlist)
             }
             warnings.append(.invalidValueIgnored(
                 key: StartupInfoPlistKey.scope.rawValue,
@@ -497,7 +582,7 @@ struct StartupConfiguration: Equatable, Sendable {
             ))
         }
 
-        return ResolvedStartupValue(value: ConnectionScope.default, source: .defaultValue)
+        return ResolvedConfigurationValue(value: ConnectionScope.default, source: .defaultValue)
     }
 
     private static func parseScopes(_ value: InfoPlistValue) -> Set<ConnectionScope>? {
@@ -513,18 +598,18 @@ struct StartupConfiguration: Equatable, Sendable {
         defaultValue: Bool,
         env: StartupEnvironment,
         plist: StartupInfoPlist,
-        warnings: inout [StartupConfigurationWarning]
-    ) -> ResolvedStartupValue<Bool> {
+        warnings: inout [InsideJobConfigurationWarning]
+    ) -> ResolvedConfigurationValue<Bool> {
         if let envValue = env[envKey] {
             if let parsed = parseBool(envValue) {
-                return ResolvedStartupValue(value: parsed, source: .environment)
+                return ResolvedConfigurationValue(value: parsed, source: .environment)
             }
             warnings.append(.invalidValueIgnored(key: envKey.rawValue, source: .environment, value: envValue))
         }
 
         if let plistValue = plist[plistKey] {
             if let parsed = parseBool(plistValue) {
-                return ResolvedStartupValue(value: parsed, source: .infoPlist)
+                return ResolvedConfigurationValue(value: parsed, source: .infoPlist)
             }
             warnings.append(.invalidValueIgnored(
                 key: plistKey.rawValue,
@@ -533,7 +618,7 @@ struct StartupConfiguration: Equatable, Sendable {
             ))
         }
 
-        return ResolvedStartupValue(value: defaultValue, source: .defaultValue)
+        return ResolvedConfigurationValue(value: defaultValue, source: .defaultValue)
     }
 
     private static func parseBool(_ value: String) -> Bool? {
@@ -554,11 +639,11 @@ struct StartupConfiguration: Equatable, Sendable {
     private static func resolveFailureEvidencePolicy(
         env: StartupEnvironment,
         plist: StartupInfoPlist,
-        warnings: inout [StartupConfigurationWarning]
-    ) -> ResolvedStartupValue<FailureEvidencePolicy> {
+        warnings: inout [InsideJobConfigurationWarning]
+    ) -> ResolvedConfigurationValue<FailureEvidencePolicy> {
         if let envValue = env[.failureEvidence] {
             if let parsed = FailureEvidencePolicy(rawValue: envValue) {
-                return ResolvedStartupValue(value: parsed, source: .environment)
+                return ResolvedConfigurationValue(value: parsed, source: .environment)
             }
             warnings.append(.invalidValueIgnored(
                 key: StartupEnvironmentKey.failureEvidence.rawValue,
@@ -570,7 +655,7 @@ struct StartupConfiguration: Equatable, Sendable {
         if let plistValue = plist[.failureEvidence] {
             if let string = plistValue.string,
                let parsed = FailureEvidencePolicy(rawValue: string) {
-                return ResolvedStartupValue(value: parsed, source: .infoPlist)
+                return ResolvedConfigurationValue(value: parsed, source: .infoPlist)
             }
             warnings.append(.invalidValueIgnored(
                 key: StartupInfoPlistKey.failureEvidence.rawValue,
@@ -579,7 +664,7 @@ struct StartupConfiguration: Equatable, Sendable {
             ))
         }
 
-        return ResolvedStartupValue(value: .screenshot, source: .defaultValue)
+        return ResolvedConfigurationValue(value: .screenshot, source: .defaultValue)
     }
 }
 

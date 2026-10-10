@@ -4,7 +4,7 @@ import XCTest
 @testable import TheInsideJob
 @testable import TheScore
 
-/// Tests for `TheVault.buildObservation(from:)`. Validates that a `CaptureResult`
+/// Tests for `TheVault.buildObservation(from:)`. Validates that a `CaptureTree`
 /// is converted into a `InterfaceObservation` value with the current semantics: heistId
 /// assignment, scroll membership, first-responder detection, and
 /// interface-name derivation.
@@ -27,7 +27,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
 
     func testBuildObservationPopulatesHeistIdsByPath() {
         let element = makeElement(label: "OK", traits: .button)
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [.element(element, traversalIndex: 0)],
         )
 
@@ -39,7 +39,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
     func testBuildObservationKeepsDistinctEntriesForValueEqualElements() {
         let first = makeElement(label: "Item", traits: .button)
         let second = makeElement(label: "Item", traits: .button)
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .element(first, traversalIndex: 0),
                 .element(second, traversalIndex: 1),
@@ -64,7 +64,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             traits: .button,
             visibility: .offscreen
         )
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .element(visible, traversalIndex: 0),
                 .element(offscreen, traversalIndex: 1),
@@ -108,7 +108,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             frame: try ViewRect(validating: CGRect(x: 40, y: 1_120, width: 220, height: 44)),
             activationPoint: try ViewPoint(validating: CGPoint(x: 150, y: 1_142))
         ))
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .container(makeScrollableContainer(), children: [
                     .element(visible, traversalIndex: 0)
@@ -176,7 +176,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             frame: try ViewRect(validating: CGRect(x: 20, y: 900, width: 120, height: 44)),
             activationPoint: try ViewPoint(validating: CGPoint(x: 80, y: 922))
         ))
-        let retained = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let retained = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [.container(makeScrollableContainer(), children: [])],
             containerObjectsByPath: [containerPath: scrollView],
             scrollViewsByPath: [containerPath: scrollView],
@@ -198,7 +198,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             traits: .button,
             frame: CGRect(x: 20, y: 120, width: 120, height: 44)
         )
-        let refreshed = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let refreshed = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [
                 .container(makeScrollableContainer(), children: [
                     .element(visible, traversalIndex: 0),
@@ -373,7 +373,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             value: "Active",
             visibility: .offscreen
         )
-        let initialObservation = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let initialObservation = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [
                 .container(makeScrollableContainer(), children: [
                     .element(workHigh, traversalIndex: 0),
@@ -394,7 +394,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
 
         let reorderedWorkLowPath = scrollContainerPath.appending(0)
         let reorderedWorkHighPath = scrollContainerPath.appending(1)
-        let reorderedObservation = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let reorderedObservation = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [
                 .container(makeScrollableContainer(), children: [
                     .element(workLow, traversalIndex: 0),
@@ -436,7 +436,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         textField.becomeFirstResponder()
 
         let element = makeElement(label: "Email", traits: .none)
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [.element(element, traversalIndex: 0)],
             objectsByPath: [TreePath([0]): textField],
         )
@@ -453,7 +453,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
     func testFirstResponderNilWhenNoneActive() {
         let element = makeElement(label: "Label")
         let label = UILabel()
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [.element(element, traversalIndex: 0)],
             objectsByPath: [TreePath([0]): label],
         )
@@ -468,7 +468,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         let second = makeElement(label: "Password")
         let firstPath = TreePath([0])
         let secondPath = TreePath([1])
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .element(first, traversalIndex: 0),
                 .element(second, traversalIndex: 1),
@@ -476,13 +476,11 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             objectsByPath: [
                 firstPath: NSObject(),
                 secondPath: NSObject(),
-            ]
-        )
-        let facts = TheVault.BuildFacts(
+            ],
             focus: TheVault.FocusFacts(firstResponderPaths: [secondPath])
         )
 
-        let observation = TheVault.buildObservation(from: result, facts: facts)
+        let observation = TheVault.buildObservation(from: result)
 
         XCTAssertEqual(
             observation.tree.viewportCapture.firstResponderHeistId,
@@ -495,7 +493,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
                                 frame: CGRect(x: 0, y: 0, width: 100, height: 44))
         let second = makeElement(label: "Row", traits: .button,
                                  frame: CGRect(x: 0, y: 50, width: 100, height: 44))
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .element(second, traversalIndex: 1),
                 .element(first, traversalIndex: 0),
@@ -524,7 +522,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             activationPoint: rootLocalActivationPoint
         )
 
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [.element(parsedElement, traversalIndex: 0)],
             rootScreenSpacesByPath: [TreePath([0]): .init(
                 offset: parseRootOffset,
@@ -561,7 +559,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         )
         let liveObject = NSObject()
 
-        let transitioning = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let transitioning = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [.element(parsedElement, traversalIndex: 0)],
             objectsByPath: [rootPath: liveObject],
             rootScreenSpacesByPath: [rootPath: .init(
@@ -581,7 +579,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         ))
         XCTAssertNil(transitioning.liveCapture.object(for: transitioningTreeElement.heistId))
 
-        let settled = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let settled = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [.element(parsedElement, traversalIndex: 0)],
             objectsByPath: [rootPath: liveObject],
             rootScreenSpacesByPath: [rootPath: .init(
@@ -626,7 +624,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             accessibilityLanguage: nil,
             respondsToUserInteraction: true
         )
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [.element(pathElement, traversalIndex: 0)],
             rootScreenSpacesByPath: [TreePath([0]): .init(
                 offset: parseRootOffset,
@@ -663,7 +661,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             traits: .button,
             frame: CGRect(x: 24, y: 160, width: 140, height: 44)
         )
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [.container(container, children: [.element(child, traversalIndex: 0)])],
             scrollViewsByPath: [containerPath: scrollView],
             rootScreenSpacesByPath: [containerPath: .init(
@@ -739,7 +737,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         let offscreenViewSpace = try XCTUnwrap(
             inventory.offscreenElements.first?.viewSpace
         )
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .container(makeScrollableContainer(), children: [
                     .element(viewportElement, traversalIndex: 0),
@@ -781,7 +779,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         let childFrame = CGRect(x: 10, y: 150, width: 50, height: 30)
         let child = makeElement(label: "Cell", traits: .button, frame: childFrame)
 
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [.container(scrollableContainer, children: [.element(child, traversalIndex: 0)])],
             scrollViewsByPath: [TreePath([0]): scrollView]
         )
@@ -798,7 +796,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
     func testLeavesScrollMembershipNilOutsideScrollableContainer() {
         let element = makeElement(label: "Plain",
                                   frame: CGRect(x: 0, y: 0, width: 10, height: 10))
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [.element(element, traversalIndex: 0)]
         )
 
@@ -841,16 +839,14 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         let inventory = try XCTUnwrap(
             ScrollInventory(totalElementCount: 20)
         )
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .container(scrollableContainer, children: [
                     .container(nestedContainer, children: [
                         .element(child, traversalIndex: 0),
                     ]),
                 ]),
-            ]
-        )
-        let facts = TheVault.BuildFacts(
+            ],
             scroll: TheVault.ScrollFacts(
                 contextContainerPaths: [scrollPath],
                 elementsByPath: [
@@ -867,7 +863,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
             )
         )
 
-        let observation = TheVault.buildObservation(from: result, facts: facts)
+        let observation = TheVault.buildObservation(from: result)
         let heistId = try XCTUnwrap(observation.tree.viewportCapture.heistId(forPath: childPath))
         let element = try XCTUnwrap(observation.tree.findElement(heistId: heistId))
 
@@ -918,7 +914,7 @@ final class TheVaultObservationBuildingTests: XCTestCase {
         ownerPath: TreePath
     ) -> InterfaceObservation {
         scrollView.contentSize = CGSize(width: 320, height: 1_600)
-        return TheVault.buildObservation(from: TheVault.CaptureResult(
+        return TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [
                 .container(makeScrollableContainer(), children: [
                     .element(element, traversalIndex: 0),

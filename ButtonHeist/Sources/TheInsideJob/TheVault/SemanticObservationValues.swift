@@ -70,8 +70,8 @@ extension Observation {
         }
     }
 
-    internal struct Admission: Sendable {
-        internal let tree: InterfaceTree
+    internal struct Admission {
+        internal let sourceObservation: InterfaceObservation
         internal let tripwireSignal: TheTripwire.TripwireSignal
         internal let discoveryCommitPolicy: Navigation.DiscoveryCommitPolicy
         internal let lineage: ScreenLineage
@@ -85,6 +85,10 @@ extension Observation {
         /// The device's touch-target size, captured eagerly because the
         /// comparison that uses it runs off the main actor.
         internal let geometryTolerance: CGFloat
+
+        internal var tree: InterfaceTree {
+            sourceObservation.tree
+        }
     }
 
     internal struct NotificationSnapshot: Sendable {
@@ -112,40 +116,6 @@ extension Observation {
         internal let text: String?
         internal let element: HeistElement.Semantics?
     }
-}
-
-internal struct CommittableInterfaceObservation {
-    internal let observation: InterfaceObservation
-    internal let tripwireSignal: TheTripwire.TripwireSignal
-    internal let discoveryCommitPolicy: Navigation.DiscoveryCommitPolicy
-    internal let lineage: ScreenLineage
-
-    private init(
-        observation: InterfaceObservation,
-        tripwireSignal: TheTripwire.TripwireSignal,
-        discoveryCommitPolicy: Navigation.DiscoveryCommitPolicy = .mergeIntoInterface,
-        lineage: ScreenLineage
-    ) {
-        self.observation = observation
-        self.tripwireSignal = tripwireSignal
-        self.discoveryCommitPolicy = discoveryCommitPolicy
-        self.lineage = lineage
-    }
-
-    internal static func admitCaptured(
-        _ observation: InterfaceObservation,
-        tripwireSignal: TheTripwire.TripwireSignal,
-        discoveryCommitPolicy: Navigation.DiscoveryCommitPolicy = .mergeIntoInterface,
-        lineage: ScreenLineage
-    ) -> Self {
-        Self(
-            observation: observation,
-            tripwireSignal: tripwireSignal,
-            discoveryCommitPolicy: discoveryCommitPolicy,
-            lineage: lineage
-        )
-    }
-
 }
 
 @MainActor

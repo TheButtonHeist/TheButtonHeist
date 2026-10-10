@@ -146,7 +146,6 @@ final class SemanticObservationDiscoveryTests: SemanticObservationStreamTestCase
     }
 
     func testDiscoverySettlementRejectsHierarchyChangeBeforeCommit() async {
-        let observation = observation(label: "Candidate", heistId: "candidate")
         let currentSignal = TheTripwire.TripwireSignal(
             topmostVC: ObjectIdentifier(vault),
             navigation: .empty,
@@ -154,12 +153,8 @@ final class SemanticObservationDiscoveryTests: SemanticObservationStreamTestCase
             accessibilityNotificationSequence: 1
         )
         vault.semanticObservationStream.readTripwireSignal = { currentSignal }
-        let admission = vault.semanticObservationStream.admitCurrentObservation(
-            observation,
-            vault: vault,
-            tripwireSignal: tripwireSignal(sequence: 1),
-            discoveryCommitPolicy: .mergeIntoInterface,
-            lineage: .viewportMovement
+        let admission = vault.semanticObservationStream.admitCapture(
+            tripwireSignal: tripwireSignal(sequence: 1)
         )
 
         guard case .failure(.hierarchyChangedDuringCapture) = admission else {

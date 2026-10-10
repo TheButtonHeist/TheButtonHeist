@@ -6,15 +6,10 @@ struct SemanticObservationScopePressure {
     private var nextSubscriptionID: UInt64 = 0
     private var subscriptions: [UInt64: SemanticObservationScope] = [:]
 
-    private var nextActiveDemandID: UInt64 = 0
-    private var activeObservationDemands: Set<UInt64> = []
-
-    var activeDemandCount: Int {
-        activeObservationDemands.count
-    }
+    private(set) var activeDemandCount = 0
 
     var hasActiveDemand: Bool {
-        !activeObservationDemands.isEmpty
+        activeDemandCount > 0
     }
 
     var demandedObservationScope: SemanticObservationScope? {
@@ -33,15 +28,13 @@ struct SemanticObservationScopePressure {
         subscriptions[id] = nil
     }
 
-    mutating func addActiveDemand() -> UInt64 {
-        let id = nextActiveDemandID
-        nextActiveDemandID += 1
-        activeObservationDemands.insert(id)
-        return id
+    mutating func addActiveDemand() {
+        activeDemandCount += 1
     }
 
-    mutating func removeActiveDemand(_ id: UInt64) {
-        activeObservationDemands.remove(id)
+    mutating func removeActiveDemand() {
+        precondition(activeDemandCount > 0, "Active observation demand count underflowed")
+        activeDemandCount -= 1
     }
 
 }

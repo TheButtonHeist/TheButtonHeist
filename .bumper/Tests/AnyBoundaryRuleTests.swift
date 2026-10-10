@@ -33,7 +33,9 @@ struct AnyBoundaryRuleTests {
                 "enum HeistValuePayloadDecoder { static func expectedDescription(for type: Any.Type) {} }"
             ),
             (
-                RelativeFilePath("ButtonHeist/Sources/TheInsideJob/Lifecycle/StartupConfiguration.swift"),
+                RelativeFilePath(
+                    "ButtonHeist/Sources/TheInsideJob/Lifecycle/InsideJobRuntimeConfiguration+Resolution.swift"
+                ),
                 ButtonHeistComponent.embeddedRuntime,
                 "func decodeFoundationInfoPlistValue(_ object: Any) {}"
             ),

@@ -34,7 +34,7 @@ flowchart TD
     end
 
     subgraph wireTypes["Wire types (Codable)"]
-        IFACE["Interface<br/>tree + annotations<br/>one validated InterfaceGraph"]
+        IFACE["Interface<br/>one validated InterfaceGraph<br/>tree + annotations are projections"]
         HE["HeistElement<br/>label · value · traits · frame ·<br/>activationPointEvidence · actions"]
         ET["AccessibilityTarget<br/>predicate · container · within · ref"]
         EP["ElementPredicate<br/>ordered checks:<br/>label / identifier / value / hint ·<br/>traits / actions / customContent / rotors · exclude(check)"]
@@ -79,7 +79,8 @@ Notes:
   not properties of snapshots or events. There is no parallel screen/query
   store or semantic back map.
 - Each delivered `Interface` validates and stores one package `InterfaceGraph`
-  for structural hierarchy operations and formatting. The delivered value
+  as canonical structural storage. Its tree, annotations, identities, and flat
+  elements are projections used for hierarchy operations and formatting. The delivered value
   supplies `HeistElement` subjects while the host supplies
   `InterfaceTree.Element` subjects directly. One generic
   `AccessibilityTargetMatchGraph` evaluates element, container, descendant, and

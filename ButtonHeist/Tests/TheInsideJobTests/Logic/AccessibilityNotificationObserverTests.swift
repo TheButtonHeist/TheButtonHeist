@@ -180,7 +180,6 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         var state = TheVault.State()
         _ = try state.commitObservation(
             admission(),
-            sourceObservation: .empty,
             beginningNewBaseline: false
         ).get()
         state.discardCurrentObservation()
@@ -188,7 +187,6 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         let newBaseline = claim.batch.beginningNewBaseline
         let replacement = try state.commitObservation(
             admission(notificationBatch: newBaseline),
-            sourceObservation: .empty,
             beginningNewBaseline: true
         ).get()
 
@@ -519,7 +517,7 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
     ) -> Observation.Admission {
         let observation = InterfaceObservation.empty
         return Observation.Admission(
-            tree: observation.tree,
+            sourceObservation: observation,
             tripwireSignal: .empty,
             discoveryCommitPolicy: .mergeIntoInterface,
             lineage: .resting,
