@@ -45,7 +45,7 @@ run_gate() {
 
 run_gate v0.6.38 strict 1
 [[ "$STATUS" -eq 0 ]] || fail "scoped v0.6.38 baseline waiver failed: $OUTPUT"
-[[ "$OUTPUT" == *"legacy connection/failure wrappers, duplicate public-JSON adapters and request metadata, permissive environment aliases, validation-error aliases, and obsolete resolver overloads"* ]] \
+[[ "$OUTPUT" == *"legacy connection/failure wrappers, duplicate public-JSON adapters and request metadata, permissive environment aliases, validation-error aliases, obsolete resolver overloads, and unused convenience declarations"* ]] \
     || fail "waiver did not name the intentional source changes: $OUTPUT"
 [[ "$OUTPUT" == *"exemption expires"* ]] || fail "waiver did not explain its scope: $OUTPUT"
 

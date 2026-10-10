@@ -77,19 +77,16 @@ final class JSONLinesSession {
     }
 
     private func executeRequestLine(_ line: String) async {
-        let parsedRequest: CLIParsedRequest
+        let input: FenceCommandInput
         do {
-            parsedRequest = try CLIMachineRequestParser.parsedRequest(from: line)
-        } catch let error as CLIMachineRequestError {
-            output(.error(error.diagnosticFailure))
-            return
+            input = try CLIMachineRequestParser.parse(line)
         } catch {
-            output(.failure(error))
+            output(.error(error))
             return
         }
 
         do {
-            let operation = try fence.admit(parsedRequest.input)
+            let operation = try fence.admit(input)
             let response = try await fence.execute(operation)
             output(response)
         } catch {

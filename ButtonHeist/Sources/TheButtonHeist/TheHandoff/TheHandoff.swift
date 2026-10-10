@@ -12,7 +12,6 @@ final class TheHandoff {
 
     let connectionLifecycle = HandoffConnectionLifecycle()
     let discovery: any DeviceDiscovering
-    var serverMessageRouter = HandoffServerMessageRouter()
 
     nonisolated static let keepaliveInterval: Duration = .seconds(5)
     nonisolated static let maxMissedPongs = 36
@@ -41,16 +40,10 @@ final class TheHandoff {
     var onSendFailure: (@ButtonHeistActor (DeviceSendFailure, RequestID?) -> Void)?
     // MARK: - Configuration
 
-    var authToken: SessionAuthToken? {
-        get { serverMessageRouter.authToken }
-        set { serverMessageRouter.authToken = newValue }
-    }
+    var authToken: SessionAuthToken?
     /// Explicit driver ID override (e.g. from BUTTONHEIST_DRIVER_ID env var).
     /// When nil, a persistent auto-generated ID is used instead.
-    var driverID: DriverID? {
-        get { serverMessageRouter.driverId }
-        set { serverMessageRouter.driverId = newValue }
-    }
+    var driverID: DriverID?
 
     // MARK: - Internal Reconnect Settings
 

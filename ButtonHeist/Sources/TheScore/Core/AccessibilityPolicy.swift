@@ -106,26 +106,6 @@ public enum AccessibilityPolicy {
         !Set(traits).isDisjoint(with: textInputTraits)
     }
 
-    // MARK: - Activation Affordance Evidence Traits
-
-    /// Traits that advertise primary activation as an accessibility affordance.
-    ///
-    /// `Activate(target)` itself carries durable meaning: perform the target's
-    /// primary accessibility activation. These traits are evidence quality, not
-    /// permission. Runtime activation may still succeed without them, but action
-    /// evidence records that the target did not advertise the affordance.
-    public static let activationAffordanceEvidenceTraits: Set<HeistTrait> = [
-        .button,
-        .link,
-        .backButton,
-        .tabBarItem,
-        .switchButton,
-    ]
-
-    public static func advertisesActivationAffordance(_ traits: some Sequence<HeistTrait>) -> Bool {
-        !Set(traits).isDisjoint(with: activationAffordanceEvidenceTraits)
-    }
-
     // MARK: - Static-Only Traits
 
     /// Traits that are purely descriptive when no independent interaction

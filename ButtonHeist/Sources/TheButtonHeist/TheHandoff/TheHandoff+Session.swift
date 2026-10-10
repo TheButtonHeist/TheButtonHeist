@@ -90,7 +90,7 @@ extension TheHandoff {
         timeout: TimeInterval
     ) async throws {
         switch await device.reachability(
-            token: serverMessageRouter.authToken,
+            token: authToken,
             timeout: timeout
         ) {
         case .reachable:

@@ -40,10 +40,6 @@ public struct UnitPoint: Codable, Sendable, Equatable {
         case y
     }
 
-    public static var fieldNames: Set<String> {
-        Set(CodingKeys.allCases.map(\.stringValue))
-    }
-
     public let x: Double
     public let y: Double
 

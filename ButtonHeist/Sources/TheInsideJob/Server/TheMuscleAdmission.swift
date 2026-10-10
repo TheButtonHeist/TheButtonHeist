@@ -7,9 +7,7 @@ struct AdmittedClientMessage: Sendable {
     let envelope: RequestEnvelope
 }
 
-enum ClientAdmission: Sendable {
-    case admitted(AdmittedClientMessage)
-    case handled
+enum ClientAdmission {
     typealias ResponseHandler = SocketResponseHandler
 
     enum Effect {

@@ -60,7 +60,7 @@ fi
 # their canonical types. This waiver is bound to that baseline and expires
 # when v0.6.39 becomes the API baseline.
 if [[ "$BASELINE_TAG" == "v0.6.38" ]]; then
-    echo "Intentional source removals against $BASELINE_TAG: legacy connection/failure wrappers, duplicate public-JSON adapters and request metadata, permissive environment aliases, validation-error aliases, and obsolete resolver overloads."
+    echo "Intentional source removals against $BASELINE_TAG: legacy connection/failure wrappers, duplicate public-JSON adapters and request metadata, permissive environment aliases, validation-error aliases, obsolete resolver overloads, and unused convenience declarations."
     echo "The exemption expires when the next release tag becomes the API baseline."
     exit 0
 fi

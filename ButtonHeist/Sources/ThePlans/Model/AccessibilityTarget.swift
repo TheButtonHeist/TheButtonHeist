@@ -72,24 +72,6 @@ public indirect enum AccessibilityTarget: Codable, Sendable, Equatable, Hashable
         self = .predicate(predicate, ordinal: try Self.decodeOrdinal(from: container))
     }
 
-    public static func decodeInlineIfPresent(from decoder: Decoder) throws -> AccessibilityTarget? {
-        struct AnyCodingKey: CodingKey {
-            let stringValue: String
-            let intValue: Int? = nil
-            init?(stringValue: String) { self.stringValue = stringValue }
-            init?(intValue: Int) { return nil }
-        }
-
-        let probe = try decoder.container(keyedBy: AnyCodingKey.self)
-        let allowed = Set(inlineFieldNames)
-        guard probe.allKeys.contains(where: { allowed.contains($0.stringValue) }) else { return nil }
-        return try AccessibilityTarget(from: decoder)
-    }
-
-    public static func decodeInline(from decoder: Decoder) throws -> AccessibilityTarget {
-        try AccessibilityTarget(from: decoder)
-    }
-
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .predicate(let predicate, let ordinal):
