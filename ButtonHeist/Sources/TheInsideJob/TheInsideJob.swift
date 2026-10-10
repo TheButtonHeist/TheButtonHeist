@@ -53,9 +53,7 @@ public final class TheInsideJob {
             return instance
         case .unconfigured:
             let instance = TheInsideJob(
-                runtimeConfiguration: InsideJobRuntimeConfiguration.resolve(
-                    startupConfiguration: StartupConfiguration.resolve()
-                )
+                runtimeConfiguration: InsideJobRuntimeConfiguration.resolve()
             )
             sharedState = .live(instance)
             return instance
@@ -73,7 +71,6 @@ public final class TheInsideJob {
     ) throws(InsideJobConfigurationError) {
         try sharedState.configure { () throws(InsideJobConfigurationError) -> InsideJobRuntimeConfiguration in
             try InsideJobRuntimeConfiguration.resolve(
-                startupConfiguration: StartupConfiguration.resolve(),
                 token: token,
                 instanceId: instanceId,
                 allowedScopes: allowedScopes,
@@ -86,11 +83,9 @@ public final class TheInsideJob {
     }
 
     static func configure(
-        startupConfiguration: StartupConfiguration
+        runtimeConfiguration: InsideJobRuntimeConfiguration
     ) throws(InsideJobConfigurationError) {
-        try sharedState.configure {
-            InsideJobRuntimeConfiguration.resolve(startupConfiguration: startupConfiguration)
-        }
+        try sharedState.configure { runtimeConfiguration }
     }
 
     // MARK: - Properties
@@ -215,7 +210,6 @@ public final class TheInsideJob {
     ) throws(InsideJobConfigurationError) {
         self.init(
             runtimeConfiguration: try InsideJobRuntimeConfiguration.resolve(
-                startupConfiguration: StartupConfiguration.resolve(),
                 token: token,
                 instanceId: instanceId,
                 allowedScopes: allowedScopes,
@@ -227,12 +221,6 @@ public final class TheInsideJob {
             visibleObservationSource: visibleObservationSource,
             transportWiringBoundary: transportWiringBoundary,
             transportProvider: transportProvider
-        )
-    }
-
-    convenience init(startupConfiguration: StartupConfiguration) {
-        self.init(
-            runtimeConfiguration: InsideJobRuntimeConfiguration.resolve(startupConfiguration: startupConfiguration)
         )
     }
 

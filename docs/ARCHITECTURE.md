@@ -90,8 +90,9 @@ ordinal, and descendant-scoped `AccessibilityTarget`. TheVault maps the result
 paths back to `InterfaceTree` values and current live evidence for diagnostics,
 inflation, and dispatch. A delivered `Interface` feeds the same matching graph,
 so client predicates and host resolution cannot drift into separate recursive
-implementations. `InterfaceGraph` remains the validated structural projection
-used for formatting and hierarchy operations. There is no semantic back map,
+implementations. `InterfaceGraph` is the delivered interface's canonical
+structural storage; the public tree, annotations, identities, and flat element
+view are projections of its joined path records. There is no semantic back map,
 alternate flat screen, or second target-matching projection.
 Its admission boundary proves that every element path has one canonical
 geometry-and-action annotation; element records expose that annotation as a
@@ -107,7 +108,10 @@ reinterpret parser fields.
 
 `InterfaceObservation` pairs an `InterfaceTree`, including its value-only
 viewport capture, with viewport-local `LiveCapture` dispatch references from
-one parser read. Raw parser samples remain live or diagnostic evidence; they
+one parser read. That read produces one `CaptureTree`, which owns translated
+hierarchy values, path annotations, UIKit evidence, focus, and scroll facts;
+observation construction projects it directly without identity, fact, or build
+wrapper stages. Raw parser samples remain live or diagnostic evidence; they
 never append temporal history and
 do not become targetable semantic truth by themselves. Capture admission
 normalizes the sample into `Observation.Snapshot`; UIKit objects remain

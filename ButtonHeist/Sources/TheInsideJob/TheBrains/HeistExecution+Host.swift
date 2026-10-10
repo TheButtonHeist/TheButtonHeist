@@ -34,15 +34,15 @@ extension HeistExecution {
         }
 
         private struct Lifetime {
-            let subscription: SemanticObservationSubscription
-            let demand: SemanticObservationDemand
+            let subscription: SemanticObservationLease<UInt64>
+            let demand: SemanticObservationLease<Void>
             let notifications: AccessibilityNotificationScopeLease
         }
 
         private struct ObservationResource {
             let id: RequestID
             let boundary: TheVault.State.HistoryBoundary
-            let subscription: SemanticObservationSubscription
+            let subscription: SemanticObservationLease<UInt64>
             let notifications: AccessibilityNotificationScopeLease
             let deadline: SemanticObservationDeadline
             var lastTreeChangeAt: RuntimeElapsed.Instant?

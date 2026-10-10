@@ -3,7 +3,7 @@ import XCTest
 import TheScore
 @testable import TheInsideJob
 
-final class StartupConfigurationTests: XCTestCase {
+final class InsideJobRuntimeConfigurationTests: XCTestCase {
 
     func testAutoStartIsDisabledUnderXCTestEnvironment() {
         XCTAssertTrue(isRunningUnderXCTest(environment: environment([
@@ -16,7 +16,7 @@ final class StartupConfigurationTests: XCTestCase {
     }
 
     func testEnvironmentOverridesInfoPlist() {
-        let configuration = StartupConfiguration.resolve(
+        let configuration = InsideJobRuntimeConfiguration.resolve(
             env: environment([
                 .disableAutoStart: "false",
                 .token: "env-token",
@@ -35,20 +35,20 @@ final class StartupConfigurationTests: XCTestCase {
             ])
         )
 
-        let expected = StartupConfiguration(
-            disableAutoStart: ResolvedStartupValue(value: false, source: .environment),
-            token: ResolvedStartupValue(value: "env-token", source: .environment),
-            instanceId: ResolvedStartupValue(value: "env-id", source: .environment),
-            preferredPort: ResolvedStartupValue(value: 4242, source: .environment),
-            allowedScopes: ResolvedStartupValue(value: [.network], source: .environment),
-            sessionTimeout: ResolvedStartupValue(value: 45.0, source: .environment),
-            warnings: []
+        XCTAssertEqual(configuration.disableAutoStart, ResolvedConfigurationValue(value: false, source: .environment))
+        XCTAssertEqual(configuration.token, ResolvedConfigurationValue(value: "env-token", source: .environment))
+        XCTAssertEqual(
+            configuration.sessionIdentity.effectiveInstanceId,
+            ResolvedConfigurationValue(value: "env-id", source: .environment)
         )
-        XCTAssertEqual(configuration, expected)
+        XCTAssertEqual(configuration.preferredPort, ResolvedConfigurationValue(value: 4242, source: .environment))
+        XCTAssertEqual(configuration.allowedScopes, ResolvedConfigurationValue(value: [.network], source: .environment))
+        XCTAssertEqual(configuration.sessionReleaseTimeout, ResolvedConfigurationValue(value: 45.0, source: .environment))
+        XCTAssertEqual(configuration.warnings, [])
     }
 
     func testInfoPlistUsedWhenEnvironmentMissing() {
-        let configuration = StartupConfiguration.resolve(
+        let configuration = InsideJobRuntimeConfiguration.resolve(
             env: .empty,
             infoPlist: makeInfoPlist([
                 .disableAutoStart: true,
@@ -60,20 +60,20 @@ final class StartupConfigurationTests: XCTestCase {
             ])
         )
 
-        let expected = StartupConfiguration(
-            disableAutoStart: ResolvedStartupValue(value: true, source: .infoPlist),
-            token: ResolvedStartupValue(value: "plist-token", source: .infoPlist),
-            instanceId: ResolvedStartupValue(value: "plist-id", source: .infoPlist),
-            preferredPort: ResolvedStartupValue(value: 5151, source: .infoPlist),
-            allowedScopes: ResolvedStartupValue(value: [.simulator, .usb], source: .infoPlist),
-            sessionTimeout: ResolvedStartupValue(value: 120.0, source: .infoPlist),
-            warnings: []
+        XCTAssertEqual(configuration.disableAutoStart, ResolvedConfigurationValue(value: true, source: .infoPlist))
+        XCTAssertEqual(configuration.token, ResolvedConfigurationValue(value: "plist-token", source: .infoPlist))
+        XCTAssertEqual(
+            configuration.sessionIdentity.effectiveInstanceId,
+            ResolvedConfigurationValue(value: "plist-id", source: .infoPlist)
         )
-        XCTAssertEqual(configuration, expected)
+        XCTAssertEqual(configuration.preferredPort, ResolvedConfigurationValue(value: 5151, source: .infoPlist))
+        XCTAssertEqual(configuration.allowedScopes, ResolvedConfigurationValue(value: [.simulator, .usb], source: .infoPlist))
+        XCTAssertEqual(configuration.sessionReleaseTimeout, ResolvedConfigurationValue(value: 120.0, source: .infoPlist))
+        XCTAssertEqual(configuration.warnings, [])
     }
 
     func testInfoPlistCompatibilityShapesFallBackWithWarnings() {
-        let configuration = StartupConfiguration.resolve(
+        let configuration = InsideJobRuntimeConfiguration.resolve(
             env: .empty,
             infoPlist: makeInfoPlist([
                 .disableAutoStart: "yes",
@@ -84,11 +84,11 @@ final class StartupConfigurationTests: XCTestCase {
             ])
         )
 
-        XCTAssertEqual(configuration.disableAutoStart, ResolvedStartupValue(value: false, source: .defaultValue))
-        XCTAssertEqual(configuration.fingerprintsEnabled, ResolvedStartupValue(value: true, source: .defaultValue))
-        XCTAssertEqual(configuration.preferredPort, ResolvedStartupValue(value: 0, source: .defaultValue))
-        XCTAssertEqual(configuration.allowedScopes, ResolvedStartupValue(value: ConnectionScope.default, source: .defaultValue))
-        XCTAssertEqual(configuration.sessionTimeout, ResolvedStartupValue(value: 30, source: .defaultValue))
+        XCTAssertEqual(configuration.disableAutoStart, ResolvedConfigurationValue(value: false, source: .defaultValue))
+        XCTAssertEqual(configuration.fingerprintsEnabled, ResolvedConfigurationValue(value: true, source: .defaultValue))
+        XCTAssertEqual(configuration.preferredPort, ResolvedConfigurationValue(value: 0, source: .defaultValue))
+        XCTAssertEqual(configuration.allowedScopes, ResolvedConfigurationValue(value: ConnectionScope.default, source: .defaultValue))
+        XCTAssertEqual(configuration.sessionReleaseTimeout, ResolvedConfigurationValue(value: 30, source: .defaultValue))
         XCTAssertEqual(configuration.warnings, [
             .invalidValueIgnored(key: StartupInfoPlistKey.disableAutoStart.rawValue, source: .infoPlist, value: "yes"),
             .invalidValueIgnored(key: StartupInfoPlistKey.fingerprintsEnabled.rawValue, source: .infoPlist, value: "no"),
@@ -99,7 +99,7 @@ final class StartupConfigurationTests: XCTestCase {
     }
 
     func testMalformedInfoPlistValuesFallBackWithWarnings() {
-        let configuration = StartupConfiguration.resolve(
+        let configuration = InsideJobRuntimeConfiguration.resolve(
             env: .empty,
             infoPlist: makeInfoPlist([
                 .disableAutoStart: ["true"],
@@ -111,12 +111,13 @@ final class StartupConfigurationTests: XCTestCase {
             ])
         )
 
-        XCTAssertEqual(configuration.disableAutoStart, ResolvedStartupValue(value: false, source: .defaultValue))
-        XCTAssertEqual(configuration.fingerprintsEnabled, ResolvedStartupValue(value: true, source: .defaultValue))
-        XCTAssertEqual(configuration.token, ResolvedStartupValue(value: nil, source: .generated))
-        XCTAssertEqual(configuration.preferredPort, ResolvedStartupValue(value: 0, source: .defaultValue))
-        XCTAssertEqual(configuration.allowedScopes, ResolvedStartupValue(value: ConnectionScope.default, source: .defaultValue))
-        XCTAssertEqual(configuration.sessionTimeout, ResolvedStartupValue(value: 30.0, source: .defaultValue))
+        XCTAssertEqual(configuration.disableAutoStart, ResolvedConfigurationValue(value: false, source: .defaultValue))
+        XCTAssertEqual(configuration.fingerprintsEnabled, ResolvedConfigurationValue(value: true, source: .defaultValue))
+        XCTAssertEqual(configuration.token.source, .generated)
+        XCTAssertNotNil(UUID(uuidString: configuration.token.value.description))
+        XCTAssertEqual(configuration.preferredPort, ResolvedConfigurationValue(value: 0, source: .defaultValue))
+        XCTAssertEqual(configuration.allowedScopes, ResolvedConfigurationValue(value: ConnectionScope.default, source: .defaultValue))
+        XCTAssertEqual(configuration.sessionReleaseTimeout, ResolvedConfigurationValue(value: 30.0, source: .defaultValue))
         XCTAssertEqual(configuration.warnings, [
             .invalidValueIgnored(key: StartupInfoPlistKey.disableAutoStart.rawValue, source: .infoPlist, value: "[\"true\"]"),
             .invalidValueIgnored(key: StartupInfoPlistKey.fingerprintsEnabled.rawValue, source: .infoPlist, value: "[\"false\"]"),
@@ -127,7 +128,7 @@ final class StartupConfigurationTests: XCTestCase {
     }
 
     func testInfoPlistStringArraysOnlyResolveForScope() {
-        let configuration = StartupConfiguration.resolve(
+        let configuration = InsideJobRuntimeConfiguration.resolve(
             env: .empty,
             infoPlist: makeInfoPlist([
                 .token: ["token"],
@@ -136,65 +137,62 @@ final class StartupConfigurationTests: XCTestCase {
             ])
         )
 
-        let expected = StartupConfiguration(
-            disableAutoStart: ResolvedStartupValue(value: false, source: .defaultValue),
-            token: ResolvedStartupValue(value: nil, source: .generated),
-            instanceId: ResolvedStartupValue(value: nil, source: .generated),
-            preferredPort: ResolvedStartupValue(value: 0, source: .defaultValue),
-            allowedScopes: ResolvedStartupValue(value: [.simulator, .usb], source: .infoPlist),
-            sessionTimeout: ResolvedStartupValue(value: 30.0, source: .defaultValue),
-            warnings: []
-        )
-        XCTAssertEqual(configuration, expected)
+        XCTAssertEqual(configuration.disableAutoStart, ResolvedConfigurationValue(value: false, source: .defaultValue))
+        XCTAssertEqual(configuration.token.source, .generated)
+        XCTAssertEqual(configuration.sessionIdentity.effectiveInstanceId.source, .generated)
+        XCTAssertEqual(configuration.preferredPort, ResolvedConfigurationValue(value: 0, source: .defaultValue))
+        XCTAssertEqual(configuration.allowedScopes, ResolvedConfigurationValue(value: [.simulator, .usb], source: .infoPlist))
+        XCTAssertEqual(configuration.sessionReleaseTimeout, ResolvedConfigurationValue(value: 30.0, source: .defaultValue))
+        XCTAssertEqual(configuration.warnings, [])
     }
 
     func testFingerprintsConfigResolvesPositiveEnableKey() {
         XCTAssertEqual(
-            StartupConfiguration.resolve(
+            InsideJobRuntimeConfiguration.resolve(
                 env: environment([.fingerprintsEnabled: "false"]),
                 infoPlist: makeInfoPlist([.fingerprintsEnabled: true])
             ).fingerprintsEnabled,
-            ResolvedStartupValue(value: false, source: .environment)
+            ResolvedConfigurationValue(value: false, source: .environment)
         )
         XCTAssertEqual(
-            StartupConfiguration.resolve(
+            InsideJobRuntimeConfiguration.resolve(
                 env: environment([.fingerprintsEnabled: "true"]),
                 infoPlist: makeInfoPlist([.fingerprintsEnabled: false])
             ).fingerprintsEnabled,
-            ResolvedStartupValue(value: true, source: .environment)
+            ResolvedConfigurationValue(value: true, source: .environment)
         )
         XCTAssertEqual(
-            StartupConfiguration.resolve(
+            InsideJobRuntimeConfiguration.resolve(
                 env: .empty,
                 infoPlist: makeInfoPlist([.fingerprintsEnabled: false])
             ).fingerprintsEnabled,
-            ResolvedStartupValue(value: false, source: .infoPlist)
+            ResolvedConfigurationValue(value: false, source: .infoPlist)
         )
     }
 
     func testFailureEvidencePolicyResolvesAtStartupBoundary() {
         XCTAssertEqual(
-            StartupConfiguration.resolve(
+            InsideJobRuntimeConfiguration.resolve(
                 env: environment([.failureEvidence: "hierarchy"]),
                 infoPlist: makeInfoPlist([.failureEvidence: "accessibilitySnapshot"])
             ).failureEvidencePolicy,
-            ResolvedStartupValue(value: .hierarchy, source: .environment)
+            ResolvedConfigurationValue(value: .hierarchy, source: .environment)
         )
         XCTAssertEqual(
-            StartupConfiguration.resolve(
+            InsideJobRuntimeConfiguration.resolve(
                 env: .empty,
                 infoPlist: makeInfoPlist([.failureEvidence: "accessibilitySnapshot"])
             ).failureEvidencePolicy,
-            ResolvedStartupValue(value: .accessibilitySnapshot, source: .infoPlist)
+            ResolvedConfigurationValue(value: .accessibilitySnapshot, source: .infoPlist)
         )
         XCTAssertEqual(
-            StartupConfiguration.resolve(env: .empty, infoPlist: makeInfoPlist([:])).failureEvidencePolicy,
-            ResolvedStartupValue(value: .screenshot, source: .defaultValue)
+            InsideJobRuntimeConfiguration.resolve(env: .empty, infoPlist: makeInfoPlist([:])).failureEvidencePolicy,
+            ResolvedConfigurationValue(value: .screenshot, source: .defaultValue)
         )
     }
 
     func testEmptyTokenAndInstanceIdAreIgnoredWithWarnings() {
-        let configuration = StartupConfiguration.resolve(
+        let configuration = InsideJobRuntimeConfiguration.resolve(
             env: environment([
                 .token: "",
                 .instanceId: "   "
@@ -205,23 +203,19 @@ final class StartupConfigurationTests: XCTestCase {
             ])
         )
 
-        let expected = StartupConfiguration(
-            disableAutoStart: ResolvedStartupValue(value: false, source: .defaultValue),
-            token: ResolvedStartupValue(value: "plist-token", source: .infoPlist),
-            instanceId: ResolvedStartupValue(value: "plist-id", source: .infoPlist),
-            preferredPort: ResolvedStartupValue(value: 0, source: .defaultValue),
-            allowedScopes: ResolvedStartupValue(value: ConnectionScope.default, source: .defaultValue),
-            sessionTimeout: ResolvedStartupValue(value: 30.0, source: .defaultValue),
-            warnings: [
-                .emptyValueIgnored(key: StartupEnvironmentKey.token.rawValue, source: .environment),
-                .emptyValueIgnored(key: StartupEnvironmentKey.instanceId.rawValue, source: .environment)
-            ]
+        XCTAssertEqual(configuration.token, ResolvedConfigurationValue(value: "plist-token", source: .infoPlist))
+        XCTAssertEqual(
+            configuration.sessionIdentity.effectiveInstanceId,
+            ResolvedConfigurationValue(value: "plist-id", source: .infoPlist)
         )
-        XCTAssertEqual(configuration, expected)
+        XCTAssertEqual(configuration.warnings, [
+            .emptyValueIgnored(key: StartupEnvironmentKey.token.rawValue, source: .environment),
+            .emptyValueIgnored(key: StartupEnvironmentKey.instanceId.rawValue, source: .environment)
+        ])
     }
 
     func testInvalidValuesFallBackAndNumericValuesClamp() {
-        let configuration = StartupConfiguration.resolve(
+        let configuration = InsideJobRuntimeConfiguration.resolve(
             env: environment([
                 .port: "99999",
                 .scope: "bogus",
@@ -233,34 +227,25 @@ final class StartupConfigurationTests: XCTestCase {
             ])
         )
 
-        let expected = StartupConfiguration(
-            disableAutoStart: ResolvedStartupValue(value: false, source: .defaultValue),
-            token: ResolvedStartupValue(value: nil, source: .generated),
-            instanceId: ResolvedStartupValue(value: nil, source: .generated),
-            preferredPort: ResolvedStartupValue(value: 5151, source: .infoPlist),
-            allowedScopes: ResolvedStartupValue(value: [.usb], source: .infoPlist),
-            sessionTimeout: ResolvedStartupValue(value: 1.0, source: .environment),
-            warnings: [
-                .invalidValueIgnored(key: StartupEnvironmentKey.port.rawValue, source: .environment, value: "99999"),
-                .invalidValueIgnored(key: StartupEnvironmentKey.scope.rawValue, source: .environment, value: "bogus")
-            ]
-        )
-        XCTAssertEqual(configuration, expected)
+        XCTAssertEqual(configuration.preferredPort, ResolvedConfigurationValue(value: 5151, source: .infoPlist))
+        XCTAssertEqual(configuration.allowedScopes, ResolvedConfigurationValue(value: [.usb], source: .infoPlist))
+        XCTAssertEqual(configuration.sessionReleaseTimeout, ResolvedConfigurationValue(value: 1.0, source: .environment))
+        XCTAssertEqual(configuration.warnings, [
+            .invalidValueIgnored(key: StartupEnvironmentKey.port.rawValue, source: .environment, value: "99999"),
+            .invalidValueIgnored(key: StartupEnvironmentKey.scope.rawValue, source: .environment, value: "bogus")
+        ])
     }
 
-    func testRuntimeConfigurationAppliesAPIOverridesToResolvedStartupSnapshot() throws {
-        let startupConfiguration = StartupConfiguration(
-            disableAutoStart: ResolvedStartupValue(value: false, source: .defaultValue),
-            token: ResolvedStartupValue(value: "startup-token", source: .environment),
-            instanceId: ResolvedStartupValue(value: "startup-id", source: .environment),
-            preferredPort: ResolvedStartupValue(value: 5151, source: .environment),
-            allowedScopes: ResolvedStartupValue(value: [.simulator], source: .environment),
-            sessionTimeout: ResolvedStartupValue(value: 12.0, source: .environment),
-            warnings: []
-        )
-
+    func testRuntimeConfigurationAppliesAPIOverridesDuringResolution() throws {
         let runtimeConfiguration = try InsideJobRuntimeConfiguration.resolve(
-            startupConfiguration: startupConfiguration,
+            env: environment([
+                .token: "startup-token",
+                .instanceId: "startup-id",
+                .port: "5151",
+                .scope: "simulator",
+                .sessionTimeout: "12"
+            ]),
+            infoPlist: makeInfoPlist([:]),
             token: "api-token",
             instanceId: "api-id",
             allowedScopes: [.network],
@@ -271,42 +256,43 @@ final class StartupConfigurationTests: XCTestCase {
 
         XCTAssertEqual(
             runtimeConfiguration.token,
-            ResolvedStartupValue(value: "api-token", source: .api)
+            ResolvedConfigurationValue(value: "api-token", source: .api)
         )
         XCTAssertEqual(
             runtimeConfiguration.sessionIdentity.effectiveInstanceId,
-            ResolvedStartupValue(value: "api-id", source: .api)
+            ResolvedConfigurationValue(value: "api-id", source: .api)
         )
         XCTAssertEqual(
             runtimeConfiguration.preferredPort,
-            ResolvedStartupValue(value: 4242, source: .api)
+            ResolvedConfigurationValue(value: 4242, source: .api)
         )
         XCTAssertEqual(
             runtimeConfiguration.allowedScopes,
-            ResolvedStartupValue(value: [.network], source: .api)
+            ResolvedConfigurationValue(value: [.network], source: .api)
         )
         XCTAssertEqual(runtimeConfiguration.addressFamily, .ipv4)
-        XCTAssertEqual(runtimeConfiguration.sessionReleaseTimeout, startupConfiguration.sessionTimeout)
+        XCTAssertEqual(
+            runtimeConfiguration.sessionReleaseTimeout,
+            ResolvedConfigurationValue(value: 12.0, source: .environment)
+        )
         XCTAssertEqual(
             runtimeConfiguration.fingerprintsEnabled,
-            ResolvedStartupValue(value: false, source: .api)
+            ResolvedConfigurationValue(value: false, source: .api)
         )
-        XCTAssertEqual(runtimeConfiguration.failureEvidencePolicy, startupConfiguration.failureEvidencePolicy)
+        XCTAssertEqual(
+            runtimeConfiguration.failureEvidencePolicy,
+            ResolvedConfigurationValue(value: .screenshot, source: .defaultValue)
+        )
     }
 
-    func testRuntimeConfigurationUsesExplicitStartupSnapshotForSessionDefaults() throws {
-        let startupConfiguration = StartupConfiguration(
-            disableAutoStart: ResolvedStartupValue(value: false, source: .defaultValue),
-            token: ResolvedStartupValue(value: "startup-token", source: .environment),
-            instanceId: ResolvedStartupValue(value: "startup-id", source: .environment),
-            preferredPort: ResolvedStartupValue(value: 5151, source: .environment),
-            allowedScopes: ResolvedStartupValue(value: [.usb], source: .infoPlist),
-            sessionTimeout: ResolvedStartupValue(value: 24.0, source: .infoPlist),
-            warnings: []
-        )
-
+    func testRuntimeConfigurationUsesResolvedBoundaryDefaultsWhenAPIOverridesAreAbsent() throws {
         let runtimeConfiguration = try InsideJobRuntimeConfiguration.resolve(
-            startupConfiguration: startupConfiguration,
+            env: environment([.token: "startup-token"]),
+            infoPlist: makeInfoPlist([
+                .instanceId: "startup-id",
+                .scope: ["usb"],
+                .sessionTimeout: 24.0
+            ]),
             token: nil,
             instanceId: nil,
             allowedScopes: nil,
@@ -315,27 +301,29 @@ final class StartupConfigurationTests: XCTestCase {
 
         XCTAssertEqual(
             runtimeConfiguration.token,
-            ResolvedStartupValue(value: "startup-token", source: .environment)
+            ResolvedConfigurationValue(value: "startup-token", source: .environment)
         )
         XCTAssertEqual(runtimeConfiguration.sessionIdentity.effectiveInstanceId.source, .generated)
         XCTAssertEqual(
             runtimeConfiguration.preferredPort,
-            ResolvedStartupValue(value: 0, source: .defaultValue)
+            ResolvedConfigurationValue(value: 0, source: .defaultValue)
         )
         XCTAssertEqual(
             runtimeConfiguration.allowedScopes,
-            ResolvedStartupValue(value: [.usb], source: .infoPlist)
+            ResolvedConfigurationValue(value: [.usb], source: .infoPlist)
         )
         XCTAssertEqual(runtimeConfiguration.addressFamily, .dualStack)
-        XCTAssertEqual(runtimeConfiguration.sessionReleaseTimeout, startupConfiguration.sessionTimeout)
+        XCTAssertEqual(
+            runtimeConfiguration.sessionReleaseTimeout,
+            ResolvedConfigurationValue(value: 24.0, source: .infoPlist)
+        )
     }
 
     func testRuntimeConfigurationRejectsBlankExplicitValues() {
-        let startupConfiguration = StartupConfiguration.resolve(env: .empty, infoPlist: makeInfoPlist([:]))
-
         XCTAssertThrowsError(
             try InsideJobRuntimeConfiguration.resolve(
-                startupConfiguration: startupConfiguration,
+                env: .empty,
+                infoPlist: makeInfoPlist([:]),
                 token: " ",
                 instanceId: nil,
                 allowedScopes: nil,
@@ -347,7 +335,8 @@ final class StartupConfigurationTests: XCTestCase {
 
         XCTAssertThrowsError(
             try InsideJobRuntimeConfiguration.resolve(
-                startupConfiguration: startupConfiguration,
+                env: .empty,
+                infoPlist: makeInfoPlist([:]),
                 token: nil,
                 instanceId: "\t",
                 allowedScopes: nil,
@@ -360,9 +349,9 @@ final class StartupConfigurationTests: XCTestCase {
 
     @MainActor
     func testSharedConfigurationStateRejectsRepeatedAndLiveConfiguration() throws {
-        let startupConfiguration = StartupConfiguration.resolve(env: .empty, infoPlist: makeInfoPlist([:]))
         let runtimeConfiguration = InsideJobRuntimeConfiguration.resolve(
-            startupConfiguration: startupConfiguration
+            env: .empty,
+            infoPlist: makeInfoPlist([:])
         )
         var configuredState = TheInsideJob.SharedState.unconfigured
 
@@ -379,8 +368,10 @@ final class StartupConfigurationTests: XCTestCase {
     }
 
     func testRuntimeConfigurationGeneratesUUIDSessionToken() {
-        let configuration = StartupConfiguration.resolve(env: .empty, infoPlist: makeInfoPlist([:]))
-        let runtimeConfiguration = InsideJobRuntimeConfiguration.resolve(startupConfiguration: configuration)
+        let runtimeConfiguration = InsideJobRuntimeConfiguration.resolve(
+            env: .empty,
+            infoPlist: makeInfoPlist([:])
+        )
 
         XCTAssertEqual(runtimeConfiguration.token.source, .generated)
         XCTAssertNotNil(UUID(uuidString: runtimeConfiguration.token.value.description))
@@ -507,7 +498,7 @@ private func makeInfoPlist(
             options: 0
         )
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("StartupConfigurationTests-\(UUID().uuidString)")
+            .appendingPathComponent("InsideJobRuntimeConfigurationTests-\(UUID().uuidString)")
             .appendingPathExtension("plist")
         try data.write(to: url)
         return StartupInfoPlist(contentsOf: url)

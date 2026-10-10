@@ -20,7 +20,9 @@ extension Observation.Stream {
     ) async -> Observation.Publication {
         requireCommittedObservation(
             commitObservation(
-                .admitCaptured(observation, tripwireSignal: currentTripwireSignal(), lineage: .resting),
+                observation,
+                tripwireSignal: currentTripwireSignal(),
+                lineage: .resting,
                 scope: .visible,
                 notificationBatch: notificationBatch
             )
@@ -45,7 +47,9 @@ extension Observation.Stream {
     ) async -> Observation.Publication {
         requireCommittedObservation(
             commitObservation(
-                .admitCaptured(observation, tripwireSignal: currentTripwireSignal(), lineage: .resting),
+                observation,
+                tripwireSignal: currentTripwireSignal(),
+                lineage: .resting,
                 scope: .discovery,
                 notificationBatch: notificationBatch
             )
@@ -69,14 +73,11 @@ extension Observation.Stream {
         lineage: ScreenLineage
     ) async -> Observation.Publication {
         let claim = vault.accessibilityNotifications.freezeObservationCycleClaim()
-        let admitted = CommittableInterfaceObservation.admitCaptured(
-            observation,
-            tripwireSignal: currentTripwireSignal(),
-            lineage: lineage
-        )
         let publication = requireCommittedObservation(
             commitObservation(
-                admitted,
+                observation,
+                tripwireSignal: currentTripwireSignal(),
+                lineage: lineage,
                 scope: scope,
                 notificationBatch: claim.batch
             )

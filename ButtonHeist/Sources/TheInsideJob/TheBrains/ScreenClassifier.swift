@@ -58,11 +58,7 @@ enum ScreenClassifier {
         let signature: ScreenSignature
         let firstResponderHeistId: HeistId?
         let semanticElementIDs: Set<HeistId>
-        let semanticScrollContainerIdentities: Set<SemanticScrollContainerIdentity>
-    }
-
-    struct SemanticScrollContainerIdentity: Equatable, Hashable {
-        let basis: SemanticScrollContainerIdentityBasis
+        let semanticScrollContainerIdentities: Set<SemanticScrollContainerIdentityBasis>
     }
 
     enum SemanticScrollContainerIdentityBasis: Equatable, Hashable {
@@ -299,19 +295,17 @@ enum ScreenClassifier {
 
     private static func semanticScrollContainerIdentity(
         for container: AccessibilityContainer
-    ) -> SemanticScrollContainerIdentity? {
+    ) -> SemanticScrollContainerIdentityBasis? {
         guard container.isScrollable else { return nil }
         let facts = container.containerPredicateFacts
         if let identifier = stableIdentifier(facts.identifier).flatMap(nonEmpty) {
-            return SemanticScrollContainerIdentity(basis: .identifier(identifier))
+            return .identifier(identifier)
         }
         guard case .semanticGroup(let label, let value) = facts.role else { return nil }
         let semanticLabel = label.flatMap(nonEmpty)
         let semanticValue = value.flatMap(nonEmpty)
         guard semanticLabel != nil || semanticValue != nil else { return nil }
-        return SemanticScrollContainerIdentity(
-            basis: .semanticGroup(label: semanticLabel, value: semanticValue)
-        )
+        return .semanticGroup(label: semanticLabel, value: semanticValue)
     }
 
     private static func nonEmpty(_ value: String) -> String? {

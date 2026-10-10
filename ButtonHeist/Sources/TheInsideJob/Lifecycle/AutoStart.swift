@@ -40,7 +40,7 @@ func theInsideJobAutoStartFromLoad() {
         return
     }
 
-    let configuration = StartupConfiguration.resolve()
+    let configuration = InsideJobRuntimeConfiguration.resolve()
     for warning in configuration.warnings {
         autoStartLogger.warning("\(warning.message, privacy: .public)")
     }
@@ -53,7 +53,7 @@ func theInsideJobAutoStartFromLoad() {
     let task = Task { @MainActor in
         armApplicationAccessibility()
         do {
-            try TheInsideJob.configure(startupConfiguration: configuration)
+            try TheInsideJob.configure(runtimeConfiguration: configuration)
             try await TheInsideJob.shared.start()
         } catch {
             autoStartLogger.error("Auto-start failed: \(error)")

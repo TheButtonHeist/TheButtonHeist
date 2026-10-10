@@ -243,7 +243,10 @@ extension Observation.Stream {
 
     @discardableResult
     internal func commitObservation(
-        _ committableObservation: CommittableInterfaceObservation,
+        _ sourceObservation: InterfaceObservation,
+        tripwireSignal: TheTripwire.TripwireSignal,
+        discoveryCommitPolicy: Navigation.DiscoveryCommitPolicy = .mergeIntoInterface,
+        lineage: ScreenLineage,
         scope: SemanticObservationScope,
         notificationBatch: AccessibilityNotificationBatch
     ) -> Result<Observation.Publication, Observation.CaptureFailure> {
@@ -251,7 +254,6 @@ extension Observation.Stream {
         let resolvedNotificationBatch = completeNotificationHistory(
             in: notificationBatch
         )
-        let sourceObservation = committableObservation.observation
         guard let notificationSnapshot = Observation.NotificationSnapshot(
             admittedNotifications: vault.admitNotifications(
                 resolvedNotificationBatch.events
@@ -263,10 +265,10 @@ extension Observation.Stream {
             preconditionFailure("Incomplete notification evidence cannot be committed")
         }
         let admission = Observation.Admission(
-            tree: sourceObservation.tree,
-            tripwireSignal: committableObservation.tripwireSignal,
-            discoveryCommitPolicy: committableObservation.discoveryCommitPolicy,
-            lineage: committableObservation.lineage,
+            sourceObservation: sourceObservation,
+            tripwireSignal: tripwireSignal,
+            discoveryCommitPolicy: discoveryCommitPolicy,
+            lineage: lineage,
             scope: scope,
             notifications: notificationSnapshot,
             keyboardVisible: vault.keyboardVisible,
@@ -276,7 +278,6 @@ extension Observation.Stream {
         )
         switch vault.state.commitObservation(
             admission,
-            sourceObservation: sourceObservation,
             beginningNewBaseline: beginsNewBaseline
         ) {
         case .failure(let failure):
@@ -304,17 +305,13 @@ extension Observation.Stream {
         guard let captured = vault.captureVisibleObservation() else {
             return .unavailable(.sourceTreeUnavailable)
         }
-        let admission = admitCurrentObservation(
-            captured,
-            vault: vault,
+        let admission = admitCapture(
             tripwireSignal: tripwireSignal,
-            postCaptureTripwireSignal: pulseIngress == .injected ? tripwireSignal : nil,
-            lineage: captureLineage
+            postCaptureTripwireSignal: pulseIngress == .injected ? tripwireSignal : nil
         )
-        let committableObservation: CommittableInterfaceObservation
         switch admission {
-        case .success(let admitted):
-            committableObservation = admitted
+        case .success:
+            break
         case .failure(let failure):
             return .unavailable(failure)
         }
@@ -322,7 +319,9 @@ extension Observation.Stream {
             return .unavailable(.cancelled)
         }
         switch commitObservation(
-            committableObservation,
+            captured,
+            tripwireSignal: tripwireSignal,
+            lineage: captureLineage,
             scope: scope,
             notificationBatch: notificationBatch
         ) {
@@ -366,24 +365,15 @@ extension Observation.Stream {
     /// reading describes a screen we are no longer looking at. Accessibility
     /// notifications are movement on the same screen — UIKit posts them
     /// throughout a transition — so they let the reading through.
-    func admitCurrentObservation(
-        _ observation: InterfaceObservation,
-        vault: TheVault,
+    func admitCapture(
         tripwireSignal: TheTripwire.TripwireSignal,
-        postCaptureTripwireSignal: TheTripwire.TripwireSignal? = nil,
-        discoveryCommitPolicy: Navigation.DiscoveryCommitPolicy = .mergeIntoInterface,
-        lineage: ScreenLineage
-    ) -> Result<CommittableInterfaceObservation, Observation.CaptureFailure> {
+        postCaptureTripwireSignal: TheTripwire.TripwireSignal? = nil
+    ) -> Result<Void, Observation.CaptureFailure> {
         let currentSignal = postCaptureTripwireSignal ?? currentTripwireSignal()
         guard currentSignal.hierarchy == tripwireSignal.hierarchy else {
             return .failure(.hierarchyChangedDuringCapture)
         }
-        return .success(CommittableInterfaceObservation.admitCaptured(
-            observation,
-            tripwireSignal: tripwireSignal,
-            discoveryCommitPolicy: discoveryCommitPolicy,
-            lineage: lineage
-        ))
+        return .success(())
     }
 
 }

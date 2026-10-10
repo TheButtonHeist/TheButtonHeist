@@ -234,7 +234,7 @@ final class WireConverterTests: XCTestCase {
             respondsToUserInteraction: false
         )
         let liveObject = WireActivationOverrideView()
-        let parse = TheVault.CaptureResult(
+        let parse = TheVault.CaptureTree(
             hierarchy: [.element(element, traversalIndex: 0)],
             objectsByPath: [TreePath([0]): liveObject],
         )

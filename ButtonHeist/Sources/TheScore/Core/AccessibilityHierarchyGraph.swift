@@ -115,10 +115,51 @@ package struct InterfaceGraphNodeRecord: Equatable, Sendable {
 }
 
 package struct InterfaceGraph: Equatable, Sendable {
-    package let elementsInTraversalOrder: [InterfaceGraphElementRecord]
     package let nodesInPathOrder: [InterfaceGraphNodeRecord]
 
+    private let elementOffsetsInTraversalOrder: [Int]
+    private let elementAnnotationPathsInInputOrder: [TreePath]
+    private let containerAnnotationPathsInInputOrder: [TreePath]
     private let nodeOffsetByPath: [TreePath: Int]
+
+    package var elementsInTraversalOrder: [InterfaceGraphElementRecord] {
+        elementOffsetsInTraversalOrder.map { offset in
+            guard case .element(let element) = nodesInPathOrder[offset].kind else {
+                preconditionFailure("Interface graph element index references a container")
+            }
+            return element
+        }
+    }
+
+    package var tree: [AccessibilityHierarchy] {
+        var roots: [AccessibilityHierarchy] = []
+        while let root = hierarchy(at: TreePath([roots.count])) {
+            roots.append(root)
+        }
+        return roots
+    }
+
+    package var annotations: InterfaceAnnotations {
+        InterfaceAnnotations(
+            elements: elementAnnotationPathsInInputOrder.compactMap { path in
+                guard case .element(let record)? = nodeKind(at: path) else { return nil }
+                return record.annotation
+            },
+            containers: containerAnnotationPathsInInputOrder.compactMap { path in
+                guard case .container(let record)? = nodeKind(at: path) else { return nil }
+                return record.annotation
+            }
+        )
+    }
+
+    package var observationIdentities: InterfaceElementIdentities {
+        InterfaceElementIdentities(Dictionary(uniqueKeysWithValues: nodesInPathOrder.compactMap { record in
+            guard case .element(let element) = record.kind,
+                  let identity = element.observationIdentity
+            else { return nil }
+            return (record.path, identity)
+        }))
+    }
 
     package init(
         tree: [AccessibilityHierarchy],
@@ -141,21 +182,26 @@ package struct InterfaceGraph: Equatable, Sendable {
             containerAnnotationByPath: containerAnnotationByPath,
             observationIdentityByPath: observationIdentityByPath
         )
-        let elementRecords = nodeRecords.compactMap { record -> InterfaceGraphElementRecord? in
-            guard case .element(let element) = record.kind else { return nil }
-            return element
+        let elementOffsets = nodeRecords.indices.filter {
+            if case .element = nodeRecords[$0].kind { return true }
+            return false
         }.sorted {
-            if $0.traversalIndex != $1.traversalIndex {
-                return $0.traversalIndex < $1.traversalIndex
+            guard case .element(let left) = nodeRecords[$0].kind,
+                  case .element(let right) = nodeRecords[$1].kind
+            else { return false }
+            if left.traversalIndex != right.traversalIndex {
+                return left.traversalIndex < right.traversalIndex
             }
-            return $0.path < $1.path
+            return left.path < right.path
         }
         let nodeOffsetByPath = Dictionary(
             uniqueKeysWithValues: nodeRecords.enumerated().map { ($0.element.path, $0.offset) }
         )
 
-        self.elementsInTraversalOrder = elementRecords
         self.nodesInPathOrder = nodeRecords
+        self.elementOffsetsInTraversalOrder = elementOffsets
+        self.elementAnnotationPathsInInputOrder = annotations.elements.map(\.path)
+        self.containerAnnotationPathsInInputOrder = annotations.containers.map(\.path)
         self.nodeOffsetByPath = nodeOffsetByPath
     }
 
@@ -225,6 +271,21 @@ package struct InterfaceGraph: Equatable, Sendable {
     private func nodeKind(at path: TreePath) -> InterfaceGraphNodeKind? {
         guard let offset = nodeOffsetByPath[path], nodesInPathOrder.indices.contains(offset) else { return nil }
         return nodesInPathOrder[offset].kind
+    }
+
+    private func hierarchy(at path: TreePath) -> AccessibilityHierarchy? {
+        switch nodeKind(at: path) {
+        case .element(let record):
+            return .element(record.accessibilityElement, traversalIndex: record.traversalIndex)
+        case .container(let record):
+            var children: [AccessibilityHierarchy] = []
+            while let child = hierarchy(at: path.appending(children.count)) {
+                children.append(child)
+            }
+            return .container(record.container, children: children)
+        case nil:
+            return nil
+        }
     }
 
     private static func uniqueElementAnnotations(

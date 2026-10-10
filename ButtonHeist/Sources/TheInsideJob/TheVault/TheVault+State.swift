@@ -236,7 +236,6 @@ extension TheVault {
 
         internal mutating func commitObservation(
             _ admission: Observation.Admission,
-            sourceObservation: InterfaceObservation,
             beginningNewBaseline: Bool
         ) -> Result<Observation.Publication, Observation.CaptureFailure> {
             var next = self
@@ -302,7 +301,7 @@ extension TheVault {
 
             let observation: InterfaceObservation
             do {
-                observation = try sourceObservation.replacingTreeWithCurrentCapture(nextTree)
+                observation = try admission.sourceObservation.replacingTreeWithCurrentCapture(nextTree)
             } catch {
                 return .failure(.liveCaptureReattachmentFailed)
             }

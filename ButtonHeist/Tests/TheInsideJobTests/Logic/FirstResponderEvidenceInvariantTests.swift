@@ -12,17 +12,15 @@ final class FirstResponderEvidenceInvariantTests: XCTestCase {
     func testParseNormalizesFirstResponderIntoValueSnapshot() async throws {
         let firstPath = TreePath([0])
         let secondPath = TreePath([1])
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .element(AccessibilityElement.make(label: "Email", traits: .textEntry), traversalIndex: 0),
                 .element(AccessibilityElement.make(label: "Password", traits: .textEntry), traversalIndex: 1),
-            ]
-        )
-        let facts = TheVault.BuildFacts(
+            ],
             focus: TheVault.FocusFacts(firstResponderPaths: [secondPath])
         )
 
-        let parsed = TheVault.buildObservation(from: result, facts: facts)
+        let parsed = TheVault.buildObservation(from: result)
         let firstResponderHeistId = try XCTUnwrap(parsed.tree.viewportCapture.heistId(forPath: secondPath))
         let valueOnly = try InterfaceObservation.build(tree: parsed.tree)
 
@@ -257,19 +255,17 @@ final class FirstResponderEvidenceInvariantTests: XCTestCase {
     func testAmbiguousLiveResponderEvidenceIsNotGuessed() async {
         let firstPath = TreePath([0])
         let secondPath = TreePath([1])
-        let result = TheVault.CaptureResult(
+        let result = TheVault.CaptureTree(
             hierarchy: [
                 .element(AccessibilityElement.make(label: "Email", traits: .textEntry), traversalIndex: 0),
                 .element(AccessibilityElement.make(label: "Password", traits: .textEntry), traversalIndex: 1),
-            ]
-        )
-        let facts = TheVault.BuildFacts(
+            ],
             focus: TheVault.FocusFacts(
                 firstResponderPaths: [firstPath, secondPath]
             )
         )
 
-        let parsed = TheVault.buildObservation(from: result, facts: facts)
+        let parsed = TheVault.buildObservation(from: result)
 
         XCTAssertNil(parsed.tree.viewportCapture.firstResponderHeistId)
     }
