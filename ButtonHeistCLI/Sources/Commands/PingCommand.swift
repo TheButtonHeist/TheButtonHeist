@@ -2,6 +2,7 @@ import ArgumentParser
 @_spi(ButtonHeistTooling) import ButtonHeist
 
 struct PingCommand: ConnectedOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.ping
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Check Button Heist connection health",

@@ -136,6 +136,10 @@ def canonical_target(payload: dict[str, Any], label: str) -> Any:
     return matches[0]
 
 
+def activate_action(target: Any) -> dict[str, Any]:
+    return {"type": "activate", "payload": {"target": target}}
+
+
 class SmokeCLI:
     def __init__(self, binary: Path, app: DemoApp):
         self.binary = binary
@@ -242,14 +246,8 @@ def exercise(cli: SmokeCLI, heist: Path, *, skip_heist_playback: bool) -> None:
 
     ready = cli.command(
         "wait for demo root",
-        "wait",
-        "--exists",
-        "--label",
-        "Controls Demo",
-        "--traits",
-        "button",
-        "--timeout",
-        "15",
+        "perform",
+        'WaitFor(.exists(.element(.label("Controls Demo"), .traits([.button]))), timeout: 15)',
     )
     expect_ok(ready, "wait for demo root")
 
@@ -259,7 +257,10 @@ def exercise(cli: SmokeCLI, heist: Path, *, skip_heist_playback: bool) -> None:
 
     controls = cli.json_lines(
         "activate Controls Demo",
-        {"command": "activate", "target": canonical_target(root, "Controls Demo")},
+        {
+            "command": "action",
+            "action": activate_action(canonical_target(root, "Controls Demo")),
+        },
     )
     expect_ok(controls, "activate Controls Demo")
     controls_interface = cli.json_lines("Controls Demo get_interface", {"command": "get_interface"})
@@ -271,11 +272,8 @@ def exercise(cli: SmokeCLI, heist: Path, *, skip_heist_playback: bool) -> None:
 
     back = cli.command(
         "activate back to ButtonHeist Demo",
-        "activate",
-        "--label",
-        "ButtonHeist Demo",
-        "--traits",
-        "backButton",
+        "action",
+        json.dumps(activate_action(canonical_target(controls_interface, "ButtonHeist Demo"))),
         "--timeout",
         "15",
     )

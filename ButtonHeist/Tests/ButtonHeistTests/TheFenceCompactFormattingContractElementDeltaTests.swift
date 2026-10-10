@@ -22,7 +22,6 @@ extension TheFenceCompactFormattingContractTests {
             after: makeTestInterface(elements: unchanged + [added])
         )
         let response = FenceResponse.action(
-            command: .activate,
             result: ActionResult.success(
                 payload: .activate,
                 observation: .observed(evidence)

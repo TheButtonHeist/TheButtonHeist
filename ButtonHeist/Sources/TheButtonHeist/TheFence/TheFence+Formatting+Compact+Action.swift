@@ -5,17 +5,16 @@ import TheScore
 extension FenceResponse {
 
     func compactActionResult(
-        command: TheFence.Command,
         _ result: ActionResult,
         expectation: ExpectationResult?,
         profile: ProjectionProfile = .summary
     ) -> String {
         let projection = ActionProjection(
-            method: command.rawValue,
+            method: result.method.rawValue,
             result: result,
             expectation: expectation,
             expectationHint: expectation.flatMap {
-                Self.expectationFailureHint($0, command: command, result: result)
+                Self.expectationFailureHint($0, result: result)
             },
             profile: profile
         )
@@ -68,7 +67,6 @@ extension FenceResponse {
     /// easy to misread without the action semantics.
     static func expectationFailureHint(
         _ expectation: ExpectationResult,
-        command _: TheFence.Command? = nil,
         result: ActionResult? = nil
     ) -> String? {
         guard case .unmet = expectation,

@@ -46,8 +46,8 @@ final class CLICommandSyncTests: XCTestCase {
         XCTAssertEqual(command.discoveryLimits.maxScrollsPerContainer, 25)
         XCTAssertEqual(command.discoveryLimits.maxScrollsPerDiscovery, 40)
         let arguments = try command.requestArguments()
-        XCTAssertEqual(arguments.value(for: .maxScrollsPerContainer), .int(25))
-        XCTAssertEqual(arguments.value(for: .maxScrollsPerDiscovery), .int(40))
+        XCTAssertEqual(arguments.value(for: "maxScrollsPerContainer"), .int(25))
+        XCTAssertEqual(arguments.value(for: "maxScrollsPerDiscovery"), .int(40))
     }
 
     func testGetInterfaceEncodesCanonicalTargetUnderSubtree() throws {
@@ -61,50 +61,43 @@ final class CLICommandSyncTests: XCTestCase {
         let arguments = try command.requestArguments()
 
         XCTAssertEqual(
-            arguments.value(for: .subtree),
+            arguments.value(for: "subtree"),
             try TheFence.HeistValuePayloadEncoder.encode(target)
         )
-        XCTAssertEqual(arguments.value(for: .maxScrollsPerContainer), .int(25))
-        XCTAssertNil(arguments.value(for: .target))
-        XCTAssertNil(arguments.value(for: .checks))
+        XCTAssertEqual(arguments.value(for: "maxScrollsPerContainer"), .int(25))
+        XCTAssertNil(arguments.value(for: "target"))
+        XCTAssertNil(arguments.value(for: "checks"))
     }
 
     func testGetInterfaceRejectsSubtreePrefixedAlias() {
         XCTAssertThrowsError(try GetInterfaceCommand.parse(["--subtree-label", "Checkout"]))
     }
 
-    func testWaitCommandEncodesCanonicalConcreteChangePredicates() throws {
-        let screen = try WaitCommand.parse(["--change", "screen"]).requestArguments()
-        let elements = try WaitCommand.parse(["--change", "elements"]).requestArguments()
+    func testActionCommandEncodesCanonicalActionAndExpectationJSON() throws {
+        let command = try ActionCommand.parse([
+            #"{"type":"activate","payload":{"target":{"checks":[{"kind":"label","match":{"mode":"exact","value":"Pay"}}]}}}"#,
+            "--expect", #"{"type":"changed","scope":"screen"}"#,
+            "--timeout", "2",
+        ])
+        let arguments = try command.requestArguments()
 
-        // A screen predicate names the arrived-at screen and carries no
-        // assertions: element assertions are a sibling, not payload.
-        XCTAssertEqual(screen.value(for: .predicate), .object([
+        guard case .object(let action)? = arguments.value(for: "action") else {
+            return XCTFail("Expected canonical action object")
+        }
+        XCTAssertEqual(action["type"], .string("activate"))
+        XCTAssertEqual(arguments.value(for: "timeout"), .double(2))
+        XCTAssertEqual(arguments.value(for: "expect"), .object([
             "type": .string("changed"),
             "scope": .string("screen"),
         ]))
-        XCTAssertEqual(elements.value(for: .predicate), .object([
-            "type": .string("changed"),
-            "scope": .string("elements"),
-            "assertions": .array([]),
-        ]))
     }
 
-    func testParsedTimeoutDefaultsComeFromFenceDescriptorsWhenExposed() throws {
-        XCTAssertEqual(try WaitCommand.parse(["--change", "screen"]).timeout, CLITimeoutDefaults.wait)
-        XCTAssertEqual(
-            try TypeTextCommand.parse(["--text", "hello"]).timeout,
-            try XCTUnwrap(TheFence.Command.typeText.descriptor.timeout.singleStepBaseSeconds)
-        )
-        XCTAssertEqual(
-            try ScrollToVisibleCommand.parse(["--label", "Item"]).timeout,
-            try XCTUnwrap(TheFence.Command.scrollToVisible.descriptor.timeout.fixedSeconds)
-        )
-        XCTAssertEqual(try ActivateCommand.parse(["--label", "Item"]).timeoutOption.timeout, CLITimeoutDefaults.common)
-    }
+    func testActionCommandRejectsNonObjectJSON() throws {
+        let command = try ActionCommand.parse([#"["dismiss"]"#])
 
-    func testTypeTextRejectsEmptyText() throws {
-        XCTAssertThrowsError(try TypeTextCommand.parse(["--text", ""]))
+        XCTAssertThrowsError(try command.requestArguments()) { error in
+            XCTAssertTrue(String(describing: error).contains("action must be a JSON object"))
+        }
     }
 
     func testFenceExpectationArgumentContractRejectsShorthand() {
@@ -130,9 +123,9 @@ final class CLICommandSyncTests: XCTestCase {
             inline: source
         )
 
-        XCTAssertEqual(arguments.value(for: .plan), .string(source))
-        XCTAssertNil(arguments.value(for: .version))
-        XCTAssertNil(arguments.value(for: .body))
+        XCTAssertEqual(arguments.value(for: "plan"), .string(source))
+        XCTAssertNil(arguments.value(for: "version"))
+        XCTAssertNil(arguments.value(for: "body"))
     }
 
     func testRunHeistRejectsEmptyInlineButtonHeistSource() {
@@ -145,9 +138,9 @@ final class CLICommandSyncTests: XCTestCase {
         let rawJSON = #"{"version":2,"body":[{"type":"warn","warn":{"message":"x"}}]}"#
         let arguments = try RunHeistCommand.planArguments(inline: rawJSON)
 
-        XCTAssertEqual(arguments.value(for: .plan), .string(rawJSON))
-        XCTAssertNil(arguments.value(for: .version))
-        XCTAssertNil(arguments.value(for: .body))
+        XCTAssertEqual(arguments.value(for: "plan"), .string(rawJSON))
+        XCTAssertNil(arguments.value(for: "version"))
+        XCTAssertNil(arguments.value(for: "body"))
     }
 
     func testRunHeistRequiresExactlyOnePlanSource() {
@@ -172,9 +165,9 @@ final class CLICommandSyncTests: XCTestCase {
             entry: nil
         )
 
-        XCTAssertEqual(arguments.value(for: .path), .string("Flow.heist"))
-        XCTAssertNil(arguments.value(for: .version))
-        XCTAssertNil(arguments.value(for: .body))
+        XCTAssertEqual(arguments.value(for: "path"), .string("Flow.heist"))
+        XCTAssertNil(arguments.value(for: "version"))
+        XCTAssertNil(arguments.value(for: "body"))
     }
 
     func testRunHeistForwardsRootArgumentWithPathSource() throws {
@@ -185,8 +178,8 @@ final class CLICommandSyncTests: XCTestCase {
             argument: #"{"type":"string","value":"milk"}"#
         )
 
-        XCTAssertEqual(arguments.value(for: .path), .string("Search.heist"))
-        XCTAssertEqual(arguments.value(for: .argument), .object([
+        XCTAssertEqual(arguments.value(for: "path"), .string("Search.heist"))
+        XCTAssertEqual(arguments.value(for: "argument"), .object([
             "type": .string("string"),
             "value": .string("milk"),
         ]))
@@ -205,8 +198,8 @@ final class CLICommandSyncTests: XCTestCase {
             argument: #"{"type":"string","value":"milk"}"#
         )
 
-        XCTAssertEqual(arguments.value(for: .plan), .string(source))
-        XCTAssertEqual(arguments.value(for: .argument), .object([
+        XCTAssertEqual(arguments.value(for: "plan"), .string(source))
+        XCTAssertEqual(arguments.value(for: "argument"), .object([
             "type": .string("string"),
             "value": .string("milk"),
         ]))
@@ -238,8 +231,8 @@ final class CLICommandSyncTests: XCTestCase {
             path: prepared.path,
             entry: prepared.entry
         )
-        XCTAssertEqual(arguments.value(for: .path), .string(artifactPath))
-        XCTAssertNil(arguments.value(for: .version))
+        XCTAssertEqual(arguments.value(for: "path"), .string(artifactPath))
+        XCTAssertNil(arguments.value(for: "version"))
     }
 
     func testRunHeistSwiftSourceRequiresEntry() async {
@@ -260,9 +253,9 @@ final class CLICommandSyncTests: XCTestCase {
             commandName: "list_heists"
         )
 
-        XCTAssertEqual(arguments.value(for: .plan), .string(source))
-        XCTAssertNil(arguments.value(for: .version))
-        XCTAssertNil(arguments.value(for: .path))
+        XCTAssertEqual(arguments.value(for: "plan"), .string(source))
+        XCTAssertNil(arguments.value(for: "version"))
+        XCTAssertNil(arguments.value(for: "path"))
     }
 
     func testDescribeHeistAddsSelectorWithoutDroppingInlinePlanName() throws {
@@ -272,12 +265,12 @@ final class CLICommandSyncTests: XCTestCase {
             path: nil,
             entry: nil,
             commandName: "describe_heist",
-            additionalFields: [CommandArgumentFields.value(.heist, "flow")]
+            additionalFields: [CommandArgumentFields.value("heist", "flow")]
         )
 
-        XCTAssertEqual(arguments.value(for: .heist), .string("flow"))
-        XCTAssertEqual(arguments.value(for: .plan), .string(source))
-        XCTAssertNil(arguments.value(for: .version))
+        XCTAssertEqual(arguments.value(for: "heist"), .string("flow"))
+        XCTAssertEqual(arguments.value(for: "plan"), .string(source))
+        XCTAssertNil(arguments.value(for: "version"))
     }
 
     func testValidateHeistBuildsOfflineRequestWithTypedLint() throws {
@@ -289,9 +282,9 @@ final class CLICommandSyncTests: XCTestCase {
 
         let arguments = try command.requestArguments()
 
-        XCTAssertEqual(arguments.value(for: .plan), .string(source))
-        XCTAssertEqual(arguments.value(for: .lint), .string("strict_test"))
-        XCTAssertNil(arguments.value(for: .path))
+        XCTAssertEqual(arguments.value(for: "plan"), .string(source))
+        XCTAssertEqual(arguments.value(for: "lint"), .string("strict_test"))
+        XCTAssertNil(arguments.value(for: "path"))
     }
 
     func testRunHeistRejectsEntryWithoutPath() {
@@ -306,11 +299,14 @@ final class CLICommandSyncTests: XCTestCase {
 
     func testMachineRequestParserParsesCanonicalMachineJSON() throws {
         let parsed = try CLIMachineRequestParser.parse(
-            #"{"command":"type_text","text":"hello"}"#
+            #"{"command":"action","action":{"type":"typeText","payload":{"text":{"value":"hello","mode":"append"}}}}"#
         )
 
-        XCTAssertEqual(parsed.command, .typeText)
-        XCTAssertEqual(parsed.argument(.text), .string("hello"))
+        XCTAssertEqual(parsed.command, .action)
+        guard case .object(let action)? = parsed.argument("action") else {
+            return XCTFail("Expected action object")
+        }
+        XCTAssertEqual(action["type"], .string("typeText"))
     }
 
     func testMachineRequestParserRejectsHumanTextInJSONLinesMode() {
@@ -339,40 +335,45 @@ final class CLICommandSyncTests: XCTestCase {
 
     func testMachineRequestParserAcceptsCanonicalMachineJSONInJSONLinesMode() throws {
         let parsed = try CLIMachineRequestParser.parse(
-            #"{"command":"activate","target":{"checks":[{"kind":"identifier","match":{"mode":"exact","value":"button_save"}}]}}"#
+            #"""
+            {
+              "command": "action",
+              "action": {
+                "type": "activate",
+                "payload": {
+                  "target": {
+                    "checks": [{"kind": "identifier", "match": {"mode": "exact", "value": "button_save"}}]
+                  }
+                }
+              }
+            }
+            """#
         )
 
-        XCTAssertEqual(parsed.command, .activate)
-        guard case .object(let target)? = parsed.argument(.target) else {
-            return XCTFail("expected typed target object")
+        XCTAssertEqual(parsed.command, .action)
+        guard case .object(let action)? = parsed.argument("action") else {
+            return XCTFail("expected typed action object")
         }
-        XCTAssertNotNil(target["checks"])
+        XCTAssertEqual(action["type"], .string("activate"))
     }
 
     func testMachineRequestParserDefersCommandValidationToFenceAdmission() throws {
         let parsed = try CLIMachineRequestParser.parse(
-            #"{"command":"wait","predicate":{"type":"changed","scope":"screen","assertions":[]},"timeout":0,"unknown":true}"#
+            #"{"command":"action","action":{"type":"dismiss"},"timeout":0,"unknown":true}"#
         )
 
-        XCTAssertEqual(parsed.command, .wait)
-        XCTAssertEqual(parsed.argument(.timeout), .int(0))
-        XCTAssertEqual(parsed.argument(FenceParameterKey(rawValue: "unknown")!), .bool(true))
+        XCTAssertEqual(parsed.command, .action)
+        XCTAssertEqual(parsed.argument("timeout"), .int(0))
+        XCTAssertEqual(parsed.argument("unknown"), .bool(true))
     }
 
-    func testMachineRequestParserRejectsMCPOnlyPerformInJSONLinesMode() {
-        XCTAssertThrowsError(
-            try CLIMachineRequestParser.parse(
-                #"{"command":"perform","step":"Activate(.label(\"Pay\"))"}"#
-            )
-        ) { error in
-            let failure = machineRequestFailure(from: error)
-            let message = failure.message
-            XCTAssertTrue(
-                message.contains(#"JSON input command "perform" is not supported"#),
-                message
-            )
-            XCTAssertEqual(failure.details.code, .requestInvalid)
-        }
+    func testMachineRequestParserAcceptsPerformInJSONLinesMode() throws {
+        let parsed = try CLIMachineRequestParser.parse(
+            #"{"command":"perform","step":"Activate(.label(\"Pay\"))"}"#
+        )
+
+        XCTAssertEqual(parsed.command, .perform)
+        XCTAssertEqual(parsed.argument("step"), .string(#"Activate(.label("Pay"))"#))
     }
 
     func testMachineRequestParserAcceptsRunHeistInJSONLinesMode() throws {
@@ -381,7 +382,7 @@ final class CLICommandSyncTests: XCTestCase {
         )
 
         XCTAssertEqual(parsed.command, .runHeist)
-        XCTAssertEqual(parsed.argument(.plan), .string(#"HeistPlan("one") { Warn("check") }"#))
+        XCTAssertEqual(parsed.argument("plan"), .string(#"HeistPlan("one") { Warn("check") }"#))
     }
 
     func testMachineRequestParserAcceptsValidateHeistInJSONLinesMode() throws {
@@ -390,12 +391,12 @@ final class CLICommandSyncTests: XCTestCase {
         )
 
         XCTAssertEqual(parsed.command, .validateHeist)
-        XCTAssertEqual(parsed.argument(.lint), .string("strict_test"))
+        XCTAssertEqual(parsed.argument("lint"), .string("strict_test"))
     }
 
     func testMachineRequestParserRejectsHugeMachineJSONLineBeforeDecoding() {
         let hugeText = String(repeating: "x", count: PublicJSONInputLimits.maxRequestBytes + 1)
-        let line = "{\"command\":\"type_text\",\"text\":\"" + hugeText + "\"}"
+        let line = "{\"command\":\"action\",\"action\":{\"type\":\"setPasteboard\",\"payload\":{\"text\":\"" + hugeText + "\"}}}"
 
         XCTAssertThrowsError(try CLIMachineRequestParser.parse(line)) { error in
             let failure = machineRequestFailure(from: error)
@@ -464,10 +465,10 @@ final class CLICommandSyncTests: XCTestCase {
             ordinal: 1
         )
         let arguments = CommandArgumentFields(
-            CommandArgumentFields.encoded(.target, expectedTarget)
+            CommandArgumentFields.encoded("target", expectedTarget)
         ).envelope
 
-        XCTAssertEqual(arguments.value(for: .target), .object([
+        XCTAssertEqual(arguments.value(for: "target"), .object([
             "checks": .array([
                 .object([
                     "kind": .string("label"),
@@ -499,40 +500,6 @@ final class CLICommandSyncTests: XCTestCase {
         ]))
     }
 
-    func testScrollCLIAllowsNoAccessibilityTarget() throws {
-        let command = try ScrollCommand.parse([])
-
-        XCTAssertFalse(try command.selection.element.hasTarget)
-        XCTAssertEqual(command.direction, "down")
-    }
-
-    func testScrollCLIAcceptsContainerName() throws {
-        let command = try ScrollCommand.parse(["--container-name", "main_scroll", "--direction", "up"])
-
-        XCTAssertEqual(command.selection.containerName, "main_scroll")
-        XCTAssertEqual(command.direction, "up")
-        XCTAssertFalse(try command.selection.element.hasTarget)
-    }
-
-    func testScrollCLIRejectsContainerNameWithAccessibilityTarget() {
-        XCTAssertThrowsError(try ScrollCommand.parse(["--container-name", "main_scroll", "--label", "Item"]))
-    }
-
-    func testScrollToEdgeCLIAllowsNoAccessibilityTargetAndDefaultsTop() throws {
-        let command = try ScrollToEdgeCommand.parse([])
-
-        XCTAssertFalse(try command.selection.element.hasTarget)
-        XCTAssertEqual(command.edge, "top")
-    }
-
-    func testScrollToEdgeCLIAcceptsContainerName() throws {
-        let command = try ScrollToEdgeCommand.parse(["--container-name", "main_scroll", "--edge", "bottom"])
-
-        XCTAssertEqual(command.selection.containerName, "main_scroll")
-        XCTAssertEqual(command.edge, "bottom")
-        XCTAssertFalse(try command.selection.element.hasTarget)
-    }
-
     private func topLevelCommandNames() -> [String] {
         ButtonHeistApp.configuration.subcommands.map { commandType in
             commandType.configuration.commandName ?? String(describing: commandType)
@@ -556,7 +523,7 @@ final class CLICommandSyncTests: XCTestCase {
 }
 
 private extension FenceCommandInput {
-    func argument(_ key: FenceParameterKey) -> HeistValue? {
+    func argument(_ key: String) -> HeistValue? {
         arguments.value(for: key)
     }
 }

@@ -2,68 +2,52 @@ import ThePlans
 import TheScore
 
 @_spi(ButtonHeistTooling) public enum FenceParameters {
-    public static let actionName = FenceParameter<String>.string(.action, minLength: 1)
-    public static let commandName = FenceParameter<String>.string(.command, required: true)
-    public static let containerName = FenceParameter<String>.string(.containerName, minLength: 1)
-    public static let connectionTarget = FenceParameter<String>.string(.target)
-    public static let device = FenceParameter<String>.string(.device)
-    public static let editAction = FenceParameter<EditAction>.enumValue(.action, required: true)
-    public static let elementProperty = FenceParameter<ElementProperty>.enumValue(.property)
+    public static let action = objectParam("action", required: true)
+    public static let commandName = FenceParameter<String>.string("command", required: true)
+    public static let connectionTarget = FenceParameter<String>.string("target")
+    public static let device = FenceParameter<String>.string("device")
+    public static let elementProperty = FenceParameter<ElementProperty>.enumValue("property")
     public static let heistCatalogDetail = FenceParameter<HeistCatalogDetail>.enumValue(
-        .detail,
+        "detail",
         defaultValue: .summary
     )
-    public static let heistName = FenceParameter<String>.string(.heist, required: true)
+    public static let heistName = FenceParameter<String>.string("heist", required: true)
     public static let heistTimeout = FenceParameter<HeistTimeout>.heistTimeout(
-        .timeout,
+        "timeout",
         defaultValue: .default
     )
     public static let heistValidationLint = FenceParameter<HeistValidationLintMode>.enumValue(
-        .lint,
+        "lint",
         defaultValue: .compositionQuality
     )
-    public static let gestureDuration = FenceParameter<GestureDuration>.gestureDuration(.duration)
-    public static let inlineData = FenceParameter<Bool>.boolean(.inlineData, defaultValue: false)
-    public static let inlinePlan = FenceParameter<String>.string(.plan)
-    public static let interfaceDetail = FenceParameter<InterfaceDetail>.enumValue(.detail, defaultValue: .summary)
+    public static let inlineData = FenceParameter<Bool>.boolean("inlineData", defaultValue: false)
+    public static let inlinePlan = FenceParameter<String>.string("plan")
+    public static let interfaceDetail = FenceParameter<InterfaceDetail>.enumValue("detail", defaultValue: .summary)
     public static let maxScrollsPerContainer = FenceParameter<Int>.integer(
-        .maxScrollsPerContainer,
+        "maxScrollsPerContainer",
         minimum: Double(InterfaceDiscoveryLimit.allowedRange.lowerBound),
         maximum: Double(InterfaceDiscoveryLimit.allowedRange.upperBound)
     )
     public static let maxScrollsPerDiscovery = FenceParameter<Int>.integer(
-        .maxScrollsPerDiscovery,
+        "maxScrollsPerDiscovery",
         minimum: Double(InterfaceDiscoveryLimit.allowedRange.lowerBound),
         maximum: Double(InterfaceDiscoveryLimit.allowedRange.upperBound)
     )
-    public static let output = FenceParameter<String>.string(.output)
-    public static let pasteboardText = FenceParameter<String>.string(.text, required: true, minLength: 1)
-    public static let performStep = FenceParameter<String>.string(.step, required: true, minLength: 1)
-    public static let planPath = FenceParameter<String>.string(.path)
-    public static let screenPointX = FenceParameter<Double>.number(.x, required: true)
-    public static let screenPointY = FenceParameter<Double>.number(.y, required: true)
-    public static let screenMode = FenceParameter<ScreenCaptureMode>.enumValue(.mode, defaultValue: .raw)
-    public static let rotorDirection = FenceParameter<RotorDirection>.enumValue(.direction, defaultValue: .next)
-    public static let rotorIndex = FenceParameter<Int>.integer(.rotorIndex, minimum: 0)
-    public static let rotorName = FenceParameter<String>.string(.rotor)
-    public static let scrollDirection = FenceParameter<ScrollDirection>.enumValue(.direction, defaultValue: .down)
-    public static let scrollEdge = FenceParameter<ScrollEdge>.enumValue(.edge, defaultValue: .top)
-    public static let swipeDirection = FenceParameter<SwipeDirection>.enumValue(.direction, required: true)
-    public static let text = FenceParameter<String>.string(.text, required: true)
-    public static let textInputMode = FenceParameter<TextInputText.Mode>.enumValue(.mode, defaultValue: .append)
+    public static let output = FenceParameter<String>.string("output")
+    public static let performStep = FenceParameter<String>.string("step", required: true, minLength: 1)
+    public static let planPath = FenceParameter<String>.string("path")
+    public static let screenMode = FenceParameter<ScreenCaptureMode>.enumValue("mode", defaultValue: .raw)
     public static let timeout = FenceParameter<Double>.number(
-        .timeout,
+        "timeout",
         maximum: WaitTimeout.maximumSeconds,
         exclusiveMinimum: 0
     )
-    public static let token = FenceParameter<String>.string(.token)
-    public static let unitPointX = FenceParameter<Double>.number(.x, required: true, minimum: 0, maximum: 1)
-    public static let unitPointY = FenceParameter<Double>.number(.y, required: true, minimum: 0, maximum: 1)
+    public static let token = FenceParameter<String>.string("token")
 }
 
 internal func param(
-    _ key: FenceParameterKey,
-    _ kind: FenceParameterScalarKind,
+    _ key: String,
+    _ kind: JSONSchema.Scalar,
     required: Bool = false,
     enumValues: [String]? = nil,
     defaultValue: HeistValue? = nil,
@@ -72,96 +56,87 @@ internal func param(
     exclusiveMinimum: Double? = nil,
     minLength: Int? = nil
 ) -> FenceParameterSpec {
-    let constraints = FenceParameterScalarConstraints(
-        enumValues: enumValues,
-        defaultValue: defaultValue,
-        minimum: minimum,
-        maximum: maximum,
-        exclusiveMinimum: exclusiveMinimum,
-        minLength: minLength
-    )
-    return FenceParameterSpec(
-        key: key.rawValue,
-        schema: .scalar(kind, constraints: constraints),
+    FenceParameterSpec(
+        key: key,
+        schema: .scalar(
+            kind,
+            enumValues: enumValues,
+            defaultValue: defaultValue,
+            minimum: minimum,
+            maximum: maximum,
+            exclusiveMinimum: exclusiveMinimum,
+            minLength: minLength
+        ),
         required: required
     )
 }
 
 internal func objectParam(
-    _ key: FenceParameterKey,
-    required: Bool = false,
-    validation: FenceParameterValidation = .schema
+    _ key: String,
+    required: Bool = false
 ) -> FenceParameterSpec {
     FenceParameterSpec(
-        key: key.rawValue,
+        key: key,
         schema: .object(),
-        required: required,
-        validation: validation
+        required: required
     )
 }
 
 internal func objectParam(
-    _ key: FenceParameterKey,
+    _ key: String,
     required: Bool = false,
     properties: [FenceParameterSpec],
-    additionalProperties: Bool = false,
-    validation: FenceParameterValidation = .schema,
-    schemaProjection: FenceParameterSchemaProjection = .inline
+    additionalProperties: Bool = false
 ) -> FenceParameterSpec {
     FenceParameterSpec(
-        key: key.rawValue,
+        key: key,
         schema: .object(properties: properties, additionalProperties: additionalProperties),
-        required: required,
-        validation: validation,
-        schemaProjection: schemaProjection
+        required: required
     )
 }
 
 internal func arrayParam(
-    _ key: FenceParameterKey,
+    _ key: String,
     required: Bool = false,
-    items: FenceParameterSchema? = nil,
+    items: JSONSchema? = nil,
     minItems: Int? = nil,
     maxItems: Int? = nil
 ) -> FenceParameterSpec {
     FenceParameterSpec(
-        key: key.rawValue,
+        key: key,
         schema: .array(
             items: items,
-            constraints: FenceParameterArrayConstraints(minItems: minItems, maxItems: maxItems)
+            minItems: minItems,
+            maxItems: maxItems
         ),
         required: required
     )
 }
 
 internal func unconstrainedParam(
-    _ key: FenceParameterKey,
-    required: Bool = false,
-    validation: FenceParameterValidation = .schema
+    _ key: String,
+    required: Bool = false
 ) -> FenceParameterSpec {
     FenceParameterSpec(
-        key: key.rawValue,
+        key: key,
         schema: .unconstrained,
-        required: required,
-        validation: validation
+        required: required
     )
 }
 
 internal func accessibilityTargetParam(
-    _ key: FenceParameterKey,
+    _ key: String,
     required: Bool = false
 ) -> FenceParameterSpec {
-    objectParam(
-        key,
-        required: required,
-        properties: FenceParameterBlocks.inlineAccessibilityTargetFields,
-        validation: .customPayload,
-        schemaProjection: .accessibilityTargetReference
+    FenceParameterSpec(
+        key: key,
+        schema: .reference(AccessibilityTargetSchemaDefinition.reference),
+        required: required
     )
 }
 
 internal func stringMatchParam(
-    _ key: FenceParameterKey,
+    _ key: String,
     required: Bool = false,
     allowsArray: Bool = false
 ) -> FenceParameterSpec {
@@ -172,19 +147,18 @@ internal func stringMatchParam(
             ? " Element matcher fields also accept an array of StringMatch objects; every object must match."
             : "")
     return FenceParameterSpec(
-        key: key.rawValue,
+        key: key,
         schema: .scalar(.stringMatch(modeValues: modeValues, description: description)),
-        required: required,
-        validation: .customPayload
+        required: required
     )
 }
 
-internal func containerPredicateParam(_ key: FenceParameterKey) -> FenceParameterSpec {
+internal func containerPredicateParam(_ key: String) -> FenceParameterSpec {
     objectParam(
         key,
         properties: [
             arrayParam(
-                .checks,
+                "checks",
                 required: true,
                 items: .object(
                     properties: containerPredicateCheckProperties,
@@ -192,50 +166,36 @@ internal func containerPredicateParam(_ key: FenceParameterKey) -> FenceParamete
                 ),
                 minItems: 1
             ),
-        ],
-        validation: .customPayload
+        ]
     )
 }
 
-/// Runtime descriptor inspection retains the public JSON input depth. The JSON
-/// Schema projection marks every recursive edge as a reference to the canonical
-/// accessibility target definition.
-internal let accessibilityTargetSchemaMaximumNestingDepth = PublicJSONInputLimits.maxNestingDepth
-
-internal func accessibilityTargetProperties(
-    remainingNestingDepth: Int = accessibilityTargetSchemaMaximumNestingDepth
-) -> [FenceParameterSpec] {
-    precondition(remainingNestingDepth > 0)
-    let terminalProperties = [
-        predicateChecksParam(.checks),
-        param(.ref, .string),
-        param(.ordinal, .integer, minimum: 0),
-        containerPredicateParam(.container),
-    ]
-    guard remainingNestingDepth > 1 else { return terminalProperties }
-    return terminalProperties + [
-        objectParam(
-            .target,
-            properties: accessibilityTargetProperties(remainingNestingDepth: remainingNestingDepth - 1),
-            additionalProperties: false,
-            validation: .customPayload,
-            schemaProjection: .accessibilityTargetReference
+internal func accessibilityTargetProperties() -> [FenceParameterSpec] {
+    [
+        predicateChecksParam("checks"),
+        param("ref", .string),
+        param("ordinal", .integer, minimum: 0),
+        containerPredicateParam("container"),
+        FenceParameterSpec(
+            key: "target",
+            schema: .reference(AccessibilityTargetSchemaDefinition.reference),
+            required: false
         ),
     ]
 }
 
-internal func predicateChecksParam(_ key: FenceParameterKey) -> FenceParameterSpec {
+internal func predicateChecksParam(_ key: String) -> FenceParameterSpec {
     arrayParam(
         key,
         items: .object(
             properties: [
                 param(
-                    .kind, .string, required: true,
+                    "kind", .string, required: true,
                     enumValues: ElementPredicateCheck.Kind.allCases.map(\.rawValue)
                 ),
-                stringMatchParam(.match),
-                arrayParam(.values, items: .unconstrained),
-                objectParam(.check),
+                stringMatchParam("match"),
+                arrayParam("values", items: .unconstrained),
+                objectParam("check"),
             ],
             additionalProperties: false
         )
@@ -243,8 +203,8 @@ internal func predicateChecksParam(_ key: FenceParameterKey) -> FenceParameterSp
 }
 
 private let semanticContainerPredicateProperties: [FenceParameterSpec] = [
-    param(.kind, .string, required: true, enumValues: semanticContainerPredicateKindValues),
-    stringMatchParam(.match, required: true),
+    param("kind", .string, required: true, enumValues: semanticContainerPredicateKindValues),
+    stringMatchParam("match", required: true),
 ]
 
 private let semanticContainerPredicateKindValues: [String] = [
@@ -254,16 +214,15 @@ private let semanticContainerPredicateKindValues: [String] = [
 
 private let containerPredicateCheckProperties: [FenceParameterSpec] = [
     param(
-        .kind, .string, required: true,
+        "kind", .string, required: true,
         enumValues: ContainerPredicateCheck.wireKindValues
     ),
-    param(.type, .string, enumValues: AccessibilityContainerKind.allCases.map(\.rawValue)),
-    stringMatchParam(.match),
+    param("type", .string, enumValues: AccessibilityContainerKind.allCases.map(\.rawValue)),
+    stringMatchParam("match"),
     objectParam(
-        .semantic,
-        properties: semanticContainerPredicateProperties,
-        validation: .customPayload
+        "semantic",
+        properties: semanticContainerPredicateProperties
     ),
-    arrayParam(.values, items: .unconstrained, minItems: 1),
-    unconstrainedParam(.value, validation: .customPayload),
+    arrayParam("values", items: .unconstrained, minItems: 1),
+    unconstrainedParam("value"),
 ]

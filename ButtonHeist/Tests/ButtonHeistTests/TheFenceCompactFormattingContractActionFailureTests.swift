@@ -7,17 +7,16 @@ import TheScore
 
 extension TheFenceCompactFormattingContractTests {
 
-    func testCompactActionRenderingUsesParsedCommandNames() {
-        let cases: [(command: TheFence.Command, payload: ActionResult.Payload, expected: String)] = [
-            (.typeText, .typeText(nil), "type_text: ok"),
-            (.activate, .customAction, "activate: ok"),
-            (.dismissKeyboard, .dismissKeyboard, "dismiss_keyboard: ok"),
-            (.oneFingerTap, .oneFingerTap, "one_finger_tap: ok"),
+    func testCompactActionRenderingUsesCanonicalResultMethods() {
+        let cases: [(payload: ActionResult.Payload, expected: String)] = [
+            (.typeText(nil), "typeText: ok"),
+            (.customAction, "customAction: ok"),
+            (.dismissKeyboard, "dismissKeyboard: ok"),
+            (.oneFingerTap, "oneFingerTap: ok"),
         ]
 
         for testCase in cases {
             let output = FenceResponse.action(
-                command: testCase.command,
                 result: HeistResultFixture.actionResult(payload: testCase.payload)
             ).compactFormatted()
 
@@ -25,26 +24,16 @@ extension TheFenceCompactFormattingContractTests {
         }
     }
 
-    func testCompactActionRenderingDoesNotInferCommandFromActionMethod() {
-        let output = FenceResponse.action(
-            command: .drag,
-            result: HeistResultFixture.actionResult(payload: .oneFingerTap)
-        ).compactFormatted()
-
-        XCTAssertEqual(output, "drag: ok")
-    }
-
     func testScreenActionHandlerMessageRendersInCompactHumanAndJSON() throws {
         let response = FenceResponse.action(
-            command: .perform,
             result: HeistResultFixture.actionResult(
                 payload: .dismiss,
                 screenActionHandler: "UINavigationController"
             )
         )
 
-        XCTAssertEqual(response.compactFormatted(), "perform: ok\nHandler: UINavigationController")
-        XCTAssertEqual(response.humanFormatted(), "✓ perform  Handler: UINavigationController")
+        XCTAssertEqual(response.compactFormatted(), "dismiss: ok\nHandler: UINavigationController")
+        XCTAssertEqual(response.humanFormatted(), "✓ dismiss  Handler: UINavigationController")
 
         let json = try publicJSONProbe(response)
         XCTAssertNoThrow(try json.assertMissing("message"))
@@ -53,10 +42,10 @@ extension TheFenceCompactFormattingContractTests {
 
     func testExplicitOneFingerTapKeepsCanonicalResultIdentity() {
         let result = HeistResultFixture.actionResult(payload: .oneFingerTap)
-        let output = FenceResponse.action(command: .oneFingerTap, result: result).compactFormatted()
+        let output = FenceResponse.action(result: result).compactFormatted()
 
         XCTAssertEqual(result.method, .oneFingerTap)
-        XCTAssertEqual(output, "one_finger_tap: ok")
+        XCTAssertEqual(output, "oneFingerTap: ok")
     }
 
     func testActionFailureWinsOverAttachedExpectationResult() throws {
@@ -66,7 +55,6 @@ extension TheFenceCompactFormattingContractTests {
             actual: "not evaluated"
         )
         let response = FenceResponse.action(
-            command: .activate,
             result: HeistResultFixture.actionResult(
                 succeeded: false,
                 payload: .activate,
@@ -111,7 +99,6 @@ extension TheFenceCompactFormattingContractTests {
             coverage: .incomplete(.historyUnavailable)
         )
         let response = FenceResponse.action(
-            command: .activate,
             result: ActionResult.success(
                 payload: .activate,
                 observation: .observed(evidence)
@@ -129,7 +116,6 @@ extension TheFenceCompactFormattingContractTests {
 
     func testActionFailureDetailsFeedJSONAndCompactRendering() throws {
         let response = FenceResponse.action(
-            command: .activate,
             result: HeistResultFixture.actionResult(
                 succeeded: false,
                 payload: .activate,
@@ -156,7 +142,6 @@ extension TheFenceCompactFormattingContractTests {
 
     func testActionFailureCodeAndClassAgreeAcrossPublicFormats() throws {
         let response = FenceResponse.action(
-            command: .activate,
             result: HeistResultFixture.actionResult(
                 succeeded: false,
                 payload: .activate,
@@ -189,7 +174,6 @@ extension TheFenceCompactFormattingContractTests {
             observationEvidence: evidence
         )
         let response = FenceResponse.action(
-            command: .activate,
             result: result,
             expectation: ExpectationResult(
                 met: false,
@@ -198,7 +182,6 @@ extension TheFenceCompactFormattingContractTests {
             )
         )
         let arbitraryActualResponse = FenceResponse.action(
-            command: .activate,
             result: result,
             expectation: ExpectationResult(
                 met: false,
@@ -226,7 +209,6 @@ extension TheFenceCompactFormattingContractTests {
 
     func testScreenExpectationFailureHintDoesNotTrustElementsChangedActualText() throws {
         let response = FenceResponse.action(
-            command: .activate,
             result: HeistResultFixture.actionResult(),
             expectation: ExpectationResult(
                 met: false,
@@ -253,7 +235,6 @@ extension TheFenceCompactFormattingContractTests {
             observation: .observed(evidence)
         )
         let response = FenceResponse.action(
-            command: .activate,
             result: result,
             expectation: ExpectationResult(
                 met: false,
@@ -262,7 +243,6 @@ extension TheFenceCompactFormattingContractTests {
             )
         )
         let arbitraryActualResponse = FenceResponse.action(
-            command: .activate,
             result: result,
             expectation: ExpectationResult(
                 met: false,
@@ -300,7 +280,6 @@ extension TheFenceCompactFormattingContractTests {
             after: makeTestInterface(elementCount: 2)
         )
         let response = FenceResponse.action(
-            command: .activate,
             result: HeistResultFixture.actionResult(
                 payload: .activate,
                 observationEvidence: evidence
@@ -341,19 +320,16 @@ extension TheFenceCompactFormattingContractTests {
 
         XCTAssertNil(FenceResponse.expectationFailureHint(
             expectation,
-            command: .activate,
             result: customActionResult
         ))
         XCTAssertNil(FenceResponse.expectationFailureHint(
             expectation,
-            command: .activate,
             result: failedActivateResult
         ))
     }
 
     func testActivateNoChangeWithoutExpectationRemainsSuccessful() throws {
         let response = FenceResponse.action(
-            command: .activate,
             result: HeistResultFixture.actionResult()
         )
 
@@ -369,7 +345,6 @@ extension TheFenceCompactFormattingContractTests {
     func testActivateNoChangeCarriesActivationTraceWithoutFailingAction() throws {
         let interface = makeTestInterface(elementCount: 3)
         let response = FenceResponse.action(
-            command: .activate,
             result: HeistResultFixture.actionResult(
                 payload: .activate,
                 observationEvidence: makeObservationEvidence(

@@ -29,7 +29,6 @@ extension TheFenceCompactFormattingContractTests {
 
     func testExpectationSuccessStaysSuccessfulAcrossPublicFormats() throws {
         let response = FenceResponse.action(
-            command: .activate,
             result: ActionResult.success(payload: .activate),
             expectation: ExpectationResult(
                 met: true,

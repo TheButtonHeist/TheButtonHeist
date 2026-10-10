@@ -13,27 +13,27 @@ struct ToolRoutingTests {
         let operation = try routed(TheFence.Command.connect.rawValue, ["target": .string("demo")])
 
         #expect(operation.command == .connect)
-        #expect(operation.arguments.value(for: .target) == .string("demo"))
+        #expect(operation.arguments.value(for: "target") == .string("demo"))
     }
 
     @Test("tool routing exposure matches descriptors")
     func toolRoutingExposureMatchesDescriptors() throws {
         let arguments = try MCPValueBridge.commandEnvelope(from: [:])
         for descriptor in TheFence.Command.descriptors {
-            let result = TheFence.Command.routeToolRequest(
-                named: descriptor.command.rawValue,
-                arguments: arguments
-            )
-
-            switch (descriptor.mcpExposure, result) {
-            case (.directTool, .success(let input)):
+            switch descriptor.mcpExposure {
+            case .directTool:
+                let input = try TheFence.Command.routeToolRequest(
+                    named: descriptor.command.rawValue,
+                    arguments: arguments
+                )
                 #expect(input.command == descriptor.command)
-            case (.notExposed, .failure(let error)):
-                #expect(error.message == "Unknown tool: \(descriptor.command.rawValue)")
-            case (.directTool, .failure(let error)):
-                Issue.record("Expected \(descriptor.command.rawValue) to route, got \(error.message)")
-            case (.notExposed, .success):
-                Issue.record("Expected \(descriptor.command.rawValue) to be hidden from MCP routing")
+            case .notExposed:
+                #expect(throws: FenceOperationRoutingError.self) {
+                    try TheFence.Command.routeToolRequest(
+                        named: descriptor.command.rawValue,
+                        arguments: arguments
+                    )
+                }
             }
         }
     }
@@ -48,7 +48,7 @@ struct ToolRoutingTests {
         )
 
         #expect(operation.command == .perform)
-        #expect(operation.arguments.value(for: .step) == .string(#"Activate(.label("Pay")).expect(.screenChanged)"#))
+        #expect(operation.arguments.value(for: "step") == .string(#"Activate(.label("Pay")).expect(.screenChanged)"#))
     }
 
     @Test("granular action tools are not MCP tools")
@@ -62,22 +62,24 @@ struct ToolRoutingTests {
             "edit_action",
             "scroll",
         ] {
-            let result = routeToolRequest(name: name)
-            guard case .failure(let error) = result else {
+            do {
+                _ = try TheFence.Command.routeToolCall(named: name)
                 Issue.record("Expected routing failure for \(name)")
-                continue
+            } catch {
+                #expect(error.message == "Unknown tool: \(name)")
             }
-            #expect(error.message == "Unknown tool: \(name)")
         }
     }
 
     @Test("routing errors map to canonical public failures")
     func routingErrorsMapToCanonicalPublicFailures() throws {
-        let result = routeToolRequest(name: "not_a_tool")
-
-        guard case .failure(let error) = result else {
+        let error: FenceOperationRoutingError
+        do {
+            _ = try TheFence.Command.routeToolCall(named: "not_a_tool")
             Issue.record("Expected routing failure")
             return
+        } catch let routingError {
+            error = routingError
         }
 
         let response = FenceResponse.failure(error)
@@ -104,7 +106,7 @@ struct ToolRoutingTests {
         )
 
         #expect(operation.command == .runHeist)
-        #expect(operation.arguments.value(for: .plan) == .string("HeistPlan { Activate(.label(\"Pay\")) }"))
+        #expect(operation.arguments.value(for: "plan") == .string("HeistPlan { Activate(.label(\"Pay\")) }"))
     }
 
     @Test("run_heist routes root argument opaquely")
@@ -121,7 +123,7 @@ struct ToolRoutingTests {
         )
 
         #expect(operation.command == .runHeist)
-        #expect(operation.arguments.value(for: .argument) == .object([
+        #expect(operation.arguments.value(for: "argument") == .object([
             "type": .string("string"),
             "value": .string("milk"),
         ]))
@@ -138,8 +140,8 @@ struct ToolRoutingTests {
         )
 
         #expect(operation.command == .validateHeist)
-        #expect(operation.arguments.value(for: .plan) == .string("HeistPlan { Warn(\"Check\") }"))
-        #expect(operation.arguments.value(for: .lint) == .string("strict_test"))
+        #expect(operation.arguments.value(for: "plan") == .string("HeistPlan { Warn(\"Check\") }"))
+        #expect(operation.arguments.value(for: "lint") == .string("strict_test"))
     }
 
     @Test("MCP rejects nested argument trees before HeistValue conversion")
@@ -225,17 +227,11 @@ struct ToolRoutingTests {
         )
 
         #expect(list.command == .listHeists)
-        #expect(list.arguments.value(for: .detail) == .string("detailed"))
-        #expect(list.arguments.value(for: .path) == .string("Flow.heist"))
+        #expect(list.arguments.value(for: "detail") == .string("detailed"))
+        #expect(list.arguments.value(for: "path") == .string("Flow.heist"))
         #expect(describe.command == .describeHeist)
-        #expect(describe.arguments.value(for: .heist) == .string("Cart.checkout"))
-        #expect(describe.arguments.value(for: .path) == .string("Flow.heist"))
-    }
-
-    private func routeToolRequest(
-        name: String
-    ) -> Result<TheFence.Command, FenceOperationRoutingError> {
-        TheFence.Command.routeToolCall(named: name)
+        #expect(describe.arguments.value(for: "heist") == .string("Cart.checkout"))
+        #expect(describe.arguments.value(for: "path") == .string("Flow.heist"))
     }
 
     private func routed(
@@ -243,12 +239,7 @@ struct ToolRoutingTests {
         _ arguments: [String: Argument]
     ) throws -> RoutedCommand {
         let envelope = try MCPValueBridge.commandEnvelope(from: arguments)
-        switch TheFence.Command.routeToolRequest(named: name, arguments: envelope) {
-        case .success(let request):
-            return request
-        case .failure(let error):
-            throw error
-        }
+        return try TheFence.Command.routeToolRequest(named: name, arguments: envelope)
     }
 
     private static func nestedMCPValueOverLimit() -> Value {

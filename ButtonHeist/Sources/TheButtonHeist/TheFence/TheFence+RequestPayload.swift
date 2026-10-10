@@ -3,31 +3,22 @@ import ThePlans
 import TheScore
 
 extension TheFence {
-    struct MissingAccessibilityTarget: Error {
-        let command: Command
-    }
-
-    struct ContainerTargetRequiresElement: Error, Sendable, Equatable {
-        let command: Command
-    }
-
     typealias ResponseOperation = @ButtonHeistActor @Sendable (TheFence) async throws -> FenceResponse
 
-    struct DurableHeistActionCommand: Sendable {
+    struct DurableActionExecution: Sendable {
         let action: HeistActionCommand
+        let expectation: ExpectationPayload
 
-        init?(_ action: HeistActionCommand) {
+        init?(_ action: HeistActionCommand, expectation: ExpectationPayload) {
             guard action.durableHeistActionFailure == nil else { return nil }
             self.action = action
+            self.expectation = expectation
         }
-    }
 
-    enum SingleStepHeistExecution: Sendable {
-        case action(
-            DurableHeistActionCommand,
-            expectation: ExpectationPayload
-        )
-        case wait(WaitStep)
+        var actionTimeoutOverride: WaitTimeout? {
+            guard expectation.expectation == nil else { return nil }
+            return expectation.timeout
+        }
     }
 
     struct DirectActionExecution: Sendable {
@@ -42,7 +33,7 @@ extension TheFence {
     }
 
     enum CommandExecution: Sendable {
-        case singleStepHeist(SingleStepHeistExecution)
+        case durableAction(DurableActionExecution)
         case directAction(DirectActionExecution)
         case response(ResponseOperation)
 
@@ -72,142 +63,55 @@ extension TheFence {
             )
         }
         for parameter in descriptor.parameters {
-            guard let value = arguments.values[parameter.key] else {
-                guard parameter.required else { continue }
-                throw SchemaValidationError(
-                    field: arguments.field(forUnknownKey: parameter.key),
-                    observed: "missing",
-                    expected: parameter.expectedTypeDescription
-                )
-            }
-            try parameter.validatePayload(
-                value,
-                field: arguments.field(forUnknownKey: parameter.key)
-            )
-        }
-    }
-
-    func decodeScrollTarget(_ arguments: CommandArgumentEnvelope) throws -> ScrollTarget {
-        ScrollTarget(
-            selection: try arguments.scrollContainerSelection(),
-            direction: try arguments.value(
-                FenceParameters.scrollDirection,
-                defaultFrom: Command.scroll.descriptor
-            )
-        )
-    }
-
-    func decodeScrollToEdgeTarget(_ arguments: CommandArgumentEnvelope) throws -> ScrollToEdgeTarget {
-        ScrollToEdgeTarget(
-            selection: try arguments.scrollContainerSelection(),
-            edge: try arguments.value(
-                FenceParameters.scrollEdge,
-                defaultFrom: Command.scrollToEdge.descriptor
-            )
-        )
-    }
-
-    func decodeAccessibilityAction(_ arguments: CommandArgumentEnvelope) throws -> HeistActionCommand {
-        try Self.accessibilityActionCommand(
-            target: arguments.requiredAccessibilityTarget(command: .activate),
-            actionName: arguments.value(FenceParameters.actionName)
-        )
-    }
-
-    func decodeRotorAction(_ arguments: CommandArgumentEnvelope) throws -> HeistActionCommand {
-        let rotor = try arguments.value(FenceParameters.rotorName)
-        let rotorIndex = try arguments.value(FenceParameters.rotorIndex)
-        if rotor != nil, rotorIndex != nil {
+            guard parameter.required, arguments.values[parameter.key] == nil else { continue }
             throw SchemaValidationError(
-                field: "rotor/rotorIndex",
-                observed: arguments.observedDescription,
-                expected: "either rotor or rotorIndex"
+                field: arguments.field(forUnknownKey: parameter.key),
+                observed: "missing",
+                expected: parameter.expectedTypeDescription
             )
         }
-        let selection: RotorSelection = if let rotor {
-            .named(try RotorName(validating: rotor))
-        } else if let rotorIndex {
-            .index(try RotorIndex(validating: rotorIndex))
-        } else {
-            .automatic
-        }
-        return .rotor(
-            selection: selection,
-            target: try arguments.requiredAccessibilityTarget(command: .rotor),
-            direction: try arguments.value(
-                FenceParameters.rotorDirection,
-                defaultFrom: Command.rotor.descriptor
-            )
-        )
     }
 
-    func decodeTypeTextAction(_ arguments: CommandArgumentEnvelope) throws -> HeistActionCommand {
-        let mode = try arguments.value(
-            FenceParameters.textInputMode,
-            defaultFrom: Command.typeText.descriptor
-        )
-        let text = try arguments.requiredValue(FenceParameters.text)
-        let input: TextInputText
-        do {
-            input = try TextInputText(validating: text, mode: mode)
-        } catch TextInputTextError.emptyAppend {
+    func decodeAction(_ arguments: CommandArgumentEnvelope) throws -> HeistActionCommand {
+        guard let value = arguments.value(for: "action") else {
             throw SchemaValidationError(
-                field: arguments.field(.text),
-                observed: "string \"\(text)\"",
-                expected: "non-empty string"
+                field: arguments.field("action"),
+                observed: "missing",
+                expected: "heist action command object"
             )
         }
-        return .typeText(
-            text: input,
-            target: try arguments.decodedAccessibilityTarget().map {
-                try $0.validatedElementTarget(command: .typeText)
-            }
+        return try HeistValuePayloadDecoder.decode(
+            value,
+            field: arguments.field("action"),
+            as: HeistActionCommand.self
         )
-    }
-
-    static func directActionExecution(
-        _ command: Command,
-        _ action: HeistActionCommand,
-        expectationPayload: ExpectationPayload
-    ) throws -> CommandExecution {
-        guard expectationPayload.expectation == nil else {
-            throw FenceError.invalidRequest(
-                "command \"\(command.rawValue)\" direct dispatch does not support expect"
-            )
-        }
-        guard let execution = DirectActionExecution(
-            action,
-            timeout: HeistExecutionBudget.requiredFixedActionTimeoutClass(for: command).seconds
-        ) else {
-            preconditionFailure("\(command.rawValue) contract classified a durable action as direct execution")
-        }
-        return .directAction(execution)
     }
 
     static func appInteractionExecution(
-        _ command: Command,
         _ action: HeistActionCommand,
         expectationPayload: ExpectationPayload
     ) throws -> CommandExecution {
-        if let durableAction = DurableHeistActionCommand(action) {
-            return .singleStepHeist(.action(
-                durableAction,
-                expectation: expectationPayload
-            ))
+        if let execution = DurableActionExecution(action, expectation: expectationPayload) {
+            return .durableAction(execution)
         }
-        return try directActionExecution(
-            command,
+        guard expectationPayload.expectation == nil else {
+            throw FenceError.invalidRequest("command \"action\" direct dispatch does not support expect")
+        }
+        guard let execution = DirectActionExecution(
             action,
-            expectationPayload: expectationPayload
-        )
+            timeout: HeistExecutionBudget.fixedActionTimeoutClass(for: action.wireType).seconds
+        ) else {
+            preconditionFailure("Action contract classified a durable action as direct execution")
+        }
+        return .directAction(execution)
     }
 
     /// Admit a routed public command input into TheFence's typed runtime.
     @_spi(ButtonHeistTooling) public func admit(_ input: FenceCommandInput) throws -> AdmittedFenceCommand {
         try Self.validateBoundaryShape(command: input.command, arguments: input.arguments)
         return AdmittedFenceCommand(
-            command: input.command,
-            execution: try input.command.contract.admission(self, input.command, input.arguments)
+            requiresConnectionBeforeDispatch: input.command.descriptor.requiresConnectionBeforeDispatch,
+            execution: try input.command.contract.admission(self, input.arguments)
         )
     }
 }

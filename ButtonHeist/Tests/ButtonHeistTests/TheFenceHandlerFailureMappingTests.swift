@@ -405,14 +405,18 @@ extension TheFenceHandlerTests {
     @ButtonHeistActor
     func testDirectActionExpectIsRejectedBeforeDispatch() async throws {
         await assertValidationError(
-            command: .scroll,
+            command: .action,
             arguments: [
+                "action": .object([
+                    "type": .string("scroll"),
+                    "payload": .object(["direction": .string("down")]),
+                ]),
                 "expect": .object([
                     "type": .string("exists"),
                     "target": elementPredicateValue(label: "Receipt"),
                 ]),
             ],
-            equals: "command \"scroll\" direct dispatch does not support expect"
+            equals: "command \"action\" direct dispatch does not support expect"
         )
     }
 

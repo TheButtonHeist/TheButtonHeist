@@ -132,8 +132,7 @@ private extension PublicCommandContractFixture {
         enum Kind: String, Encodable {
             case none
             case fixed
-            case wait
-            case singleStepAction
+            case action
             case performStep
             case heist
         }
@@ -146,8 +145,7 @@ private extension PublicCommandContractFixture {
 
         case none
         case fixed(FenceCommandFixedTimeout)
-        case wait
-        case singleStepAction(FenceCommandFixedTimeout)
+        case action
         case performStep
         case heist
 
@@ -157,10 +155,8 @@ private extension PublicCommandContractFixture {
                 self = .none
             case .fixed(let base):
                 self = .fixed(base)
-            case .wait:
-                self = .wait
-            case .singleStepAction(let base):
-                self = .singleStepAction(base)
+            case .action:
+                self = .action
             case .performStep:
                 self = .performStep
             case .heist:
@@ -177,12 +173,8 @@ private extension PublicCommandContractFixture {
                 try container.encode(Kind.fixed, forKey: .kind)
                 try container.encode(base.rawValue, forKey: .base)
                 try container.encode(base.seconds, forKey: .seconds)
-            case .wait:
-                try container.encode(Kind.wait, forKey: .kind)
-            case .singleStepAction(let base):
-                try container.encode(Kind.singleStepAction, forKey: .kind)
-                try container.encode(base.rawValue, forKey: .base)
-                try container.encode(base.seconds, forKey: .seconds)
+            case .action:
+                try container.encode(Kind.action, forKey: .kind)
             case .performStep:
                 try container.encode(Kind.performStep, forKey: .kind)
             case .heist:

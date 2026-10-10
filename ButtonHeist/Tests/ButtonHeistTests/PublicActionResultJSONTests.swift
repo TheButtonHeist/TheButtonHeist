@@ -9,7 +9,6 @@ final class PublicActionResultJSONTests: XCTestCase {
 
     func testStandaloneActionResponseEncodesSuccessRotorPayload() throws {
         let response = FenceResponse.action(
-            command: .rotor,
             result: rotorActionResult()
         )
 
@@ -22,7 +21,6 @@ final class PublicActionResultJSONTests: XCTestCase {
 
     func testStandaloneActionResponseEncodesValuePayload() throws {
         let response = FenceResponse.action(
-            command: .typeText,
             result: ActionResult.success(
                 payload: .typeText("Hello"),
                 message: "typed",
@@ -38,7 +36,6 @@ final class PublicActionResultJSONTests: XCTestCase {
 
     func testStandaloneActionResponseEncodesScreenshotPayloadSummary() throws {
         let response = FenceResponse.action(
-            command: .getScreen,
             result: ActionResult.success(
                 payload: .screenshot(ScreenPayload(pngData: "abc", width: 393, height: 852)),
                 message: "captured",
@@ -57,7 +54,6 @@ final class PublicActionResultJSONTests: XCTestCase {
 
     func testStandaloneActionResponseOmitsPayloadFieldsWhenAbsent() throws {
         let response = FenceResponse.action(
-            command: .activate,
             result: ActionResult.success(
                 payload: .activate,
                 message: "activated",
@@ -75,7 +71,6 @@ final class PublicActionResultJSONTests: XCTestCase {
     func testStandaloneActionResponseProjectsOwnedWarning() throws {
         let subjectEvidence = try weakActivationSubjectEvidence()
         let response = FenceResponse.action(
-            command: .activate,
             result: ActionResult.activationSuccess(
                 subjectEvidence: subjectEvidence,
                 activationTrace: weakActivationTrace()
@@ -98,7 +93,6 @@ final class PublicActionResultJSONTests: XCTestCase {
         )
 
         let standalone = try publicJSONProbe(FenceResponse.action(
-            command: .activate,
             result: actionResult
         )).object().object("warning")
         let nested = try nestedHeistActionResultJSON(
@@ -133,7 +127,6 @@ final class PublicActionResultJSONTests: XCTestCase {
 
     func testStandaloneActionResponseEncodesStructuredFailure() throws {
         let response = FenceResponse.action(
-            command: .activate,
             result: treeUnavailableActionResult()
         )
 
@@ -424,7 +417,7 @@ final class PublicActionResultJSONTests: XCTestCase {
         profile: ProjectionProfile
     ) throws -> JSONProbe {
         let response = PublicResponseModel(
-            response: FenceResponse.action(command: .activate, result: result),
+            response: FenceResponse.action(result: result),
             profile: profile
         )
         let data = try JSONEncoder().encode(response)

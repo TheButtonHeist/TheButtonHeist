@@ -26,39 +26,36 @@ import TheScore
         self.command = command
         self.arguments = arguments
     }
-
 }
 
 /// Fully admitted command ready to enter TheFence's execution pipeline.
 @_spi(ButtonHeistTooling) public struct AdmittedFenceCommand: Sendable {
-    @_spi(ButtonHeistTooling) public let command: TheFence.Command
+    let requiresConnectionBeforeDispatch: Bool
     let execution: TheFence.CommandExecution
 }
 
 @_spi(ButtonHeistTooling) public extension TheFence.Command {
-    static func routeToolCall(named name: String) -> Result<Self, FenceOperationRoutingError> {
+    static func routeToolCall(named name: String) throws(FenceOperationRoutingError) -> Self {
         guard let command = Self(rawValue: name),
               command.descriptor.mcpExposure == .directTool else {
-            return .failure(FenceOperationRoutingError(message: "Unknown tool: \(name)"))
+            throw FenceOperationRoutingError(message: "Unknown tool: \(name)")
         }
 
-        return .success(command)
+        return command
     }
 
     static func routeToolRequest(
         named name: String,
         arguments: TheFence.CommandArgumentEnvelope
-    ) -> Result<FenceCommandInput, FenceOperationRoutingError> {
-        routeToolCall(named: name).map { command in
-            FenceCommandInput(command: command, arguments: arguments)
-        }
+    ) throws(FenceOperationRoutingError) -> FenceCommandInput {
+        FenceCommandInput(command: try routeToolCall(named: name), arguments: arguments)
     }
 
     static func routeCLICommandEnvelope(
         _ arguments: TheFence.CommandArgumentEnvelope,
         context: String
-    ) -> Result<FenceCommandInput, FenceOperationRoutingError> {
-        routeCanonicalStep(
+    ) throws(FenceOperationRoutingError) -> FenceCommandInput {
+        try routeCanonicalStep(
             arguments,
             context: context,
             isExecutable: { $0.descriptor.cliExposure == .directCommand }
@@ -71,22 +68,22 @@ private extension TheFence.Command {
         _ step: TheFence.CommandArgumentEnvelope,
         context: String,
         isExecutable: ((Self) -> Bool)?
-    ) -> Result<FenceCommandInput, FenceOperationRoutingError> {
+    ) throws(FenceOperationRoutingError) -> FenceCommandInput {
         let commandName: String
         do {
             commandName = try step.requiredValue(FenceParameters.commandName)
         } catch let error as SchemaValidationError {
-            return .failure(FenceOperationRoutingError(
+            throw FenceOperationRoutingError(
                 message: error.message,
                 details: FailureDetails(code: .requestValidationError)
-            ))
+            )
         } catch {
-            return .failure(FenceOperationRoutingError(message: error.localizedDescription))
+            throw FenceOperationRoutingError(message: error.localizedDescription)
         }
 
-        return routeCanonicalStep(
+        return try routeCanonicalStep(
             commandName: commandName,
-            arguments: step.dropping(.command),
+            arguments: step.dropping("command"),
             context: context,
             isExecutable: isExecutable
         )
@@ -97,19 +94,19 @@ private extension TheFence.Command {
         arguments: TheFence.CommandArgumentEnvelope,
         context: String,
         isExecutable: ((Self) -> Bool)?
-    ) -> Result<FenceCommandInput, FenceOperationRoutingError> {
+    ) throws(FenceOperationRoutingError) -> FenceCommandInput {
         guard let command = Self(rawValue: commandName) else {
-            return .failure(FenceOperationRoutingError(
+            throw FenceOperationRoutingError(
                 message: "\(context) command must be a canonical TheFence.Command; unknown command \"\(commandName)\""
-            ))
+            )
         }
 
         if let isExecutable, !isExecutable(command) {
-            return .failure(FenceOperationRoutingError(
+            throw FenceOperationRoutingError(
                 message: "\(context) command \"\(command.rawValue)\" is not supported"
-            ))
+            )
         }
 
-        return .success(FenceCommandInput(command: command, arguments: arguments))
+        return FenceCommandInput(command: command, arguments: arguments)
     }
 }

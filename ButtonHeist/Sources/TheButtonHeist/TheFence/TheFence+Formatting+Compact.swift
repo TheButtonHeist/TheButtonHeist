@@ -39,8 +39,8 @@ extension FenceResponse {
             return Self.compactInterface(projection)
         case .notifications(let notifications):
             return Self.compactNotifications(notifications)
-        case .action(let command, let result, let expectation):
-            return compactActionResult(command: command, result, expectation: expectation, profile: profile)
+        case .action(let result, let expectation):
+            return compactActionResult(result, expectation: expectation, profile: profile)
         case .screenshot(let path, let payload, let options):
             return Self.compactScreenshot(
                 summary: "screenshot: \(path) (\(Int(payload.width))x\(Int(payload.height)))",

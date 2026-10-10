@@ -9,7 +9,7 @@ If that action returns `false`, Button Heist resolves a fresh on-screen target. 
 
 ```mermaid
 flowchart TD
-    START["activate command"] --> CHECK["Interactivity.checkInteractivity"]
+    START["activate action"] --> CHECK["Interactivity.checkInteractivity"]
     CHECK -- "traits contain notEnabled" --> BLOCKED["blocked — element is disabled"]
     CHECK -- "advertises no interactivity and<br/>implements no activation" --> WARN["record weak-target warning:<br/>proceed as VoiceOver would"]
     CHECK -- "otherwise" --> PROCEED["interactive"]
@@ -35,7 +35,7 @@ Notes:
 - A failed tap-phase resolution returns its geometry or reveal failure. The runtime does not send a tap.
 - A stale semantic target returns a target-unavailable failure. Staleness does not permit a tap.
 - Interface changes do not override the Boolean result. They may come from unrelated work and do not prove that this target activated.
-- The activation-point tap uses the same `activate` command. Button Heist sends this command through touch injection.
+- The activation-point tap completes the same `activate` action through touch injection.
 - Every enabled target enters this policy. `notEnabled` is the only difference from VoiceOver.
 - Button Heist does not dispatch to a target with this accessibility state. VoiceOver permits the double-tap and lets the app ignore it.
 - Override and block introspection supplies diagnostic evidence only. It is not an accessibility semantic or dispatch gate.

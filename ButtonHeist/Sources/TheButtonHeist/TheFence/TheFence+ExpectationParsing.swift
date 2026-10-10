@@ -16,14 +16,14 @@ extension TheFence {
         init(arguments: CommandArgumentEnvelope) throws {
             let timeout = try arguments.value(FenceParameters.timeout)
             self.init(
-                expectation: try Self.parseExpectation(arguments.value(for: .expect)),
+                expectation: try Self.parseExpectation(arguments.value(for: "expect")),
                 timeout: try timeout.map(WaitTimeout.init(validatingSeconds:))
             )
         }
 
         static func parseExpectation(_ value: HeistValue?) throws -> AccessibilityPredicate? {
             guard let value else { return nil }
-            return try parsePredicate(value, field: .expect)
+            return try parsePredicate(value, field: "expect")
         }
 
         /// Parse a required `AccessibilityPredicate` object (the `wait`
@@ -31,21 +31,21 @@ extension TheFence {
         static func parseRequiredPredicate(_ value: HeistValue?) throws -> AccessibilityPredicate {
             guard let value else {
                 throw SchemaValidationError(
-                    field: FenceParameterKey.predicate.rawValue,
+                    field: "predicate",
                     observed: "missing",
                     expected: "object"
                 )
             }
-            return try parsePredicate(value, field: .predicate)
+            return try parsePredicate(value, field: "predicate")
         }
 
         static func parsePredicate(
             _ value: HeistValue,
-            field: FenceParameterKey
+            field: String
         ) throws -> AccessibilityPredicate {
             return try TheFence.HeistValuePayloadDecoder.decode(
                 value,
-                field: field.rawValue,
+                field: field,
                 as: AccessibilityPredicate.self
             )
         }

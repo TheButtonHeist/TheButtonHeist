@@ -45,6 +45,14 @@ if grep -Fq 'git submodule update' "$HARNESS"; then
     fail "smoke harness initializes a submodule instead of consuming built artifacts"
 fi
 
+grep -Fq '"perform",' "$HARNESS" \
+    || fail "smoke harness does not wait through the canonical perform command"
+grep -Fq '"command": "action"' "$HARNESS" \
+    || fail "smoke harness does not dispatch through the canonical action command"
+if grep -Fq '"wait",' "$HARNESS" || grep -Fq '"command": "activate"' "$HARNESS"; then
+    fail "smoke harness still uses a removed compatibility command"
+fi
+
 run_harness() {
     PATH="$FAKE_BIN:$PATH" \
     FAKE_GIT_LOG="$GIT_LOG" \

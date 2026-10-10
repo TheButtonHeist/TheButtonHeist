@@ -120,12 +120,12 @@ struct PublicResponseModel: Encodable {
             try PublicInterfaceResponse(interface: interface, detail: detail, profile: profile).encode(to: encoder)
         case .notifications(let notifications):
             try PublicNotificationsResponse(notifications: notifications).encode(to: encoder)
-        case .action(let command, let result, let expectation):
+        case .action(let result, let expectation):
             let expectationHint = expectation.flatMap {
-                FenceResponse.expectationFailureHint($0, command: command, result: result)
+                FenceResponse.expectationFailureHint($0, result: result)
             }
             try ActionProjection(
-                method: command.rawValue,
+                method: result.method.rawValue,
                 result: result,
                 expectation: expectation,
                 expectationHint: expectationHint,

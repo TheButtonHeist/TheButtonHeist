@@ -160,7 +160,7 @@ outcome.
 Agents and tests use the same heist language. That is the practical payoff of
 defining product capabilities against the accessibility contract.
 
-- `perform(step:)` runs one Button Heist step from MCP.
+- `perform(step:)` runs one Button Heist step from MCP or the CLI.
 - `run_heist(plan:)` runs a composed `HeistPlan` from MCP or the CLI.
 - Checked-in Swift heist files compile to the same validated plan your tests can run.
 
@@ -390,8 +390,8 @@ The CLI exposes the same runtime as terminal commands:
 ```bash
 buttonheist list_devices
 buttonheist get_interface
-buttonheist activate --label "Log In"
-buttonheist type_text --text "Hello" --label "Name"
+buttonheist perform 'Activate(.label("Log In"))'
+buttonheist perform 'TypeText("Hello", into: .label("Name"))'
 buttonheist get_screen --output screen.png
 ```
 

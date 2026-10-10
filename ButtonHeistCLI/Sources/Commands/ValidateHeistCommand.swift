@@ -2,6 +2,7 @@ import ArgumentParser
 @_spi(ButtonHeistTooling) import ButtonHeist
 
 struct ValidateHeistCommand: LocalOneShotCLICommand {
+    static let fenceCommand = TheFence.Command.validateHeist
     static let configuration = CommandConfiguration(
         commandName: Self.cliCommandName,
         abstract: "Validate a Button Heist plan without connecting to an app",

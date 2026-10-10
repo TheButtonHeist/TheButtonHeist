@@ -21,7 +21,7 @@ final class GetScreenCommandTests: XCTestCase {
 
         let arguments = try command.requestArguments()
 
-        XCTAssertEqual(arguments.value(for: .mode), .string("accessibility"))
+        XCTAssertEqual(arguments.value(for: "mode"), .string("accessibility"))
     }
 
     func testInlineCommandResultWritesScreenshotDataAsBinary() throws {

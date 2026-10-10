@@ -15,10 +15,9 @@ enum CLIMachineRequestParser {
         } catch {
             throw diagnosticFailure(for: error)
         }
-        switch TheFence.Command.routeCLICommandEnvelope(arguments, context: "JSON input") {
-        case .success(let input):
-            return input
-        case .failure(let error):
+        do {
+            return try TheFence.Command.routeCLICommandEnvelope(arguments, context: "JSON input")
+        } catch {
             throw DiagnosticFailure(message: error.message, details: error.details)
         }
     }
