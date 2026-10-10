@@ -3,7 +3,7 @@
 How many agents drive many apps on one machine without stepping on each other: one simulator, one port, and one human-readable token per agent, with the same slug used as simulator name, auth token, and instance identifier. This diagram answers "whose session did I just hit, and how does an agent find its own?"
 
 **Illustrates:** [AUTH.md](../AUTH.md)
-**Source of truth:** `ButtonHeist/Sources/TheInsideJob/InsideJobRuntimeConfiguration.swift`, `ButtonHeist/Sources/TheInsideJob/Server/SessionTokenGenerator.swift`, `ButtonHeist/Sources/TheScore/Wire/Messages.swift`, `ButtonHeist/Sources/TheScore/Wire/ServerIdentityPayloads.swift`, `ButtonHeist/Sources/TheInsideJob/Server/NetworkBoundary/BonjourAdvertisement.swift`
+**Source of truth:** `ButtonHeist/Sources/TheInsideJob/InsideJobRuntimeConfiguration.swift`, `ButtonHeist/Sources/TheScore/Wire/Messages.swift`, `ButtonHeist/Sources/TheScore/Wire/ServerIdentityPayloads.swift`, `ButtonHeist/Sources/TheInsideJob/Server/NetworkBoundary/BonjourAdvertisement.swift`
 
 ```mermaid
 flowchart TD

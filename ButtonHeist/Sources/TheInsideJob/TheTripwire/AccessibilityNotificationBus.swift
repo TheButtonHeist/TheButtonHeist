@@ -396,8 +396,8 @@ final class AccessibilityNotificationBus {
         if let actionWindowID = activeActionWindowID {
             return .action(actionWindowID)
         }
-        if let activeHeistCursor {
-            return .heist(activeHeistCursor)
+        if activeHeistCursor != nil {
+            return .heist
         }
         return .ambient
     }
@@ -589,7 +589,7 @@ final class AccessibilityNotificationScopeLease {
 struct PendingAccessibilityNotificationEvent {
     enum Owner: Sendable, Equatable {
         case ambient
-        case heist(AccessibilityNotificationCursor)
+        case heist
         case action(AccessibilityNotificationActionWindowID)
         case cycle(
             AccessibilityNotificationCycleClaim.ID,
@@ -646,7 +646,7 @@ struct PendingAccessibilityNotificationEvent {
     ) {
         let owner: Owner = switch provenance {
         case .scoped:
-            .heist(.origin)
+            .heist
         case .ambient:
             .ambient
         }

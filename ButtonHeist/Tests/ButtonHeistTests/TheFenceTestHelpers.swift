@@ -213,8 +213,10 @@ func makeConnectedFence(configuration: TheFence.Configuration = .init()) -> (The
     let mockDisc = MockDiscovery()
     mockDisc.discoveredDevices = [TheFenceFixtures.testDevice]
 
-    let fence = TheFence(configuration: configuration)
-    fence.handoff.makeDiscovery = { mockDisc }
+    let fence = TheFence(
+        configuration: configuration,
+        handoff: TheHandoff(discovery: mockDisc)
+    )
     fence.handoff.makeConnection = { _ in mockConn }
 
     makeReachabilityConnection = { _ in

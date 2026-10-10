@@ -11,7 +11,7 @@ final class TheHandoff {
     // MARK: - State
 
     let connectionLifecycle = HandoffConnectionLifecycle()
-    let discoveryLifecycle = HandoffDiscoveryLifecycle()
+    let discovery: any DeviceDiscovering
     var serverMessageRouter = HandoffServerMessageRouter()
 
     nonisolated static let keepaliveInterval: Duration = .seconds(5)
@@ -70,12 +70,12 @@ final class TheHandoff {
 
     // MARK: - Injectable Closures
 
-    var makeDiscovery: () -> any DeviceDiscovering = { DeviceDiscovery() }
     var makeConnection: ((DiscoveredDevice) -> any DeviceConnecting)?
 
     // MARK: - Init
 
-    init() {
+    init(discovery: any DeviceDiscovering = DeviceDiscovery()) {
+        self.discovery = discovery
         connectionLifecycle.onPhaseChanged = { [weak self] phase in
             self?.onConnectionStateChanged?(phase)
         }

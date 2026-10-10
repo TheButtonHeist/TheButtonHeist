@@ -8,10 +8,10 @@ final class TheHandoffLifecycleStateTests: XCTestCase {
     func testInitialState() async {
         let handoff = TheHandoff()
 
-        XCTAssertTrue(handoff.discoveryLifecycle.discoveredDevices.isEmpty)
+        XCTAssertTrue(handoff.discovery.discoveredDevices.isEmpty)
         XCTAssertNil(handoff.connectionLifecycle.connectedDevice)
         XCTAssertNil(handoff.connectionLifecycle.serverInfo)
-        XCTAssertFalse(handoff.discoveryLifecycle.isDiscovering)
+        XCTAssertFalse(handoff.discovery.isReady)
         assertDisconnected(handoff.connectionPhase)
     }
 
@@ -69,7 +69,7 @@ final class TheHandoffLifecycleStateTests: XCTestCase {
         handoff.startDiscovery()
         handoff.stopDiscovery()
 
-        XCTAssertFalse(handoff.discoveryLifecycle.isDiscovering)
+        XCTAssertFalse(handoff.discovery.isReady)
     }
 
     @ButtonHeistActor

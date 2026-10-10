@@ -86,6 +86,8 @@ protocol TransportReachabilityConnecting: AnyObject {
 @ButtonHeistActor
 protocol DeviceDiscovering: AnyObject {
     var discoveredDevices: [DiscoveredDevice] { get }
+    var isActive: Bool { get }
+    var isReady: Bool { get }
     var onEvent: (@ButtonHeistActor (DiscoveryEvent) -> Void)? { get set }
     func start()
     func stop()

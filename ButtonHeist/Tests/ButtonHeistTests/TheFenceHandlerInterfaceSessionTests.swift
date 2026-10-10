@@ -17,11 +17,13 @@ extension TheFenceHandlerTests {
         let mockDiscovery = MockDiscovery()
         mockDiscovery.discoveredDevices = [TheFenceFixtures.testDevice]
 
-        let fence = TheFence(configuration: .init(
-            connectionTarget: DeviceResolutionTarget(filter: "MockApp"),
-            autoReconnect: false
-        ))
-        fence.handoff.makeDiscovery = { mockDiscovery }
+        let fence = TheFence(
+            configuration: .init(
+                connectionTarget: DeviceResolutionTarget(filter: "MockApp"),
+                autoReconnect: false
+            ),
+            handoff: TheHandoff(discovery: mockDiscovery)
+        )
         fence.handoff.makeConnection = { _ in mockConn }
 
         let previousReachability = makeReachabilityConnection

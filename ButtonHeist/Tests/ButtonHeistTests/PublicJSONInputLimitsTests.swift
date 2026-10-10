@@ -26,4 +26,16 @@ final class PublicJSONInputLimitsTests: XCTestCase {
         ))
     }
 
+    func testNestingPreflightIgnoresJSONSyntaxInsideStrings() {
+        let json = #"{"text":"{[\\\"]}"}"#
+
+        XCTAssertNoThrow(try PublicJSONInputDecoder.decodeObject(
+            from: Data(json.utf8),
+            context: "Public JSON input",
+            maxBytes: 32,
+            maxNestingDepth: 2,
+            maxTotalObjectKeys: 1
+        ))
+    }
+
 }

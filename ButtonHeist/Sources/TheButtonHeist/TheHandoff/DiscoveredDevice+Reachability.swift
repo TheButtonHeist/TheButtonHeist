@@ -50,7 +50,7 @@ extension DiscoveredDevice {
     @ButtonHeistActor
     func reachability(token: SessionAuthToken? = nil, timeout: TimeInterval = 1.5) async -> DeviceReachability {
         let connection = makeReachabilityConnection?(self) ?? DeviceConnection(device: self, token: token)
-        let resolver = ReachabilityResolver()
+        let result = TimedOneShot<DeviceReachability>()
 
         // Wire the connection callbacks to resolve the probe:
         // raw socket readiness resolves reachable; `.disconnected` records
@@ -58,7 +58,7 @@ extension DiscoveredDevice {
         // The resolver is one-shot so a subsequent `.disconnected` after a
         // successful socket-ready signal is a no-op.
         connection.onTransportReady = {
-            resolver.resolve(.reachable)
+            result.resolve(returning: .reachable)
         }
         connection.onEvent = { event in
             switch event {
@@ -69,21 +69,22 @@ extension DiscoveredDevice {
             case .sendFailed:
                 break
             case .disconnected(let reason):
-                resolver.resolve(Self.reachabilityDisconnectResult(reason))
+                result.resolve(returning: Self.reachabilityDisconnectResult(reason))
             }
         }
 
-        connection.connect()
-
-        let timeoutTask = Task { @ButtonHeistActor in
-            guard await Task.cancellableSleep(for: .seconds(timeout)) else { return }
-            resolver.resolve(.unavailable)
-        }
-        defer { timeoutTask.cancel() }
-
-        let reachability = await resolver.value
-        connection.disconnect()
-        return reachability
+        return await result.wait(
+            cancellationValue: .unavailable,
+            onRegistered: { result in
+                result.armTimeout(after: .seconds(timeout)) {
+                    result.resolve(returning: .unavailable)
+                }
+                connection.connect()
+            },
+            onFinished: {
+                connection.disconnect()
+            }
+        )
     }
 
     private static func reachabilityDisconnectResult(_ reason: DisconnectReason) -> DeviceReachability {
@@ -93,56 +94,6 @@ extension DiscoveredDevice {
         case .discovery, .setup, .transport, .authentication, .session,
              .request, .protocolNegotiation, .client, .server:
             return .unavailable
-        }
-    }
-}
-
-/// One-shot resolver backing `DiscoveredDevice.reachability`. Holds a
-/// continuation that is resumed exactly once by whichever signal arrives
-/// first: a successful transport-ready signal, a disconnect, or the timeout.
-@ButtonHeistActor
-private final class ReachabilityResolver {
-    /// Explicit three-state lifecycle replacing the prior
-    /// `(continuation: CheckedContinuation?, pendingResult: DeviceReachability?)` pair.
-    private enum State {
-        /// No awaiter has registered and no result has arrived.
-        case idle
-        /// Awaiters are parked, waiting for the first `resolve(_:)` to fire.
-        case awaiting([CheckedContinuation<DeviceReachability, Never>])
-        /// A result arrived before any awaiter registered. The next
-        /// `await value` returns immediately.
-        case resolved(DeviceReachability)
-    }
-
-    private var state: State = .idle
-
-    var value: DeviceReachability {
-        get async {
-            await withCheckedContinuation { (continuation: CheckedContinuation<DeviceReachability, Never>) in
-                switch state {
-                case .resolved(let value):
-                    continuation.resume(returning: value)
-                case .idle:
-                    state = .awaiting([continuation])
-                case .awaiting(var continuations):
-                    continuations.append(continuation)
-                    state = .awaiting(continuations)
-                }
-            }
-        }
-    }
-
-    func resolve(_ value: DeviceReachability) {
-        switch state {
-        case .awaiting(let continuations):
-            state = .resolved(value)
-            for continuation in continuations {
-                continuation.resume(returning: value)
-            }
-        case .idle:
-            state = .resolved(value)
-        case .resolved:
-            return
         }
     }
 }

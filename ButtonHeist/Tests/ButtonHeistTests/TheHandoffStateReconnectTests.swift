@@ -40,9 +40,6 @@ final class TheHandoffStateReconnectTests: XCTestCase {
 
     @ButtonHeistActor
     func testReplacingAutoReconnectFilterPreventsStaleReconnect() async {
-        let handoff = TheHandoff()
-        let reconnectSleeper = ManualReconnectSleeper()
-        handoff.reconnectSleeper = reconnectSleeper.sleep
         let oldDevice = DiscoveredDevice(
             id: "old-device",
             name: "OldApp#one",
@@ -56,7 +53,9 @@ final class TheHandoffStateReconnectTests: XCTestCase {
 
         let mockDiscovery = MockDiscovery()
         mockDiscovery.discoveredDevices = [oldDevice, newDevice]
-        handoff.makeDiscovery = { mockDiscovery }
+        let handoff = TheHandoff(discovery: mockDiscovery)
+        let reconnectSleeper = ManualReconnectSleeper()
+        handoff.reconnectSleeper = reconnectSleeper.sleep
         handoff.startDiscovery()
 
         var connectedIDs: [DiscoveryDeviceID] = []
@@ -84,9 +83,11 @@ final class TheHandoffStateReconnectTests: XCTestCase {
 
     @ButtonHeistActor
     func testDisconnectEventWithEnabledPolicyTriggersReconnect() async throws {
-        let handoff = TheHandoff()
-        handoff.reconnectInterval = 0.01
         let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
+        let mockDiscovery = MockDiscovery()
+        mockDiscovery.discoveredDevices = [device]
+        let handoff = TheHandoff(discovery: mockDiscovery)
+        handoff.reconnectInterval = 0.01
 
         let reconnected = expectation(description: "reconnect connection made")
         var connectionCount = 0
@@ -116,9 +117,6 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             return connection
         }
 
-        let mockDiscovery = MockDiscovery()
-        mockDiscovery.discoveredDevices = [device]
-        handoff.makeDiscovery = { mockDiscovery }
         handoff.startDiscovery()
 
         handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: nil))
@@ -311,9 +309,11 @@ final class TheHandoffStateReconnectTests: XCTestCase {
 
     @ButtonHeistActor
     func testNonRetryableDisconnectDoesNotTriggerReconnect() async throws {
-        let handoff = TheHandoff()
-        handoff.reconnectInterval = 0.01
         let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
+        let mockDiscovery = MockDiscovery()
+        mockDiscovery.discoveredDevices = [device]
+        let handoff = TheHandoff(discovery: mockDiscovery)
+        handoff.reconnectInterval = 0.01
 
         let disconnected = expectation(description: "disconnect event received")
         var connectionCount = 0
@@ -331,9 +331,6 @@ final class TheHandoffStateReconnectTests: XCTestCase {
             }
         }
 
-        let mockDiscovery = MockDiscovery()
-        mockDiscovery.discoveredDevices = [device]
-        handoff.makeDiscovery = { mockDiscovery }
         handoff.startDiscovery()
         handoff.setupAutoReconnect(target: DeviceResolutionTarget(filter: nil))
 
@@ -564,10 +561,6 @@ final class TheHandoffStateReconnectTests: XCTestCase {
 
     @ButtonHeistActor
     func testAutoReconnectRetriesOriginalDeviceWithoutDiscoverySelection() async {
-        let handoff = TheHandoff()
-        handoff.reconnectInterval = 0
-        handoff.reconnectMaxAttempts = 1
-        handoff.reconnectAttemptTimeout = 0.1
         let originalDevice = DiscoveredDevice(
             id: "old-service",
             name: "Checkout#old",
@@ -584,7 +577,10 @@ final class TheHandoffStateReconnectTests: XCTestCase {
 
         let mockDiscovery = MockDiscovery()
         mockDiscovery.discoveredDevices = [differentDeviceMatchingFilter]
-        handoff.makeDiscovery = { mockDiscovery }
+        let handoff = TheHandoff(discovery: mockDiscovery)
+        handoff.reconnectInterval = 0
+        handoff.reconnectMaxAttempts = 1
+        handoff.reconnectAttemptTimeout = 0.1
         handoff.startDiscovery()
 
         var connectedIDs: [DiscoveryDeviceID] = []

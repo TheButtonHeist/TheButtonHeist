@@ -90,7 +90,16 @@ struct InsideJobRuntimeConfiguration: Equatable, Sendable {
         if let startupTokenValue = startupToken.value {
             return ResolvedStartupValue(value: startupTokenValue, source: startupToken.source)
         }
-        return ResolvedStartupValue(value: SessionTokenGenerator.generate(), source: .generated)
+        return ResolvedStartupValue(value: generatedSessionToken(), source: .generated)
+    }
+
+    private static func generatedSessionToken() -> SessionAuthToken {
+        // Console access is already the authority boundary for this debug tool.
+        // UUID v4 remains easy to recognize, copy, and pass between processes.
+        guard let token = try? SessionAuthToken(validating: UUID().uuidString.lowercased()) else {
+            preconditionFailure("UUID generation produced a blank session token")
+        }
+        return token
     }
 
     private static func admitToken(_ value: String?) throws(InsideJobConfigurationError) -> SessionAuthToken? {

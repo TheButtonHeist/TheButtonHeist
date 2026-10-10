@@ -308,8 +308,10 @@ final class TargetConfigTests: XCTestCase {
         let mockDisc = MockDiscovery()
         mockDisc.discoveredDevices = [TheFenceFixtures.testDevice]
 
-        let fence = TheFence(configuration: .init(fileConfig: fileConfig))
-        fence.handoff.makeDiscovery = { mockDisc }
+        let fence = TheFence(
+            configuration: .init(fileConfig: fileConfig),
+            handoff: TheHandoff(discovery: mockDisc)
+        )
         fence.handoff.makeConnection = { _ in mockConn }
 
         makeReachabilityConnection = { _ in
@@ -389,17 +391,19 @@ final class TargetConfigTests: XCTestCase {
             ]),
             defaultTarget: targetName("sim1")
         )
-        let fence = TheFence(configuration: .init(
-            connectionTarget: DeviceResolutionTarget(filter: "127.0.0.1:1455"),
-            token: "tok1",
-            fileConfig: config
-        ))
+        let mockDisc = MockDiscovery()
+        mockDisc.discoveredDevices = [TheFenceFixtures.testDevice]
+        let fence = TheFence(
+            configuration: .init(
+                connectionTarget: DeviceResolutionTarget(filter: "127.0.0.1:1455"),
+                token: "tok1",
+                fileConfig: config
+            ),
+            handoff: TheHandoff(discovery: mockDisc)
+        )
 
         var connectAttempt = 0
 
-        let mockDisc = MockDiscovery()
-        mockDisc.discoveredDevices = [TheFenceFixtures.testDevice]
-        fence.handoff.makeDiscovery = { mockDisc }
         fence.handoff.makeConnection = { _ in
             connectAttempt += 1
             let failing = MockConnection()
