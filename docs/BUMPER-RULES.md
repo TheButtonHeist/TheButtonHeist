@@ -29,8 +29,6 @@ The internal dependency graph is:
 | --- | --- |
 | ThePlans | None |
 | TheScore | ThePlans |
-| HeistDoctorCore | ThePlans, TheScore |
-| HeistDoctorTool | HeistDoctorCore, TheScore |
 | TheInsideJob and ThePlant | ButtonHeistSupport, ThePlans, TheScore |
 | ButtonHeist | ButtonHeistSupport, ThePlans, TheScore |
 | ButtonHeistSupport | None |

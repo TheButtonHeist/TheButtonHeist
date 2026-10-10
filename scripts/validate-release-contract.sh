@@ -104,9 +104,6 @@ fi
 if grep -Fq 'ButtonHeistFrameworks' .github/workflows/release.yml; then
     fail ".github/workflows/release.yml must not package ambiguous ButtonHeistFrameworks"
 fi
-if grep -Eq 'bin\.install[[:space:]]+"heist-doctor"' "$BUTTONHEIST_FORMULA_TEMPLATE"; then
-    fail "$BUTTONHEIST_FORMULA_TEMPLATE must not install experimental heist-doctor"
-fi
 grep -Fq 'lib.install "ThePlans"' "$BUTTONHEIST_FORMULA_TEMPLATE" \
     || fail "$BUTTONHEIST_FORMULA_TEMPLATE must install ThePlans compiler artifacts under lib"
 grep -Fq 'depends_on arch: :arm64' "$BUTTONHEIST_FORMULA_TEMPLATE" \

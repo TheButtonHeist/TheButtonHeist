@@ -39,7 +39,7 @@ flowchart TD
     THESCORE --> AXMODEL
 ```
 
-The SwiftPM tool executables are omitted from the picture to keep it narrow; their declared dependencies are: `HeistPlanTool` (`heist-plan`) → `ThePlans` + `ArgumentParser`; `HeistDoctorCore` → `ThePlans`, `TheScore`; `HeistDoctorTool` (`heist-doctor`) → `HeistDoctorCore`, `TheScore`, `ArgumentParser`. `ButtonHeistCLI` also depends on `ThePlans` directly, and `ButtonHeist` on `AccessibilitySnapshotModel`.
+The SwiftPM tool executables are omitted from the picture to keep it narrow; `HeistPlanTool` (`heist-plan`) depends on `ThePlans` and `ArgumentParser`. `ButtonHeistCLI` also depends on `ThePlans` directly, and `ButtonHeist` on `AccessibilitySnapshotModel`.
 
 Crew members inside `TheInsideJob` (directories under `ButtonHeist/Sources/TheInsideJob/`):
 

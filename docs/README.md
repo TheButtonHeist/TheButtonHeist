@@ -49,9 +49,3 @@ Platform scope: The Button Heist automates iOS apps. The CLI and MCP server are 
 | [USB connectivity](USB_DEVICE_CONNECTIVITY.md) | Physical-device connections over CoreDevice IPv6 tunnels without LAN scope |
 | [Bonjour troubleshooting](BONJOUR_TROUBLESHOOTING.md) | mDNS, stealth mode, fixed-port workarounds, and LAN discovery issues |
 | [Wire protocol](WIRE-PROTOCOL.md) | Raw transport, envelopes, handshake, authentication, and wire examples |
-
-## Evidence and repair
-
-| Document | Use it for |
-|----------|------------|
-| [Heist Doctor](HEIST-DOCTOR.md) | Experimental repair suggestions over heist execution results |

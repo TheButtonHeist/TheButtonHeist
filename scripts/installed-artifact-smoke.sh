@@ -469,10 +469,6 @@ BUTTONHEIST="$PREFIX/bin/buttonheist"
 HEIST_PLAN="$PREFIX/bin/heist-plan"
 BUTTONHEIST_MCP="$PREFIX/bin/buttonheist-mcp"
 THEPLANS_BUILD_DIR="$PREFIX/lib/ThePlans/arm64-apple-macosx/release"
-# heist-doctor is intentionally excluded from installed-artifact smoke: it is
-# an alpha Swift package executable, not part of the current Homebrew/release
-# install surface. Add it here when the release archives and formula install it.
-
 missing=()
 [[ -x "$BUTTONHEIST" ]] || missing+=("$BUTTONHEIST")
 [[ -x "$HEIST_PLAN" ]] || missing+=("$HEIST_PLAN")

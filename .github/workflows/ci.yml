@@ -58,7 +58,6 @@ jobs:
           scripts/tests/check-swift-api-breaking-changes-test.sh
           scripts/tests/e2e-demo-smoke-test.sh
           scripts/tests/generate-project-test.sh
-          scripts/tests/heist-doctor-from-results-test.sh
           scripts/tests/require-successful-ci-for-commit-test.sh
           python3 scripts/tests/select-ci-change-scopes-test.py
           python3 scripts/tests/select-ios-ci-simulator-test.py

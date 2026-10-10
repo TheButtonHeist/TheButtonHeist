@@ -3,8 +3,6 @@ import BumperBowlingCore
 enum ButtonHeistComponent: String, ComponentKey {
     case plans
     case score
-    case doctorCore
-    case doctorTool
     case embeddedRuntime
     case client
     case support
