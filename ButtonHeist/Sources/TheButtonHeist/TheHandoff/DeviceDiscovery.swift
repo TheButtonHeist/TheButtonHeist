@@ -84,40 +84,143 @@ final class NWDeviceDiscoveryBrowser: DeviceDiscoveryBrowsing {
 @ButtonHeistActor
 final class DeviceDiscovery: DeviceDiscovering {
 
-    private enum DiscoveryPhase {
-        case idle
-        case active(ActiveDiscovery)
+    nonisolated static let callbackBufferLimit = 512
+
+    private enum BrowserEvent: Sendable {
+        case resultsChanged(Set<NWBrowser.Result>, changes: Set<NWBrowser.Result.Change>)
+        case stateChanged(DeviceDiscoveryBrowserState)
     }
 
-    private struct ActiveDiscovery {
+    private final class CallbackBridge: Sendable {
+        enum Admission: Sendable {
+            case accepted
+            case overflow
+            case terminated
+        }
+
+        enum TerminalReason: Sendable {
+            case finished
+            case continuationTerminated
+            case overflow
+        }
+
+        private enum State {
+            case accepting
+            case invalidated(TerminalReason)
+        }
+
+        let events: AsyncStream<BrowserEvent>
+
+        private let continuation: AsyncStream<BrowserEvent>.Continuation
+        private let state = OSAllocatedUnfairLock(initialState: State.accepting)
+
+        init() {
+            let stream = AsyncStream<BrowserEvent>.makeStream(
+                bufferingPolicy: .bufferingOldest(DeviceDiscovery.callbackBufferLimit)
+            )
+            events = stream.stream
+            continuation = stream.continuation
+        }
+
+        func yield(_ event: BrowserEvent) -> Admission {
+            let admission = state.withLock { state in
+                guard case .accepting = state else { return Admission.terminated }
+                switch continuation.yield(event) {
+                case .enqueued:
+                    return .accepted
+                case .dropped:
+                    state = .invalidated(.overflow)
+                    return .overflow
+                case .terminated:
+                    state = .invalidated(.continuationTerminated)
+                    return .terminated
+                @unknown default:
+                    state = .invalidated(.overflow)
+                    return .overflow
+                }
+            }
+            if case .overflow = admission {
+                continuation.finish()
+            }
+            return admission
+        }
+
+        func finish() {
+            let shouldFinish = state.withLock { state in
+                guard case .accepting = state else { return false }
+                state = .invalidated(.finished)
+                return true
+            }
+            if shouldFinish {
+                continuation.finish()
+            }
+        }
+
+        var isActive: Bool {
+            state.withLock { state in
+                guard case .accepting = state else { return false }
+                return true
+            }
+        }
+
+        var terminalReason: TerminalReason? {
+            state.withLock { state in
+                guard case .invalidated(let reason) = state else { return nil }
+                return reason
+            }
+        }
+    }
+
+    private enum State {
+        case idle
+        case active(Session)
+    }
+
+    private struct Session {
+        enum BrowserPhase: Equatable {
+            case setup
+            case waiting
+            case ready
+        }
+
         let id: UUID
         let browser: any DeviceDiscoveryBrowsing
-        let eventStream: DeviceDiscoveryEventStream
+        let callbacks: CallbackBridge
         let eventConsumerTask: Task<Void, Never>
         var registry: DiscoveryRegistry
         var reachabilityTask: Task<Void, Never>?
-        var browserState: DeviceDiscoveryBrowserState
+        var browserPhase: BrowserPhase
 
         func invalidate() {
-            eventStream.finish()
+            callbacks.finish()
             eventConsumerTask.cancel()
             reachabilityTask?.cancel()
             browser.invalidate()
         }
     }
 
-    private var discoveryPhase: DiscoveryPhase = .idle
+    private var state: State = .idle
     private let browserQueue = DispatchQueue(label: "com.buttonheist.thehandoff.discovery.browser")
     private let reachabilityValidationInterval: TimeInterval
     private let makeBrowser: () -> any DeviceDiscoveryBrowsing
 
     var discoveredDevices: [DiscoveredDevice] {
-        switch discoveryPhase {
+        switch state {
         case .idle:
             return []
-        case .active(let activeDiscovery):
-            return activeDiscovery.registry.devices
+        case .active(let session):
+            return session.registry.devices
         }
+    }
+
+    var isActive: Bool {
+        guard case .active = state else { return false }
+        return true
+    }
+
+    var isReady: Bool {
+        guard case .active(let session) = state else { return false }
+        return session.browserPhase == .ready
     }
 
     var onEvent: (@ButtonHeistActor (DiscoveryEvent) -> Void)?
@@ -131,18 +234,18 @@ final class DeviceDiscovery: DeviceDiscovering {
     }
 
     func start() {
-        guard case .idle = discoveryPhase else { return }
+        guard case .idle = state else { return }
 
         let sessionID = UUID()
         let browser = makeBrowser()
-        let eventStream = DeviceDiscoveryEventStream()
-        let eventConsumerTask = Task { @ButtonHeistActor [weak self, eventStream, sessionID] in
-            for await event in eventStream.events {
-                guard eventStream.isGenerationActive else { break }
+        let callbacks = CallbackBridge()
+        let eventConsumerTask = Task { @ButtonHeistActor [weak self, callbacks, sessionID] in
+            for await event in callbacks.events {
+                guard callbacks.isActive else { break }
                 guard let self else { return }
                 self.handleBrowserEvent(event)
             }
-            guard let terminalReason = eventStream.terminalReason else { return }
+            guard let terminalReason = callbacks.terminalReason else { return }
             switch terminalReason {
             case .overflow:
                 self?.handleEventStreamOverflow(sessionID: sessionID)
@@ -151,17 +254,17 @@ final class DeviceDiscovery: DeviceDiscovering {
             }
         }
 
-        discoveryPhase = .active(ActiveDiscovery(
+        state = .active(Session(
             id: sessionID,
             browser: browser,
-            eventStream: eventStream,
+            callbacks: callbacks,
             eventConsumerTask: eventConsumerTask,
             registry: DiscoveryRegistry(),
             reachabilityTask: nil,
-            browserState: .setup
+            browserPhase: .setup
         ))
-        let receiveBrowserEvent: @Sendable (DeviceDiscoveryBrowserEvent) -> Void = { [weak browser, eventStream] event in
-            guard case .overflow = eventStream.yield(event) else { return }
+        let receiveBrowserEvent: @Sendable (BrowserEvent) -> Void = { [weak browser, callbacks] event in
+            guard case .overflow = callbacks.yield(event) else { return }
             browser?.invalidate()
         }
         browser.start(
@@ -176,12 +279,12 @@ final class DeviceDiscovery: DeviceDiscovering {
     }
 
     func stop() {
-        guard case .active(let activeDiscovery) = discoveryPhase else { return }
-        discoveryPhase = .idle
-        activeDiscovery.invalidate()
+        guard case .active(let session) = state else { return }
+        state = .idle
+        session.invalidate()
     }
 
-    private func handleBrowserEvent(_ event: DeviceDiscoveryBrowserEvent) {
+    private func handleBrowserEvent(_ event: BrowserEvent) {
         switch event {
         case .resultsChanged(_, let changes):
             handleResults(changes)
@@ -191,66 +294,66 @@ final class DeviceDiscovery: DeviceDiscovering {
     }
 
     private func handleStateUpdate(_ state: DeviceDiscoveryBrowserState) {
-        guard case .active(var activeDiscovery) = discoveryPhase else { return }
+        guard case .active(var session) = self.state else { return }
 
         switch state {
         case .ready:
-            activeDiscovery.browserState = .ready
-            discoveryPhase = .active(activeDiscovery)
+            session.browserPhase = .ready
+            self.state = .active(session)
             onEvent?(.stateChanged(isReady: true))
-            startReachabilityValidation(sessionID: activeDiscovery.id)
+            startReachabilityValidation(sessionID: session.id)
         case .setup, .waiting:
-            activeDiscovery.browserState = state
-            activeDiscovery.reachabilityTask?.cancel()
-            activeDiscovery.reachabilityTask = nil
-            discoveryPhase = .active(activeDiscovery)
+            session.browserPhase = state == .setup ? .setup : .waiting
+            session.reachabilityTask?.cancel()
+            session.reachabilityTask = nil
+            self.state = .active(session)
             onEvent?(.stateChanged(isReady: false))
         case .failed(let description):
             finishTerminalBrowserState(
-                activeDiscovery,
+                session,
                 failure: .connectionFailed("Bonjour discovery failed: \(description)")
             )
         case .cancelled:
             finishTerminalBrowserState(
-                activeDiscovery,
+                session,
                 failure: .connectionFailed("Bonjour discovery was cancelled")
             )
         }
     }
 
     private func handleEventStreamOverflow(sessionID: UUID) {
-        guard case .active(let activeDiscovery) = discoveryPhase,
-              activeDiscovery.id == sessionID else { return }
+        guard case .active(let session) = state,
+              session.id == sessionID else { return }
         finishTerminalBrowserState(
-            activeDiscovery,
-            failure: .discoveryBacklogOverflow(capacity: DeviceDiscoveryEventStream.bufferLimit)
+            session,
+            failure: .discoveryBacklogOverflow(capacity: Self.callbackBufferLimit)
         )
     }
 
     private func finishTerminalBrowserState(
-        _ activeDiscovery: ActiveDiscovery,
+        _ session: Session,
         failure: HandoffConnectionError
     ) {
-        discoveryPhase = .idle
-        activeDiscovery.invalidate()
+        state = .idle
+        session.invalidate()
         onEvent?(.failed(failure))
     }
 
     private func handleResults(_ changes: Set<NWBrowser.Result.Change>) {
-        guard case .active(var activeDiscovery) = discoveryPhase else { return }
+        guard case .active(var session) = state else { return }
         for change in changes {
             switch change {
             case .added(let result):
                 if let device = makeDevice(from: result) {
-                    let mutations = activeDiscovery.registry.recordFound(device)
-                    discoveryPhase = .active(activeDiscovery)
+                    let mutations = session.registry.recordFound(device)
+                    state = .active(session)
                     apply(mutations)
                 }
             case .removed(let result):
                 if case let .service(name, _, _, _) = result.endpoint,
                    let deviceID = try? DiscoveryDeviceID(validating: name) {
-                    let mutations = activeDiscovery.registry.recordLost(deviceID)
-                    discoveryPhase = .active(activeDiscovery)
+                    let mutations = session.registry.recordLost(deviceID)
+                    state = .active(session)
                     apply(mutations)
                 }
             case .changed(let old, let new, _):
@@ -258,13 +361,13 @@ final class DeviceDiscovery: DeviceDiscovering {
                    case let .service(newName, _, _, _) = new.endpoint,
                    oldName != newName,
                    let oldDeviceID = try? DiscoveryDeviceID(validating: oldName) {
-                    let mutations = activeDiscovery.registry.recordLost(oldDeviceID)
-                    discoveryPhase = .active(activeDiscovery)
+                    let mutations = session.registry.recordLost(oldDeviceID)
+                    state = .active(session)
                     apply(mutations)
                 }
                 if let device = makeDevice(from: new) {
-                    let mutations = activeDiscovery.registry.recordFound(device)
-                    discoveryPhase = .active(activeDiscovery)
+                    let mutations = session.registry.recordFound(device)
+                    state = .active(session)
                     apply(mutations)
                 }
             case .identical:
@@ -287,10 +390,10 @@ final class DeviceDiscovery: DeviceDiscovering {
     }
 
     private func startReachabilityValidation(sessionID: UUID) {
-        guard case .active(var activeDiscovery) = discoveryPhase,
-              activeDiscovery.id == sessionID,
-              activeDiscovery.browserState == .ready else { return }
-        activeDiscovery.reachabilityTask?.cancel()
+        guard case .active(var session) = state,
+              session.id == sessionID,
+              session.browserPhase == .ready else { return }
+        session.reachabilityTask?.cancel()
         let task = Task { [weak self, sessionID] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -299,15 +402,15 @@ final class DeviceDiscovery: DeviceDiscovering {
                 await self.validateVisibleDevicesReachability(sessionID: sessionID)
             }
         }
-        activeDiscovery.reachabilityTask = task
-        discoveryPhase = .active(activeDiscovery)
+        session.reachabilityTask = task
+        state = .active(session)
     }
 
     private func validateVisibleDevicesReachability(sessionID: UUID) async {
-        guard case .active(let activeDiscovery) = discoveryPhase,
-              activeDiscovery.id == sessionID,
-              activeDiscovery.browserState == .ready else { return }
-        let visibleDevices = activeDiscovery.registry.devices
+        guard case .active(let session) = state,
+              session.id == sessionID,
+              session.browserPhase == .ready else { return }
+        let visibleDevices = session.registry.devices
         guard !visibleDevices.isEmpty else { return }
 
         let unreachableDeviceIDs = await withTaskGroup(of: DiscoveryDeviceID?.self) { group in
@@ -326,13 +429,13 @@ final class DeviceDiscovery: DeviceDiscovering {
             return unreachable
         }
 
-        guard case .active(var activeDiscovery) = discoveryPhase,
-              activeDiscovery.id == sessionID else {
+        guard case .active(var session) = state,
+              session.id == sessionID else {
             return
         }
         for deviceID in unreachableDeviceIDs {
-            let mutations = activeDiscovery.registry.recordLost(deviceID)
-            discoveryPhase = .active(activeDiscovery)
+            let mutations = session.registry.recordLost(deviceID)
+            state = .active(session)
             apply(mutations)
         }
     }

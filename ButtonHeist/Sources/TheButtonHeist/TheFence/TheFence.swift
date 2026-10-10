@@ -58,12 +58,17 @@ public final class TheFence {
 
     // Dependencies
     var config: Configuration
-    let handoff = TheHandoff()
+    let handoff: TheHandoff
     let screenshotArtifacts: ScreenshotArtifactWriter
     let pendingRequests = PendingRequestRegistry()
 
-    public init(configuration: Configuration) {
+    public convenience init(configuration: Configuration) {
+        self.init(configuration: configuration, handoff: TheHandoff())
+    }
+
+    init(configuration: Configuration, handoff: TheHandoff) {
         self.config = configuration
+        self.handoff = handoff
         self.screenshotArtifacts = ScreenshotArtifactWriter(baseDirectory: configuration.artifactBaseDirectory)
         self.handoff.authToken = configuration.token
         self.handoff.driverID = configuration.driverID

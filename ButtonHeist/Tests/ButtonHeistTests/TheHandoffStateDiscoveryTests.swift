@@ -10,47 +10,43 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
 
     @ButtonHeistActor
     func testDiscoveryDevicesComeDirectlyFromCurrentSession() async {
-        let handoff = TheHandoff()
         let mockDiscovery = MockDiscovery()
         let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
-        handoff.makeDiscovery = { mockDiscovery }
+        let handoff = TheHandoff(discovery: mockDiscovery)
 
         handoff.startDiscovery()
         mockDiscovery.discoveredDevices = [device]
 
-        XCTAssertEqual(handoff.discoveryLifecycle.discoveredDevices, [device])
+        XCTAssertEqual(handoff.discovery.discoveredDevices, [device])
     }
 
     @ButtonHeistActor
-    func testStoppedDiscoveryIgnoresStaleCallbacks() async {
-        let handoff = TheHandoff()
-        let staleDevice = DiscoveredDevice(
-            id: "stale-service",
-            name: "Stale#one",
-            endpoint: .service(name: "stale-service", type: "_buttonheist._tcp", domain: "local.")
+    func testStoppedDeviceDiscoveryInvalidatesBrowserCallbacks() async {
+        let browser = FakeDiscoveryBrowser()
+        let discovery = DeviceDiscovery(
+            reachabilityValidationInterval: 60,
+            makeBrowser: { browser }
         )
-        let mockDiscovery = MockDiscovery()
-        handoff.makeDiscovery = { mockDiscovery }
+        var readiness: [Bool] = []
+        discovery.onEvent = { event in
+            guard case .stateChanged(let isReady) = event else { return }
+            readiness.append(isReady)
+        }
 
-        var foundDevices: [DiscoveredDevice] = []
-        handoff.onDeviceFound = { foundDevices.append($0) }
+        discovery.start()
+        discovery.stop()
+        browser.emit(.ready)
 
-        handoff.startDiscovery()
-        XCTAssertTrue(handoff.discoveryLifecycle.isDiscovering)
-
-        handoff.stopDiscovery()
-        mockDiscovery.discoveredDevices = [staleDevice]
-        mockDiscovery.onEvent?(.stateChanged(isReady: true))
-        mockDiscovery.onEvent?(.found(staleDevice))
-
-        XCTAssertFalse(handoff.discoveryLifecycle.isDiscovering)
-        XCTAssertEqual(handoff.discoveryLifecycle.discoveredDevices, [])
-        XCTAssertEqual(foundDevices, [])
+        XCTAssertFalse(discovery.isActive)
+        XCTAssertFalse(discovery.isReady)
+        XCTAssertEqual(discovery.discoveredDevices, [])
+        XCTAssertEqual(readiness, [])
+        XCTAssertEqual(browser.cancelCount, 1)
+        XCTAssertFalse(browser.hasInstalledCallbacks)
     }
 
     @ButtonHeistActor
     func testDiscoveryFailureClearsDevicesAndStopsSession() async {
-        let handoff = TheHandoff()
         let device = DiscoveredDevice(
             id: "failed-service",
             name: "Failed#one",
@@ -58,52 +54,18 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         )
         let mockDiscovery = MockDiscovery()
         mockDiscovery.discoveredDevices = [device]
-        handoff.makeDiscovery = { mockDiscovery }
+        let handoff = TheHandoff(discovery: mockDiscovery)
 
         handoff.startDiscovery()
-        XCTAssertTrue(handoff.discoveryLifecycle.isDiscovering)
-        XCTAssertEqual(handoff.discoveryLifecycle.discoveredDevices, [device])
+        XCTAssertTrue(handoff.discovery.isReady)
+        XCTAssertEqual(handoff.discovery.discoveredDevices, [device])
 
-        mockDiscovery.onEvent?(.failed(.noDeviceFound))
+        mockDiscovery.emit(.failed(.noDeviceFound))
 
-        XCTAssertFalse(handoff.discoveryLifecycle.isDiscovering)
-        XCTAssertEqual(handoff.discoveryLifecycle.discoveredDevices, [])
-        XCTAssertFalse(handoff.discoveryLifecycle.hasDiscoverySession)
+        XCTAssertFalse(handoff.discovery.isReady)
+        XCTAssertEqual(handoff.discovery.discoveredDevices, [])
+        XCTAssertFalse(handoff.discovery.isActive)
         XCTAssertEqual(mockDiscovery.stopCount, 1)
-    }
-
-    @ButtonHeistActor
-    func testReplacedDiscoveryIgnoresCallbacksFromPreviousSession() async {
-        let handoff = TheHandoff()
-        let staleDevice = DiscoveredDevice(
-            id: "stale-service",
-            name: "Stale#one",
-            endpoint: .service(name: "stale-service", type: "_buttonheist._tcp", domain: "local.")
-        )
-        let currentDevice = DiscoveredDevice(
-            id: "current-service",
-            name: "Current#one",
-            endpoint: .service(name: "current-service", type: "_buttonheist._tcp", domain: "local.")
-        )
-        let staleDiscovery = MockDiscovery()
-        let currentDiscovery = MockDiscovery()
-        currentDiscovery.discoveredDevices = [currentDevice]
-        var discoveries = [staleDiscovery, currentDiscovery]
-        handoff.makeDiscovery = { discoveries.removeFirst() }
-
-        var foundDevices: [DiscoveredDevice] = []
-        handoff.onDeviceFound = { foundDevices.append($0) }
-
-        handoff.startDiscovery()
-        handoff.stopDiscovery()
-        handoff.startDiscovery()
-        staleDiscovery.discoveredDevices = [staleDevice]
-        staleDiscovery.onEvent?(.stateChanged(isReady: false))
-        staleDiscovery.onEvent?(.found(staleDevice))
-
-        XCTAssertTrue(handoff.discoveryLifecycle.isDiscovering)
-        XCTAssertEqual(handoff.discoveryLifecycle.discoveredDevices, [currentDevice])
-        XCTAssertEqual(foundDevices, [currentDevice])
     }
 
     @ButtonHeistActor
@@ -159,7 +121,7 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
             switch event {
             case .stateChanged:
                 deliveredStateCount += 1
-                if deliveredStateCount == DeviceDiscoveryEventStream.bufferLimit {
+                if deliveredStateCount == DeviceDiscovery.callbackBufferLimit {
                     capacityDelivered.signal()
                 }
             case .failed(let failure):
@@ -170,12 +132,12 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         }
 
         discovery.start()
-        for _ in 0..<DeviceDiscoveryEventStream.bufferLimit {
+        for _ in 0..<DeviceDiscovery.callbackBufferLimit {
             browser.emit(.waiting)
         }
         await capacityDelivered.wait()
 
-        XCTAssertEqual(deliveredStateCount, DeviceDiscoveryEventStream.bufferLimit)
+        XCTAssertEqual(deliveredStateCount, DeviceDiscovery.callbackBufferLimit)
         XCTAssertEqual(failures, [])
         XCTAssertEqual(browser.cancelCount, 0)
         discovery.stop()
@@ -204,10 +166,10 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         }
 
         discovery.start()
-        for _ in 0...DeviceDiscoveryEventStream.bufferLimit {
+        for _ in 0...DeviceDiscovery.callbackBufferLimit {
             browser.emit(.waiting)
         }
-        for _ in 0..<DeviceDiscoveryEventStream.bufferLimit {
+        for _ in 0..<DeviceDiscovery.callbackBufferLimit {
             browser.emit(.ready)
         }
 
@@ -218,7 +180,7 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
 
         XCTAssertEqual(deliveredStateCount, 0)
         XCTAssertEqual(failures, [
-            .discoveryBacklogOverflow(capacity: DeviceDiscoveryEventStream.bufferLimit),
+            .discoveryBacklogOverflow(capacity: DeviceDiscovery.callbackBufferLimit),
         ])
         XCTAssertEqual(discovery.discoveredDevices, [])
         XCTAssertEqual(browser.cancelCount, 1)
@@ -286,7 +248,7 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         }
 
         discovery.start()
-        for _ in 0...DeviceDiscoveryEventStream.bufferLimit {
+        for _ in 0...DeviceDiscovery.callbackBufferLimit {
             firstBrowser.emit(.waiting)
         }
         await overflowDelivered.wait()
@@ -301,7 +263,7 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         XCTAssertEqual(secondBrowser.cancelCount, 0)
         XCTAssertEqual(readyStateCount, 1)
         XCTAssertEqual(failures, [
-            .discoveryBacklogOverflow(capacity: DeviceDiscoveryEventStream.bufferLimit),
+            .discoveryBacklogOverflow(capacity: DeviceDiscovery.callbackBufferLimit),
         ])
         discovery.stop()
     }
@@ -313,10 +275,9 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
             name: "ReachableApp#live",
             endpoint: .hostPort(host: "::1", port: 1)
         )
-        let handoff = TheHandoff()
         let mockDiscovery = MockDiscovery()
         mockDiscovery.discoveredDevices = [reachableDevice]
-        handoff.makeDiscovery = { mockDiscovery }
+        let handoff = TheHandoff(discovery: mockDiscovery)
 
         let previousProvider = makeReachabilityConnection
         makeReachabilityConnection = { device in
@@ -348,14 +309,14 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         defer { makeReachabilityConnection = previousProvider }
 
         handoff.startDiscovery()
-        XCTAssertTrue(handoff.discoveryLifecycle.isDiscovering)
-        XCTAssertEqual(handoff.discoveryLifecycle.discoveredDevices, [reachableDevice])
+        XCTAssertTrue(handoff.discovery.isReady)
+        XCTAssertEqual(handoff.discovery.discoveredDevices, [reachableDevice])
 
         let devices = await handoff.discoverReachableDevices(timeout: 0.3)
 
         XCTAssertEqual(devices, [reachableDevice])
-        XCTAssertTrue(handoff.discoveryLifecycle.isDiscovering)
-        XCTAssertEqual(handoff.discoveryLifecycle.discoveredDevices, [reachableDevice])
+        XCTAssertTrue(handoff.discovery.isReady)
+        XCTAssertEqual(handoff.discovery.discoveredDevices, [reachableDevice])
         XCTAssertEqual(mockDiscovery.startCount, 1)
         XCTAssertEqual(mockDiscovery.stopCount, 0)
     }
@@ -368,10 +329,9 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
             endpoint: .hostPort(host: "::1", port: 2)
         )
 
-        let handoff = TheHandoff()
         let mockDiscovery = MockDiscovery()
         mockDiscovery.discoveredDevices = [discoveredDevice]
-        handoff.makeDiscovery = { mockDiscovery }
+        let handoff = TheHandoff(discovery: mockDiscovery)
 
         var connectedDeviceID: DiscoveryDeviceID?
         handoff.makeConnection = { device in
@@ -407,10 +367,9 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
             endpoint: .hostPort(host: "::1", port: 3)
         )
 
-        let handoff = TheHandoff()
         let mockDiscovery = MockDiscovery()
         mockDiscovery.discoveredDevices = [device]
-        handoff.makeDiscovery = { mockDiscovery }
+        let handoff = TheHandoff(discovery: mockDiscovery)
 
         handoff.makeConnection = { _ in
             let connection = MockConnection()
@@ -455,10 +414,9 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
             endpoint: .hostPort(host: "::1", port: 5)
         )
 
-        let handoff = TheHandoff()
         let mockDiscovery = MockDiscovery()
         mockDiscovery.discoveredDevices = [firstDevice, secondDevice]
-        handoff.makeDiscovery = { mockDiscovery }
+        let handoff = TheHandoff(discovery: mockDiscovery)
 
         do {
             try await handoff.connect(target: DeviceResolutionTarget(filter: nil), timeout: 0.5)
@@ -490,7 +448,9 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
             endpoint: .hostPort(host: "::1", port: 8)
         )
 
-        let handoff = TheHandoff()
+        let mockDiscovery = MockDiscovery()
+        mockDiscovery.discoveredDevices = [firstDevice, secondDevice]
+        let handoff = TheHandoff(discovery: mockDiscovery)
         let existingConnection = MockConnection()
         handoff.makeConnection = { _ in existingConnection }
 
@@ -505,9 +465,6 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         assertConnected(handoff.connectionPhase, device: existingDevice)
         XCTAssertTrue(existingConnection.isConnected)
 
-        let mockDiscovery = MockDiscovery()
-        mockDiscovery.discoveredDevices = [firstDevice, secondDevice]
-        handoff.makeDiscovery = { mockDiscovery }
         handoff.makeConnection = { _ in
             XCTFail("Discovery selection failed; no replacement connection should be opened")
             return MockConnection()
@@ -546,7 +503,9 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
             endpoint: .hostPort(host: "::1", port: 10)
         )
 
-        let handoff = TheHandoff()
+        let mockDiscovery = MockDiscovery()
+        mockDiscovery.discoveredDevices = [replacementDevice]
+        let handoff = TheHandoff(discovery: mockDiscovery)
         let existingConnection = MockConnection()
         let replacementConnection = MockConnection()
         handoff.makeConnection = { device in
@@ -571,10 +530,6 @@ final class TheHandoffStateDiscoveryTests: XCTestCase {
         handoff.connect(to: existingDevice)
         assertConnected(handoff.connectionPhase, device: existingDevice)
         XCTAssertTrue(existingConnection.isConnected)
-
-        let mockDiscovery = MockDiscovery()
-        mockDiscovery.discoveredDevices = [replacementDevice]
-        handoff.makeDiscovery = { mockDiscovery }
 
         try await handoff.connect(target: DeviceResolutionTarget(filter: nil), timeout: 0.5)
 

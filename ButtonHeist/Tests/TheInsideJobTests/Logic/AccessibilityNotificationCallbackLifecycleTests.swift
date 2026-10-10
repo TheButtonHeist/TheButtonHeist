@@ -129,7 +129,7 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
         else {
             return XCTFail("Expected the first notification to belong to the action")
         }
-        XCTAssertEqual(events[1].owner, .heist(heist.cursor))
+        XCTAssertEqual(events[1].owner, .heist)
     }
 
     func testFailedAdmissionRetriesSealedCoverageWithoutLaterIngress() async throws {

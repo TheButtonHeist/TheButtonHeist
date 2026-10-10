@@ -1,7 +1,7 @@
 import Foundation
 import TheScore
 
-/// Limits for public machine inputs before they materialize recursive JSON.
+/// Resource limits for recursive public machine inputs.
 @_spi(ButtonHeistTooling) public enum PublicJSONInputLimits {
     public static let maxRequestBytes = 1_000_000
     public static let maxNestingDepth = 32
@@ -39,7 +39,7 @@ enum PublicJSONInputViolation: Sendable, Equatable {
     }
 }
 
-/// Applies public JSON limits, then decodes the canonical object boundary.
+/// Admits one canonical object while enforcing the public JSON limits.
 @_spi(ButtonHeistTooling) public enum PublicJSONInputDecoder {
     public static func decodeObject(
         from input: String,
@@ -74,16 +74,32 @@ enum PublicJSONInputViolation: Sendable, Equatable {
         maxTotalObjectKeys: Int = PublicJSONInputLimits.maxTotalObjectKeys,
         rootMismatchMessage: String? = nil
     ) throws -> [String: HeistValue] {
-        try validate(
+        let mapViolation: @Sendable (PublicJSONInputViolation) -> Error = {
+            PublicJSONInputError($0.message(context: context))
+        }
+        try validateByteCount(data.count, maxBytes: maxBytes, mapViolation: mapViolation)
+        guard data.first(where: { !Self.whitespace.contains($0) }) == UInt8(ascii: "{") else {
+            throw PublicJSONInputError(rootMismatchMessage ?? "\(context) is not valid JSON")
+        }
+        try PublicJSONNestingPreflight.validate(
             data,
-            context: context,
-            maxBytes: maxBytes,
+            maxNestingDepth: maxNestingDepth,
+            mapViolation: mapViolation
+        )
+
+        let object: [String: HeistValue]
+        do {
+            object = try JSONDecoder().decode([String: HeistValue].self, from: data)
+        } catch {
+            throw PublicJSONInputError("\(context) is not valid JSON")
+        }
+        try validateStructure(
+            object,
             maxNestingDepth: maxNestingDepth,
             maxTotalObjectKeys: maxTotalObjectKeys,
-            rootMismatchMessage: rootMismatchMessage,
-            mapViolation: { PublicJSONInputError($0.message(context: context)) }
+            mapViolation: mapViolation
         )
-        return try JSONDecoder().decode([String: HeistValue].self, from: data)
+        return object
     }
 
     static func validate(
@@ -97,39 +113,37 @@ enum PublicJSONInputViolation: Sendable, Equatable {
             throw mapViolation(.nonFiniteNumber(number))
         }
         let data = try JSONEncoder().encode(object)
-        try validate(
-            data,
-            context: "Public JSON input",
-            maxBytes: maxBytes,
+        try validateByteCount(data.count, maxBytes: maxBytes, mapViolation: mapViolation)
+        try validateStructure(
+            object,
             maxNestingDepth: maxNestingDepth,
             maxTotalObjectKeys: maxTotalObjectKeys,
-            rootMismatchMessage: nil,
             mapViolation: mapViolation
         )
     }
 
-    private static func validate(
-        _ data: Data,
-        context: String,
-        maxBytes: Int,
+    private static func validateStructure(
+        _ object: [String: HeistValue],
         maxNestingDepth: Int,
         maxTotalObjectKeys: Int,
-        rootMismatchMessage: String?,
         mapViolation: @escaping @Sendable (PublicJSONInputViolation) -> Error
     ) throws {
-        guard data.count <= maxBytes else {
-            throw mapViolation(.bytes(max: maxBytes, observed: data.count))
-        }
-        if data.first(where: { !Self.whitespace.contains($0) }) != UInt8(ascii: "{") {
-            throw PublicJSONInputError(rootMismatchMessage ?? "\(context) is not valid JSON")
-        }
-
-        var traversal = FoundationJSONStructureTraversal(
+        var traversal = PublicJSONStructureTraversal(
             maxNestingDepth: maxNestingDepth,
             maxTotalObjectKeys: maxTotalObjectKeys,
             mapViolation: mapViolation
         )
-        try traversal.validate(data, context: context)
+        try traversal.validate(object)
+    }
+
+    private static func validateByteCount(
+        _ byteCount: Int,
+        maxBytes: Int,
+        mapViolation: @Sendable (PublicJSONInputViolation) -> Error
+    ) throws {
+        guard byteCount <= maxBytes else {
+            throw mapViolation(.bytes(max: maxBytes, observed: byteCount))
+        }
     }
 
     private static func firstNonFiniteNumber(in value: HeistValue) -> Double? {
@@ -148,43 +162,89 @@ enum PublicJSONInputViolation: Sendable, Equatable {
     private static let whitespace: Set<UInt8> = [0x20, 0x0A, 0x0D, 0x09]
 }
 
-/// The only untyped Foundation JSON boundary. Values do not escape this traversal.
-private struct FoundationJSONStructureTraversal {
+/// Bounds recursive decoder work without constructing a second JSON tree.
+private enum PublicJSONNestingPreflight {
+    static func validate(
+        _ data: Data,
+        maxNestingDepth: Int,
+        mapViolation: @Sendable (PublicJSONInputViolation) -> Error
+    ) throws {
+        var depth = 0
+        var isInString = false
+        var isEscaped = false
+
+        for byte in data {
+            if isInString {
+                if isEscaped {
+                    isEscaped = false
+                } else if byte == UInt8(ascii: "\\") {
+                    isEscaped = true
+                } else if byte == UInt8(ascii: "\"") {
+                    isInString = false
+                }
+                continue
+            }
+
+            switch byte {
+            case UInt8(ascii: "\""):
+                isInString = true
+            case UInt8(ascii: "{"), UInt8(ascii: "["):
+                depth += 1
+                guard depth <= maxNestingDepth else {
+                    throw mapViolation(.nestingDepth(max: maxNestingDepth, observed: depth))
+                }
+            case UInt8(ascii: "}"), UInt8(ascii: "]"):
+                depth -= 1
+            default:
+                break
+            }
+        }
+    }
+}
+
+private struct PublicJSONStructureTraversal {
     let maxNestingDepth: Int
     let maxTotalObjectKeys: Int
     let mapViolation: @Sendable (PublicJSONInputViolation) -> Error
     var totalObjectKeys = 0
 
-    mutating func validate(_ data: Data, context: String) throws {
-        let value: Any
-        do {
-            value = try JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
-        } catch {
-            throw PublicJSONInputError("\(context) is not valid JSON")
-        }
-        try validate(value, depth: 1)
+    mutating func validate(_ object: [String: HeistValue]) throws {
+        try validateObject(object, depth: 1)
     }
 
-    private mutating func validate(_ value: Any, depth: Int) throws {
+    private mutating func validate(_ value: HeistValue, depth: Int) throws {
         guard depth <= maxNestingDepth else {
             throw mapViolation(.nestingDepth(max: maxNestingDepth, observed: depth))
         }
 
-        if let array = value as? [Any] {
-            for nested in array {
+        switch value {
+        case .array(let values):
+            for nested in values {
                 try validate(nested, depth: depth + 1)
             }
-        } else if let object = value as? [String: Any] {
-            totalObjectKeys += object.count
-            guard totalObjectKeys <= maxTotalObjectKeys else {
-                throw mapViolation(.objectKeyCount(
-                    max: maxTotalObjectKeys,
-                    observed: totalObjectKeys
-                ))
-            }
-            for nested in object.values {
-                try validate(nested, depth: depth + 1)
-            }
+        case .object(let object):
+            try validateObject(object, depth: depth)
+        case .string, .int, .double, .bool:
+            break
+        }
+    }
+
+    private mutating func validateObject(
+        _ object: [String: HeistValue],
+        depth: Int
+    ) throws {
+        guard depth <= maxNestingDepth else {
+            throw mapViolation(.nestingDepth(max: maxNestingDepth, observed: depth))
+        }
+        totalObjectKeys += object.count
+        guard totalObjectKeys <= maxTotalObjectKeys else {
+            throw mapViolation(.objectKeyCount(
+                max: maxTotalObjectKeys,
+                observed: totalObjectKeys
+            ))
+        }
+        for nested in object.values {
+            try validate(nested, depth: depth + 1)
         }
     }
 }

@@ -200,12 +200,17 @@ final class MockConnection: DeviceConnecting, TransportReachabilityConnecting {
 @ButtonHeistActor
 final class MockDiscovery: DeviceDiscovering {
     var discoveredDevices: [DiscoveredDevice] = []
+    private(set) var isActive = false
+    private(set) var isReady = false
     var onEvent: (@ButtonHeistActor (DiscoveryEvent) -> Void)?
     var startCount = 0
     var stopCount = 0
 
     func start() {
+        guard !isActive else { return }
         startCount += 1
+        isActive = true
+        isReady = true
         onEvent?(.stateChanged(isReady: true))
         for device in discoveredDevices {
             onEvent?(.found(device))
@@ -213,6 +218,25 @@ final class MockDiscovery: DeviceDiscovering {
     }
 
     func stop() {
+        guard isActive else { return }
         stopCount += 1
+        isActive = false
+        isReady = false
+        discoveredDevices = []
+    }
+
+    func emit(_ event: DiscoveryEvent) {
+        guard isActive else { return }
+        switch event {
+        case .found(let device):
+            discoveredDevices.append(device)
+        case .lost(let device):
+            discoveredDevices.removeAll { $0.id == device.id }
+        case .stateChanged(let isReady):
+            self.isReady = isReady
+        case .failed:
+            stop()
+        }
+        onEvent?(event)
     }
 }

@@ -608,7 +608,7 @@ pipelines are explicit:
 | UI request admission and cancellation | `InteractionRequestExecutor` in `TheBrains.swift` | `TheGetaway+Transport.swift`, `Heist.swift` |
 | Callback admission and delivery | `ClientDelivery.swift` | `TheGetaway` admits and invalidates one capability per transport wiring; `TheMuscle` routes callback effects through that capability |
 | Drainable callback work | `TaskTracker.swift` | Lifecycle, listener-generation, and delayed-disconnect owners |
-| Discovery callback delivery | `DeviceDiscoveryEventStream.swift` | `DeviceDiscovery.swift` |
+| Discovery lifecycle and callback delivery | `DeviceDiscovery.State` and its nested callback bridge in `DeviceDiscovery.swift` | `TheHandoff` starts, stops, and forwards events without retaining parallel discovery state |
 | Connection target admission and resolution | `DeviceResolutionTarget` and `DeviceResolver` | `EnvironmentConfig` admits one target; `TheHandoff` resolves and retains it through reconnect |
 | Public JSON admission | `PublicJSONInputDecoder` | CLI decodes into its request envelope; MCP converts its existing value tree into command arguments and applies the same limits |
 | Compiler process terminal outcome | `HeistCompilerProcess.Runner` in `HeistCompilerProcess.swift` | `HeistSwiftFileCompilation.swift` maps failures directly into `HeistPlanBuildError` through `HeistSwiftCompilationDiagnostics.swift` |

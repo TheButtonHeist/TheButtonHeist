@@ -13,7 +13,7 @@ extension TheHandoff {
         if target.requiresDiscovery {
             onStatus?("Searching for iOS devices...")
         }
-        let startedDiscovery = target.requiresDiscovery && !discoveryLifecycle.hasDiscoverySession
+        let startedDiscovery = target.requiresDiscovery && !discovery.isActive
         if startedDiscovery { startDiscovery() }
 
         let resolutionTimeout = Self.connectionResolutionTimeout(for: timeout)
@@ -70,7 +70,7 @@ extension TheHandoff {
 
     /// Compute display name with disambiguation when multiple devices have the same app.
     func displayName(for device: DiscoveredDevice) -> String {
-        device.displayName(among: discoveryLifecycle.discoveredDevices)
+        device.displayName(among: discovery.discoveredDevices)
     }
 
     private func resolveTargetDevice(
@@ -80,7 +80,7 @@ extension TheHandoff {
         let resolver = DeviceResolver(
             target: target,
             discoveryTimeout: discoveryTimeout,
-            getDiscoveredDevices: { [weak self] in self?.discoveryLifecycle.discoveredDevices ?? [] }
+            getDiscoveredDevices: { [weak self] in self?.discovery.discoveredDevices ?? [] }
         )
         return try await resolver.resolve()
     }
