@@ -305,8 +305,8 @@ final class CLICommandSyncTests: XCTestCase {
     }
 
     func testMachineRequestParserParsesCanonicalMachineJSON() throws {
-        let parsed = try CLIMachineRequestParser.parsedRequest(
-            from: #"{"command":"type_text","text":"hello"}"#
+        let parsed = try CLIMachineRequestParser.parse(
+            #"{"command":"type_text","text":"hello"}"#
         )
 
         XCTAssertEqual(parsed.command, .typeText)
@@ -315,7 +315,7 @@ final class CLICommandSyncTests: XCTestCase {
 
     func testMachineRequestParserRejectsHumanTextInJSONLinesMode() {
         XCTAssertThrowsError(
-            try CLIMachineRequestParser.parsedRequest(from: "activate button_save")
+            try CLIMachineRequestParser.parse("activate button_save")
         ) { error in
             let failure = machineRequestFailure(from: error)
             XCTAssertTrue(
@@ -328,7 +328,7 @@ final class CLICommandSyncTests: XCTestCase {
 
     func testMachineRequestParserRejectsMalformedMachineJSON() {
         XCTAssertThrowsError(
-            try CLIMachineRequestParser.parsedRequest(from: #"{"command":"ping","#)
+            try CLIMachineRequestParser.parse(#"{"command":"ping","#)
         ) { error in
             let failure = machineRequestFailure(from: error)
             let message = failure.message
@@ -338,8 +338,8 @@ final class CLICommandSyncTests: XCTestCase {
     }
 
     func testMachineRequestParserAcceptsCanonicalMachineJSONInJSONLinesMode() throws {
-        let parsed = try CLIMachineRequestParser.parsedRequest(
-            from: #"{"command":"activate","target":{"checks":[{"kind":"identifier","match":{"mode":"exact","value":"button_save"}}]}}"#
+        let parsed = try CLIMachineRequestParser.parse(
+            #"{"command":"activate","target":{"checks":[{"kind":"identifier","match":{"mode":"exact","value":"button_save"}}]}}"#
         )
 
         XCTAssertEqual(parsed.command, .activate)
@@ -350,8 +350,8 @@ final class CLICommandSyncTests: XCTestCase {
     }
 
     func testMachineRequestParserDefersCommandValidationToFenceAdmission() throws {
-        let parsed = try CLIMachineRequestParser.parsedRequest(
-            from: #"{"command":"wait","predicate":{"type":"changed","scope":"screen","assertions":[]},"timeout":0,"unknown":true}"#
+        let parsed = try CLIMachineRequestParser.parse(
+            #"{"command":"wait","predicate":{"type":"changed","scope":"screen","assertions":[]},"timeout":0,"unknown":true}"#
         )
 
         XCTAssertEqual(parsed.command, .wait)
@@ -361,8 +361,8 @@ final class CLICommandSyncTests: XCTestCase {
 
     func testMachineRequestParserRejectsMCPOnlyPerformInJSONLinesMode() {
         XCTAssertThrowsError(
-            try CLIMachineRequestParser.parsedRequest(
-                from: #"{"command":"perform","step":"Activate(.label(\"Pay\"))"}"#
+            try CLIMachineRequestParser.parse(
+                #"{"command":"perform","step":"Activate(.label(\"Pay\"))"}"#
             )
         ) { error in
             let failure = machineRequestFailure(from: error)
@@ -376,8 +376,8 @@ final class CLICommandSyncTests: XCTestCase {
     }
 
     func testMachineRequestParserAcceptsRunHeistInJSONLinesMode() throws {
-        let parsed = try CLIMachineRequestParser.parsedRequest(
-            from: #"{"command":"run_heist","plan":"HeistPlan(\"one\") { Warn(\"check\") }"}"#
+        let parsed = try CLIMachineRequestParser.parse(
+            #"{"command":"run_heist","plan":"HeistPlan(\"one\") { Warn(\"check\") }"}"#
         )
 
         XCTAssertEqual(parsed.command, .runHeist)
@@ -385,8 +385,8 @@ final class CLICommandSyncTests: XCTestCase {
     }
 
     func testMachineRequestParserAcceptsValidateHeistInJSONLinesMode() throws {
-        let parsed = try CLIMachineRequestParser.parsedRequest(
-            from: #"{"command":"validate_heist","plan":"HeistPlan { Warn(\"check\") }","lint":"strict_test"}"#
+        let parsed = try CLIMachineRequestParser.parse(
+            #"{"command":"validate_heist","plan":"HeistPlan { Warn(\"check\") }","lint":"strict_test"}"#
         )
 
         XCTAssertEqual(parsed.command, .validateHeist)
@@ -397,7 +397,7 @@ final class CLICommandSyncTests: XCTestCase {
         let hugeText = String(repeating: "x", count: PublicJSONInputLimits.maxRequestBytes + 1)
         let line = "{\"command\":\"type_text\",\"text\":\"" + hugeText + "\"}"
 
-        XCTAssertThrowsError(try CLIMachineRequestParser.parsedRequest(from: line)) { error in
+        XCTAssertThrowsError(try CLIMachineRequestParser.parse(line)) { error in
             let failure = machineRequestFailure(from: error)
             let message = failure.message
             XCTAssertTrue(
@@ -419,7 +419,7 @@ final class CLICommandSyncTests: XCTestCase {
         }
         let line = "{\"command\":\"ping\",\"payload\":\(payload)}"
 
-        XCTAssertThrowsError(try CLIMachineRequestParser.parsedRequest(from: line)) { error in
+        XCTAssertThrowsError(try CLIMachineRequestParser.parse(line)) { error in
             let failure = machineRequestFailure(from: error)
             let message = failure.message
             XCTAssertTrue(
@@ -439,7 +439,7 @@ final class CLICommandSyncTests: XCTestCase {
         }
         let line = "{\(fields.joined(separator: ","))}"
 
-        XCTAssertThrowsError(try CLIMachineRequestParser.parsedRequest(from: line)) { error in
+        XCTAssertThrowsError(try CLIMachineRequestParser.parse(line)) { error in
             let failure = machineRequestFailure(from: error)
             let message = failure.message
             XCTAssertTrue(
@@ -544,19 +544,19 @@ final class CLICommandSyncTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) -> DiagnosticFailure {
-        guard let requestError = error as? CLIMachineRequestError else {
-            XCTFail("expected CLIMachineRequestError, got \(error)", file: file, line: line)
+        guard let failure = error as? DiagnosticFailure else {
+            XCTFail("expected DiagnosticFailure, got \(error)", file: file, line: line)
             return DiagnosticFailure(
                 message: String(describing: error),
                 details: FailureDetails(code: .clientUnknown)
             )
         }
-        return requestError.diagnosticFailure
+        return failure
     }
 }
 
-private extension CLIParsedRequest {
+private extension FenceCommandInput {
     func argument(_ key: FenceParameterKey) -> HeistValue? {
-        input.arguments.value(for: key)
+        arguments.value(for: key)
     }
 }

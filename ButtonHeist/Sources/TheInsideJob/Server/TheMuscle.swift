@@ -194,9 +194,9 @@ actor TheMuscle {
         data: Data,
         respond: @escaping SocketResponseHandler,
         delivery: ClientDelivery
-    ) async -> ClientAdmission {
+    ) async -> AdmittedClientMessage? {
         guard await delivery.isActive else {
-            return .handled
+            return nil
         }
         return await resolve(admission.admit(
             clientId,
@@ -229,16 +229,16 @@ actor TheMuscle {
     private func resolve(
         _ decision: ClientAdmission.Decision,
         delivery: ClientDelivery
-    ) async -> ClientAdmission {
+    ) async -> AdmittedClientMessage? {
         switch decision {
         case .admitted(let message):
-            return .admitted(message)
+            return message
         case .handled(let effect):
             await executeAdmissionEffects(effect, delivery: delivery)
-            return .handled
+            return nil
         case .sessionAdmission(let sessionAdmission):
             await admitSession(sessionAdmission, delivery: delivery)
-            return .handled
+            return nil
         }
     }
 

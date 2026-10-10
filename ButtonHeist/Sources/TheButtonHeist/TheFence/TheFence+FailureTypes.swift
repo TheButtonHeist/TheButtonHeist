@@ -258,7 +258,7 @@ public enum KnownFailureCode: String, Codable, Sendable, CaseIterable, CustomStr
 }
 
 /// Canonical diagnostic failure shape used by CLI and MCP responses.
-public struct DiagnosticFailure: Sendable, Equatable {
+public struct DiagnosticFailure: Error, Sendable, Equatable {
     /// User-facing failure message.
     public let message: String
     /// Lifecycle metadata and recovery hint for the failure.

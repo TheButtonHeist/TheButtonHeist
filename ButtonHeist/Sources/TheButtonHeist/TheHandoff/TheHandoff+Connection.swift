@@ -17,7 +17,7 @@ extension TheHandoff {
     func openConnection(to device: DiscoveredDevice) -> UUID {
         let connection = makeConnection?(device) ?? DeviceConnection(
             device: device,
-            token: serverMessageRouter.authToken
+            token: authToken
         )
         let attemptID = connectionLifecycle.beginConnecting(device: device, connection: connection)
         connection.onEvent = { [weak self, attemptID] event in
@@ -29,7 +29,48 @@ extension TheHandoff {
     }
 
     func handleServerMessage(_ message: ServerMessage, requestId: RequestID?) {
-        applyServerMessageRoute(serverMessageRouter.route(message, requestId: requestId))
+        switch message {
+        case .serverHello:
+            sendAdmissionMessage(.clientHello)
+        case .authRequired:
+            guard let authToken else {
+                failActiveConnection(.disconnected(.missingToken))
+                return
+            }
+            sendAdmissionMessage(.authenticate(AuthenticatePayload(
+                token: authToken,
+                driverId: HandoffDriverIdentity.effectiveDriverId(explicit: driverID)
+            )))
+        case .sessionLocked(let payload):
+            failActiveConnection(.disconnected(.sessionLocked(payload.message)))
+        case .protocolMismatch(let payload):
+            failActiveConnection(.disconnected(.buttonHeistVersionMismatch(
+                serverVersion: payload.serverButtonHeistVersion,
+                clientVersion: payload.clientButtonHeistVersion
+            )))
+        case .error(let serverError) where serverError.kind == .authFailure:
+            failActiveConnection(.disconnected(.authFailed(
+                serverError.message.description,
+                hint: serverError.recoveryHint?.description
+            )))
+        case .error(let serverError):
+            if let requestId {
+                onServerMessage?(message, requestId)
+            } else {
+                failActiveConnection(.serverFailure(serverError))
+            }
+        case .info(let info):
+            connectionLifecycle.recordServerInfo(info)
+        case .interface, .actionResult, .heistResult, .screen, .notifications, .mainThreadProbe:
+            onServerMessage?(message, requestId)
+        case .pong(let payload):
+            connectionLifecycle.markPongReceived()
+            if let requestId {
+                onServerMessage?(.pong(payload), requestId)
+            }
+        case .status:
+            break
+        }
     }
 
     func disconnect() {
@@ -129,35 +170,6 @@ extension TheHandoff {
         ) else { return }
         if reason.retryable {
             scheduleAutoReconnectIfNeeded(disconnectedDevice: device)
-        }
-    }
-
-    private func applyServerMessageRoute(_ route: HandoffServerMessageRoute) {
-        switch route {
-        case .admission(let decision):
-            applyAdmissionDecision(decision)
-        case .serverInfo(let info):
-            connectionLifecycle.recordServerInfo(info)
-        case .forward(let message, let requestId):
-            onServerMessage?(message, requestId)
-        case .serverFailure(let serverError):
-            failActiveConnection(.serverFailure(serverError))
-        case .pong(let payload, let requestId):
-            connectionLifecycle.markPongReceived()
-            if let requestId {
-                onServerMessage?(.pong(payload), requestId)
-            }
-        case .handled:
-            break
-        }
-    }
-
-    private func applyAdmissionDecision(_ decision: HandoffAdmissionDecision) {
-        switch decision {
-        case .send(let message):
-            sendAdmissionMessage(message)
-        case .terminalFailure(let failure):
-            failActiveConnection(failure)
         }
     }
 

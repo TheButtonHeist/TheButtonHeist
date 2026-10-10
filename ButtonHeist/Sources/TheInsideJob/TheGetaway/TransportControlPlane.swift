@@ -230,14 +230,14 @@ actor TransportControlPlane {
 
     private func executeClientRequest(_ request: ClientTransportRequest) async {
         guard isCurrent(request.lease) else { return }
-        let admission = await muscle.admitClientMessage(
+        let message = await muscle.admitClientMessage(
             request.clientId,
             data: request.data,
             respond: request.respond,
             delivery: delivery
         )
         guard !Task.isCancelled, isCurrent(request.lease) else { return }
-        guard case .admitted(let message) = admission else { return }
+        guard let message else { return }
 
         let envelope = message.envelope
         switch envelope.message {

@@ -326,9 +326,6 @@ public enum PropertyChange: Sendable, Equatable {
         newValue?.displayText
     }
 
-    public var displayTransition: String {
-        "\(oldDisplayText ?? "nil") → \(newDisplayText ?? "nil")"
-    }
 }
 
 extension PropertyChange: Codable {

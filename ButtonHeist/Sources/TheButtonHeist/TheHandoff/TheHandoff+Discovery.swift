@@ -54,7 +54,7 @@ extension TheHandoff {
             if !dueDevices.isEmpty {
                 let retryAt = Date().addingTimeInterval(retryInterval)
                 let reachable = await dueDevices.reachable(
-                    token: serverMessageRouter.authToken,
+                    token: authToken,
                     timeout: probeTimeout
                 )
                 let reachableDeviceIDs = Set(reachable.map(\.id))
