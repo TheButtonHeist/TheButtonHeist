@@ -197,20 +197,14 @@ class ButtonHeistRuntimeTestCase: ButtonHeistTestCase {
         XCTAssertEqual(observationStream.activeObservationDemandCount, 0, file: file, line: line)
     }
 
-    /// Asserts the test left no subscriber on the process-wide notification hook.
-    ///
-    /// The hook comes out when its last subscriber goes, but nothing asks on its
-    /// own — the observer reconciles when it is read. Reading it here is what
-    /// makes the uninstall happen at the end of the test that owed it rather
-    /// than partway through whichever test next touches the observer, and a
-    /// subscriber still standing at this point outlived the test that made it.
+    /// Asserts the test released the process-wide notification destination.
     private func assertNotificationHookReleased(
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertFalse(
-            AccessibilityNotificationObserver.shared.hasSubscribers,
-            "A notification subscriber outlived the test that built it",
+            AccessibilityNotificationObserver.shared.hasDestination,
+            "A notification destination outlived the test that built it",
             file: file,
             line: line
         )

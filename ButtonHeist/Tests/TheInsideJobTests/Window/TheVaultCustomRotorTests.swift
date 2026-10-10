@@ -174,89 +174,6 @@ final class TheVaultCustomRotorTests: ButtonHeistTestCase {
         XCTAssertEqual(hit.treeElement?.element.identifier, "open_docs")
     }
 
-    func testRotorResultDoesNotResolveCachedSemanticElementOutsideParsedHierarchy() async throws {
-        let rootView = UIView(frame: UIScreen.main.bounds)
-        rootView.backgroundColor = .white
-
-        let rotorHost = UIView(frame: CGRect(x: 20, y: 40, width: 280, height: 44))
-        rotorHost.isAccessibilityElement = true
-        rotorHost.accessibilityLabel = "Cached Results"
-        rotorHost.accessibilityIdentifier = "cached_rotor_host"
-
-        let cachedResult = RotorActivationAccessibilityElement(container: rootView)
-        cachedResult.accessibilityLabel = "Cached virtual result"
-        cachedResult.accessibilityTraits = .button
-        cachedResult.accessibilityFrameInContainerSpace = CGRect(x: 20, y: 120, width: 280, height: 44)
-
-        rotorHost.accessibilityCustomRotors = [
-            UIAccessibilityCustomRotor(name: "Cached Items") { _ in
-                UIAccessibilityCustomRotorItemResult(targetElement: cachedResult, targetRange: nil)
-            }
-        ]
-
-        rootView.addSubview(rotorHost)
-
-        present(rotorHost: rootView)
-
-        let brains = TheBrains(tripwire: TheTripwire())
-        await brains.startTestObservation()
-        defer { brains.stopTestObservation() }
-        guard case .committed =
-            await brains.vault.semanticObservationStream.refreshedVisibleObservation(
-                boundary: .cancellation
-            )
-        else { return XCTFail("Expected a committed live observation") }
-        let observation = brains.vault.currentInterfaceObservation
-
-        let cachedHeistId = HeistId(rawValue: "cached_virtual_result")
-        var elements = observation.tree.elements
-        let cachedElement = AccessibilityElement.make(
-            label: "Cached virtual result",
-            identifier: cachedHeistId.rawValue,
-            traits: .button,
-            frame: CGRect(x: 20, y: 120, width: 280, height: 44)
-        )
-        elements[cachedHeistId] = InterfaceTree.Element(
-            heistId: cachedHeistId,
-            scrollMembership: nil,
-            geometry: testGeometry(
-                for: cachedElement,
-                ownerPath: .root,
-                screen: TheVault.onscreenSpace(for: cachedElement)
-            ),
-            element: cachedElement
-        )
-        await brains.vault.installObservationForTesting(InterfaceObservation.makeForTests(
-            tree: InterfaceTree(
-                elements: elements,
-                containers: observation.tree.containers,
-                viewportCapture: observation.tree.viewportCapture
-            ),
-            liveCapture: observation.liveCapture
-        ))
-
-        var timing = ActionTiming()
-
-        let search = await brains.actions.executeRotor(
-            selection: .named("Cached Items"),
-            target: literalTarget(ResolvedElementPredicate.identifier("cached_rotor_host")),
-            direction: .next,
-            deadline: SemanticObservationDeadline(
-                start: RuntimeElapsed.now,
-                timeoutSeconds: 10
-            ),
-            timing: &timing
-        )
-
-        XCTAssertFalse(search.success)
-        XCTAssertTrue(
-            search.message?.contains("returned a target outside the parsed hierarchy") == true,
-            search.message ?? "<nil>"
-        )
-        XCTAssertEqual(search.payload, .rotor(nil))
-        XCTAssertEqual(cachedResult.activationCount, 0)
-    }
-
     func testRotorReportsMissingRotorName() async throws {
         let host = UIAccessibilityElement(accessibilityContainer: NSObject())
         let frame = CGRect(x: 20, y: 40, width: 280, height: 44)
@@ -335,6 +252,7 @@ extension ButtonHeistTestCase {
 final class RotorActionOutOfTreeResultTests: ButtonHeistRuntimeTestCase {
 
     private let customActionHandler = RotorCustomActionHandler()
+    private var cachedResult: RotorActivationAccessibilityElement!
     private var virtualResult: RotorActivationAccessibilityElement!
 
     override func beforeEach() async throws {
@@ -359,6 +277,23 @@ final class RotorActionOutOfTreeResultTests: ButtonHeistRuntimeTestCase {
         ]
         self.virtualResult = virtualResult
 
+        let cachedRotorHost = UIView(frame: CGRect(x: 20, y: 200, width: 280, height: 44))
+        cachedRotorHost.isAccessibilityElement = true
+        cachedRotorHost.accessibilityLabel = "Cached Results"
+        cachedRotorHost.accessibilityIdentifier = "cached_rotor_host"
+
+        let cachedResult = RotorActivationAccessibilityElement(container: rootView)
+        cachedResult.accessibilityLabel = "Cached virtual result"
+        cachedResult.accessibilityTraits = .button
+        cachedResult.accessibilityFrameInContainerSpace = CGRect(x: 20, y: 260, width: 280, height: 44)
+        self.cachedResult = cachedResult
+
+        cachedRotorHost.accessibilityCustomRotors = [
+            UIAccessibilityCustomRotor(name: "Cached Items") { _ in
+                UIAccessibilityCustomRotorItemResult(targetElement: cachedResult, targetRange: nil)
+            }
+        ]
+
         rotorHost.accessibilityCustomRotors = [
             UIAccessibilityCustomRotor(name: "Primary Action") { _ in
                 UIAccessibilityCustomRotorItemResult(targetElement: virtualResult, targetRange: nil)
@@ -366,7 +301,64 @@ final class RotorActionOutOfTreeResultTests: ButtonHeistRuntimeTestCase {
         ]
 
         rootView.addSubview(rotorHost)
+        rootView.addSubview(cachedRotorHost)
         present(rotorHost: rootView)
+    }
+
+    func testRotorResultDoesNotResolveCachedSemanticElementOutsideParsedHierarchy() async throws {
+        guard case .committed =
+            await brains.vault.semanticObservationStream.refreshedVisibleObservation(
+                boundary: .cancellation
+            )
+        else { return XCTFail("Expected a committed live observation") }
+        let observation = brains.vault.currentInterfaceObservation
+
+        let cachedHeistId = HeistId(rawValue: "cached_virtual_result")
+        var elements = observation.tree.elements
+        let cachedElement = AccessibilityElement.make(
+            label: "Cached virtual result",
+            identifier: cachedHeistId.rawValue,
+            traits: .button,
+            frame: CGRect(x: 20, y: 260, width: 280, height: 44)
+        )
+        elements[cachedHeistId] = InterfaceTree.Element(
+            heistId: cachedHeistId,
+            scrollMembership: nil,
+            geometry: testGeometry(
+                for: cachedElement,
+                ownerPath: .root,
+                screen: TheVault.onscreenSpace(for: cachedElement)
+            ),
+            element: cachedElement
+        )
+        await brains.vault.installObservationForTesting(InterfaceObservation.makeForTests(
+            tree: InterfaceTree(
+                elements: elements,
+                containers: observation.tree.containers,
+                viewportCapture: observation.tree.viewportCapture
+            ),
+            liveCapture: observation.liveCapture
+        ))
+
+        var timing = ActionTiming()
+        let search = await brains.actions.executeRotor(
+            selection: .named("Cached Items"),
+            target: literalTarget(ResolvedElementPredicate.identifier("cached_rotor_host")),
+            direction: .next,
+            deadline: SemanticObservationDeadline(
+                start: RuntimeElapsed.now,
+                timeoutSeconds: 10
+            ),
+            timing: &timing
+        )
+
+        XCTAssertFalse(search.success)
+        XCTAssertTrue(
+            search.message?.contains("returned a target outside the parsed hierarchy") == true,
+            search.message ?? "<nil>"
+        )
+        XCTAssertEqual(search.payload, .rotor(nil))
+        XCTAssertEqual(cachedResult.activationCount, 0)
     }
 
     func testOutOfTreeRotorResultFailsInsteadOfCreatingHiddenContinuationState() async throws {

@@ -10,7 +10,6 @@ extension AccessibilityNotificationBus {
         associatedElement: CapturedAccessibilityNotificationPayload
     ) {
         record(
-            sequence: latestSequence + 1,
             rawCode: code,
             timestamp: timestamp,
             notificationData: notificationData.pendingPayload,

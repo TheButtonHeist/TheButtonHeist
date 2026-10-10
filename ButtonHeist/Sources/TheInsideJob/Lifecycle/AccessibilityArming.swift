@@ -17,14 +17,13 @@ enum AccessibilityEnvironmentKey: String, Sendable {
 ///
 /// SwiftUI (and parts of UIKit) only build their accessibility tree when an assistive technology is
 /// active. The AccessibilitySnapshot parser ships its own enabler in an ObjC `+load`, but its
-/// framework is not load-time-linked into Button Heist — so the `+load` never fires — and the
-/// legacy automation switch no longer populates the tree on recent iOS. Without this,
+/// framework is not load-time-linked into Button Heist, so the `+load` never fires. Without this,
 /// `get_interface` returns zero elements on a freshly launched app until accessibility is enabled
 /// out-of-band.
 ///
-/// This toggles the current and legacy accessibility arming SPI directly, covering the deployment
-/// range. Both calls are idempotent, so arming when an external harness already enabled
-/// accessibility is harmless. DEBUG-only; called once during server auto-start.
+/// This toggles the accessibility arming SPI directly. The call is idempotent, so arming when an
+/// external harness already enabled accessibility is harmless. DEBUG-only; called once during
+/// server auto-start.
 func armApplicationAccessibility(environment: [String: String] = ProcessInfo.processInfo.environment) {
     let path = libAccessibilityPath(environment: environment)
     guard let handle = ButtonHeistPrivateSPI.open(.libAccessibility, flags: RTLD_LOCAL, environment: environment) else {
@@ -33,7 +32,6 @@ func armApplicationAccessibility(environment: [String: String] = ProcessInfo.pro
     }
 
     setAccessibilityFlag(handle, function: .accessibilitySetApplicationAccessibilityEnabled)
-    setAccessibilityFlag(handle, function: .accessibilitySetAutomationEnabled)
 }
 
 /// Computes the path to `libAccessibility.dylib`, prefixing the simulator root when running in a

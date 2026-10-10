@@ -73,6 +73,15 @@ extension TheTripwire {
                 )
             })
         }
+
+        func recordingAccessibilityNotifications(through sequence: UInt64) -> Self {
+            Self(
+                topmostVC: topmostVC,
+                navigation: navigation,
+                windowStack: windowStack,
+                accessibilityNotificationSequence: sequence
+            )
+        }
     }
 
     /// Public UIKit navigation state sampled from the topmost controller. This
@@ -148,8 +157,7 @@ extension TheTripwire {
         return TripwireSignal(
             topmostVC: topmost.map(ObjectIdentifier.init),
             navigation: Self.navigationSignal(for: topmost),
-            windowStack: Self.windowStackSignal(for: windows),
-            accessibilityNotificationSequence: AccessibilityNotificationObserver.shared.latestSequence
+            windowStack: Self.windowStackSignal(for: windows)
         )
     }
 

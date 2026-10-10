@@ -282,10 +282,12 @@ it never replaces the original failed path.
 One pure `ScreenClassifier` combines typed snapshots with scoped
 `screenChanged`, `layoutChanged`, `elementUpdate`, and `announcement`
 notifications.
-`AccessibilityNotificationBus` appends package-internal ingress records to one
-bounded ingress log. `Observation.Stream` freezes one exact claim at the start
-of each observation cycle. That claim is the only notification input to the
-cycle and stays pending until the corresponding semantic observation commits.
+The process callback crosses onto `MainActor` once and delivers to the one bus
+owned by the live Vault. `AccessibilityNotificationBus` assigns sequence and
+appends package-internal ingress records to its bounded log. `Observation.Stream`
+freezes one exact claim at the start of each observation cycle. That claim is
+the only notification input to the cycle and stays pending until the
+corresponding semantic observation commits.
 An unavailable capture does not manufacture an event or advance notification
 admission; the same claim remains eligible for the next demanded pulse. A
 retention gap starts a new explicit observation baseline rather than presenting
@@ -723,11 +725,11 @@ does not manufacture semantic evidence. Heist and action evidence select from
 the canonical `Observation.History` established by reducer boundaries; they do
 not own notification ingress or a parallel temporal record.
 
-`AccessibilityNotificationObserver` owns callback registration generations.
-Each installed callback captures its generation, and publication accepts only
-the active installing or installed generation. A callback retained past
-uninstall or replacement is rejected before it can advance notification
-sequence or enter a later observation cycle.
+`AccessibilityNotificationObserver` installs one process-lifetime callback and
+holds one weak bus destination. Starting the live observation stream attaches
+its Vault bus; stopping it detaches that destination without replacing the
+callback. The bus, its scope leases, cycle claims, sequence, and retention log
+are all `MainActor` owned.
 
 `Observation.Stream` owns notification invalidation. It records the
 scoped `screenChanged` sequence covered by the committed claim. A later scoped
