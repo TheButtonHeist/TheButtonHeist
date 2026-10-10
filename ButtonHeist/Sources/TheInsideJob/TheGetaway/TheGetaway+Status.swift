@@ -8,14 +8,14 @@ extension TheGetaway {
 
     func sendServerInfo(
         respond: @escaping SocketResponseHandler,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
         let screenBounds = ScreenMetrics.current.bounds
         guard let listeningPort = transport?.listeningPort else {
             await sendMessage(
                 .error(ServerError(kind: .general, message: "Server info contract failed: transport is not listening")),
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
             return
         }
@@ -38,11 +38,11 @@ extension TheGetaway {
             await sendMessage(
                 .error(ServerError(kind: .general, message: "Server info contract failed: screen metrics are invalid")),
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
             return
         }
-        await sendMessage(.info(info), respond: respond, generation: generation)
+        await sendMessage(.info(info), respond: respond, delivery: delivery)
     }
 
     func captureStatus() async -> StatusPayload {

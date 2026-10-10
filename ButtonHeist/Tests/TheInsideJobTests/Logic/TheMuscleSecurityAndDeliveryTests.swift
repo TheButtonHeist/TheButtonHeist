@@ -13,7 +13,7 @@ final class TheMuscleBruteForceProtectionTests: TheMuscleTestCase {
                 address: "192.168.1.100",
                 respond: respondSink()
             )
-            await muscle.handleClientDisconnected(clientID, generation: deliveryGeneration)
+            await muscle.handleClientDisconnected(clientID, delivery: delivery)
         }
 
         let (respond, responses) = collectResponses()
@@ -41,7 +41,7 @@ final class TheMuscleBruteForceProtectionTests: TheMuscleTestCase {
                 address: "192.168.1.100",
                 respond: respondSink()
             )
-            await muscle.handleClientDisconnected(clientID, generation: deliveryGeneration)
+            await muscle.handleClientDisconnected(clientID, delivery: delivery)
         }
 
         let (respond, _) = collectResponses()
@@ -66,7 +66,7 @@ final class TheMuscleBruteForceProtectionTests: TheMuscleTestCase {
                 address: address,
                 respond: respondSink()
             )
-            await muscle.handleClientDisconnected(clientID, generation: deliveryGeneration)
+            await muscle.handleClientDisconnected(clientID, delivery: delivery)
         }
 
         try await authenticate(
@@ -78,7 +78,7 @@ final class TheMuscleBruteForceProtectionTests: TheMuscleTestCase {
         let connections = await muscle.activeSessionConnections
         XCTAssertTrue(connections.contains(4), "Should authenticate after failed attempts below threshold")
 
-        await muscle.handleClientDisconnected(4, generation: deliveryGeneration)
+        await muscle.handleClientDisconnected(4, delivery: delivery)
 
         for clientID in 5...9 {
             try await authenticate(
@@ -87,7 +87,7 @@ final class TheMuscleBruteForceProtectionTests: TheMuscleTestCase {
                 address: address,
                 respond: respondSink()
             )
-            await muscle.handleClientDisconnected(clientID, generation: deliveryGeneration)
+            await muscle.handleClientDisconnected(clientID, delivery: delivery)
         }
 
         let (respond, responses) = collectResponses()
@@ -114,9 +114,13 @@ final class TheMuscleDeliveryTests: TheMuscleTestCase {
         try await authenticate(clientId: 1, token: "test-token", respond: respondSink())
         let sentBeforeDisconnect = sentMessages.count
 
-        await muscle.handleClientDisconnected(1, generation: deliveryGeneration)
+        await muscle.handleClientDisconnected(1, delivery: delivery)
 
-        let outcome = await muscle.sendData(Data("late-response".utf8), toClient: 1)
+        let outcome = await muscle.sendData(
+            Data("late-response".utf8),
+            toClient: 1,
+            delivery: delivery
+        )
 
         guard case .failed(.clientNotFound(1)) = outcome else {
             return XCTFail("Expected clientNotFound failure, got \(outcome)")

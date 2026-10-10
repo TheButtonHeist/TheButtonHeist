@@ -68,15 +68,10 @@ extension HeistPlanSourceParser {
     func error(
         _ token: HeistPlanSourceToken,
         _ message: String
-    ) -> HeistSourceCompilationError {
-        let span = token.sourceSpan
-        return HeistSourceCompilationError(
+    ) -> HeistPlanBuildError {
+        HeistPlanBuildError.sourceCompilation(
             message: message,
-            sourceName: span.sourceName,
-            offset: span.offset,
-            line: span.line,
-            column: span.column,
-            length: span.length
+            sourceSpan: token.sourceSpan
         )
     }
 

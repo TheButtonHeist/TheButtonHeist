@@ -363,7 +363,7 @@ each request's response handler reserves its send against the exact
 `NWConnection` that supplied the request, so a stale response cannot target a
 replacement connection. Replacing transport wiring shares one cleanup task
 across competing attempts and drains prior interaction work before admitting
-the new generation.
+the replacement delivery capability.
 
 `MainThreadProbe` schedules public `CFRunLoopPerformBlock` work
 and wakes the main run loop. Its off-main waiter observes two ordered stages:
@@ -558,8 +558,8 @@ The approved long-lived owners are:
 - `TransportControlPlane`: sole off-main consumer of
   `ServerTransport.transportEvents`, per-client request admission, and
   transport-control sideband dispatch.
-- `ClientDelivery`: the newest admitted callback generation and its current
-  callbacks inside the app.
+- `ClientDelivery`: one transport wiring's revocable callback capability inside
+  the app.
 - `TheHandoff`: external connection phase and discovery state outside the app.
   One `DeviceResolutionTarget` enters the handoff, selects direct lookup or
   discovery once, and remains the reconnect target. `EnvironmentConfig` does
@@ -588,16 +588,13 @@ single capture and must not become stable identity. Transport registries and
 auth registries may share a client key, but they stay separate: transport does
 not own authentication semantics.
 
-`ClientDelivery` is the canonical callback-generation owner. A begin is
-admitted only when its generation is strictly newer than the retained latest
-generation. The idle phase retains that latest-generation tombstone, while the
-wiring and wired phases carry the current generation; only the wired phase
-carries callbacks. Stale begin, installation, invalidation or teardown, event,
-and delivery work cannot mutate current callbacks or produce client-visible
-delivery. Normal-order work for the exact current generation may install and
-invoke the current callbacks. `TheGetaway` issues generations before suspension
-and admits matching wiring and events, while `TheMuscle` routes callback effects
-through `ClientDelivery` for an exact-generation check at the delivery boundary.
+`ClientDelivery` is the callback capability for one transport wiring attempt.
+It owns immutable callbacks plus one active/invalidated phase. `TheGetaway`
+admits the capability into its transport wiring state and invalidates it before
+replacement or teardown. Suspended or buffered work must present that exact
+capability to `TheMuscle`, which rejects work after invalidation. Actor identity
+therefore supplies the stale-work boundary without a parallel generation
+counter, callback-installation phase, or retained tombstone.
 
 The implementation owners for the bounded coordination and projection
 pipelines are explicit:
@@ -607,12 +604,12 @@ pipelines are explicit:
 | Transport event consumption and per-client admission | `TransportControlPlane.swift` | `TheGetaway+Transport.swift` wires one bounded MainActor stream; the control plane coalesces retained lifecycle facts behind one wake-up |
 | Main-thread responsiveness classification | `MainThreadProbe` | `TransportControlPlane` dispatches authenticated explicit probe requests |
 | UI request admission and cancellation | `InteractionRequestExecutor` in `TheBrains.swift` | `TheGetaway+Transport.swift`, `Heist.swift` |
-| Callback generation admission and delivery | `ClientDelivery.swift` | `TheGetaway` issues strictly increasing generations and admits matching wiring and events; `TheMuscle` routes generation-scoped callback effects through the owner |
+| Callback admission and delivery | `ClientDelivery.swift` | `TheGetaway` admits and invalidates one capability per transport wiring; `TheMuscle` routes callback effects through that capability |
 | Drainable callback work | `TaskTracker.swift` | Lifecycle, listener-generation, and delayed-disconnect owners |
 | Discovery callback delivery | `DeviceDiscoveryEventStream.swift` | `DeviceDiscovery.swift` |
 | Connection target admission and resolution | `DeviceResolutionTarget` and `DeviceResolver` | `EnvironmentConfig` admits one target; `TheHandoff` resolves and retains it through reconnect |
 | Public JSON admission | `PublicJSONInputDecoder` | CLI decodes into its request envelope; MCP converts its existing value tree into command arguments and applies the same limits |
-| Compiler process terminal outcome | `HeistCompilerProcess.Runner` in `HeistCompilerProcess.swift` | `HeistSwiftFileCompilation.swift`; diagnostic rendering lives in `HeistSwiftFileCompilationError.swift` |
+| Compiler process terminal outcome | `HeistCompilerProcess.Runner` in `HeistCompilerProcess.swift` | `HeistSwiftFileCompilation.swift` maps failures directly into `HeistPlanBuildError` through `HeistSwiftCompilationDiagnostics.swift` |
 | Result construction and relationship validity | `HeistExecutionStepResult+Construction.swift` | Runtime step executors and result decoding |
 | Result aggregate admission | `HeistResult.admitStructure` in `HeistResult.swift` | Package initialization and decoding; one ordered-sequence reducer admits every root and recursively visited child sequence |
 | Terminal failure capture | `HeistFailureCapture` on `HeistResult` | The runtime records diagnostic capture separately from execution and encodes it directly as optional result evidence |

@@ -1,4 +1,3 @@
-import Foundation
 import ThePlans
 
 /// The canonical semantic interpretation of a completed heist execution.
@@ -25,10 +24,8 @@ public struct HeistReport: Sendable, Equatable {
         /// The failure headline for this node. Compound wrappers whose child
         /// supplies the actionable failure intentionally have no headline.
         public var message: String? { suppressesMessage ? nil : detail.observed }
-        /// The canonical action failure classification, exposed with its
-        /// original optional source contract for existing clients.
-        public var actionKind: ActionFailure.Kind? { resolvedActionKind }
-        package let resolvedActionKind: ActionFailure.Kind
+        /// The canonical action failure classification.
+        public let actionKind: ActionFailure.Kind
         private let suppressesMessage: Bool
 
         package init(
@@ -37,7 +34,7 @@ public struct HeistReport: Sendable, Equatable {
             suppressesMessage: Bool
         ) {
             self.detail = detail
-            resolvedActionKind = actionKind
+            self.actionKind = actionKind
             self.suppressesMessage = suppressesMessage
         }
     }

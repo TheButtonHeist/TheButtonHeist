@@ -58,10 +58,8 @@ package from Swift/DSL source when crossing public artifact boundaries.
 ```json
 {
   "createdAt": "2026-06-05T00:00:00Z",
-  "entry": "purchaseFlow",
   "format": "com.royalpineapple.buttonheist.heist",
-  "formatVersion": 1,
-  "planVersion": 3,
+  "formatVersion": 2,
   "producer": {
     "name": "buttonheist"
   }
@@ -70,10 +68,8 @@ package from Swift/DSL source when crossing public artifact boundaries.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `entry` | `HeistPlanName` as one JSON string | Required root plan identity. Must equal `plan.json.name`. |
 | `format` | `HeistArtifactFormat` as one JSON string | Closed vocabulary with the sole canonical value `com.royalpineapple.buttonheist.heist`. |
-| `formatVersion` | `Int` | Package/container schema version. Current value is `1`. |
-| `planVersion` | `Int` | Must match `plan.json.version`. Current value is `3`. |
+| `formatVersion` | `Int` | Package/container schema version. Current value is `2`. |
 | `producer` | `HeistArtifactProducer` | Tool that generated the artifact. |
 | `createdAt` | `Date` | Artifact creation timestamp. |
 
@@ -84,10 +80,10 @@ Neither wrapper trims or normalizes an admitted producer spelling. The closed
 `format` vocabulary is represented by `HeistArtifactFormat`, not a producer-name
 string.
 
-`entry` is not a path, registry key, alias, import, or selector for arbitrary
-definitions. It names the root `HeistPlan.name` stored in `plan.json`.
-Parameterized definitions are reusable capabilities, not artifact entries; run
-them from a root plan with `RunHeist("Name", argument)`.
+The required root `HeistPlan.name` and supported plan version live only in
+`plan.json`. The manifest does not duplicate either value. Parameterized
+definitions are reusable capabilities, not artifact entries; run them from a
+root plan with `RunHeist("Name", argument)`.
 
 The manifest does not contain app bundle IDs, step counts, screenshots,
 accessibility evidence, repair provenance, trace IDs, target labels, command
@@ -146,20 +142,22 @@ plan contract.
 
 ## Compatibility
 
-Three version numbers exist, and they answer different questions:
+Three version values exist, and they answer different questions:
 
-- **`formatVersion`** (currently `1`) and **`planVersion`** (currently `3`)
-  govern artifacts. The runtime accepts only plan versions it supports and rejects
-  others at load with a diagnostic; it never guesses at an unsupported shape.
+- **`manifest.json.formatVersion`** (currently `2`) governs the package shape.
+- **`plan.json.version`** (currently `3`) governs the plan IR. The runtime
+  accepts only the version it supports and rejects others at load with a
+  diagnostic; it never guesses at an unsupported shape.
 - **`buttonHeistVersion`** encodes the typed `ButtonHeistVersion` used by the
   live client–server wire. The handshake requires exact equality between CLI/MCP
   and the embedded app build. It does not participate in artifact validity: a
-  stored `.heist` is not invalidated by releases that keep `planVersion` stable.
+  stored `.heist` is not invalidated by releases that keep `plan.json.version`
+  stable.
 
 The durable investment is the DSL source. `.heist` packages are generated
-artifacts: when `planVersion` bumps, regenerate them from source rather than
-migrating JSON by hand. Within a `planVersion`, grammar additions add new step
-or predicate shapes without invalidating existing artifacts; the strict
+artifacts: when `plan.json.version` bumps, regenerate them from source rather
+than migrating JSON by hand. Within a plan version, grammar additions add new
+step or predicate shapes without invalidating existing artifacts; the strict
 unknown-key rule constrains what a reader accepts, not what an older artifact
 may contain.
 

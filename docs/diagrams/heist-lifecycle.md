@@ -60,7 +60,7 @@ Notes:
 - Admission rejects unknown JSON keys with an explicit allowed list per step type. The runtime-safety validator consumes canonical `HeistPlanTraversal.Event` values, whose invocation stack observes recursive definition cycles ("heist runs must not be recursive"), and applies `HeistPlanRuntimeSafetyLimits` (see [totality.md](totality.md)).
 - Traversal owns event order, invocation expansion, and invocation-stack cycle observation; no graph projection or alternate cycle route exists.
 - Discovery and `.compositionQuality` / `.strictTest` lint consume the admitted plan through the same event currency. They are projections and quality checks, not additional admission paths.
-- The `.heist` package is two JSON files: `manifest.json` (`format`, `formatVersion`, `planVersion`, `entry`, `producer`, `createdAt`) and `plan.json` (the IR, `HeistPlan.currentVersion = 3`), read and written by `HeistArtifactCodec`.
+- The `.heist` package is two JSON files: `manifest.json` (`format`, `formatVersion`, `producer`, `createdAt`) and `plan.json` (the sole owner of root plan identity and `HeistPlan.currentVersion = 3`), read and written by `HeistArtifactCodec`.
 - Replay always crosses the wire contract: the exact `buttonHeistVersion` handshake gates the session before any plan runs, so a heist can never execute against a mismatched runtime.
 - `HeistResult` remains execution truth. `HeistReport.project(result:)`
   interprets it once, and every presentation boundary renders that report.

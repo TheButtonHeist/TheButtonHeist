@@ -107,7 +107,7 @@ public actor HeistSwiftCompiler {
         } catch let error as HeistPlanBuildError {
             throw error
         } catch {
-            throw HeistPlanBuildError(diagnostics: Self.diagnostics(for: error, source: source, entry: entry))
+            throw HeistPlanBuildError(diagnostics: Self.diagnostics(for: error, source: source))
         }
     }
 
@@ -164,7 +164,7 @@ public actor HeistSwiftCompiler {
             throw error
         } catch {
             throw HeistPlanBuildError(
-                diagnostics: Self.diagnostics(for: error, source: directory, entry: configuration.directoryEntry)
+                diagnostics: Self.diagnostics(for: error, source: directory)
             )
         }
     }
@@ -176,7 +176,12 @@ private extension HeistSwiftCompiler {
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: directory.path, isDirectory: &isDirectory),
               isDirectory.boolValue else {
-            throw HeistDirectoryCompilationError.notDirectory(directory)
+            throw HeistPlanBuildError(diagnostic: diagnostic(
+                code: .directoryNotDirectory,
+                "Heist catalog source is not a directory.",
+                phase: .planning,
+                source: directory
+            ))
         }
 
         let entries = try fileManager.contentsOfDirectory(
@@ -198,7 +203,14 @@ private extension HeistSwiftCompiler {
         }
 
         guard unsupportedHeistSources.isEmpty else {
-            throw HeistDirectoryCompilationError.unsupportedHeistSourceFiles(unsupportedHeistSources)
+            throw HeistPlanBuildError(diagnostics: unsupportedHeistSources.map {
+                diagnostic(
+                    code: .directoryUnsupportedSourceFile,
+                    "Unsupported heist source file. Directory compilation only accepts .swift files.",
+                    phase: .planning,
+                    source: $0
+                )
+            })
         }
         return swiftSources.sorted { $0.path < $1.path }
     }
@@ -274,133 +286,9 @@ private extension HeistSwiftCompiler {
 
     static func diagnostics(
         for error: Error,
-        source: URL?,
-        entry: HeistEntrySymbol?
+        source: URL?
     ) -> [HeistBuildDiagnostic] {
-#if os(macOS) || os(Linux)
-        if let compilerError = error as? HeistSwiftFileCompilationError {
-            return diagnostics(for: compilerError, source: source, entry: entry)
-        }
-#endif
-        if let directoryError = error as? HeistDirectoryCompilationError {
-            return diagnostics(for: directoryError)
-        }
         return [diagnostic(bounded(errorDescription: error), source: source)]
-    }
-
-#if os(macOS) || os(Linux)
-    static func diagnostics(
-        for error: HeistSwiftFileCompilationError,
-        source: URL?,
-        entry: HeistEntrySymbol?
-    ) -> [HeistBuildDiagnostic] {
-        let entrySuffix = entry.map { " entry \"\($0)\"" } ?? ""
-        switch error {
-        case .sourceFileNotFound(let path):
-            return [diagnostic(
-                code: .swiftCompilationSourceNotFound,
-                "Swift heist source file not found: \(path).",
-                source: source
-            )]
-        case .packageRootNotFound:
-            return [diagnostic(
-                code: .swiftCompilationPackageRootNotFound,
-                bounded(errorDescription: error),
-                source: source
-            )]
-        case .buildArtifactsNotFound:
-            return [diagnostic(
-                code: .swiftCompilationBuildArtifactsNotFound,
-                bounded(errorDescription: error),
-                source: source
-            )]
-        case .compileFailed(_, let output):
-            return [diagnostic(
-                code: .swiftCompilationCompileFailed,
-                "Failed to compile Swift heist source\(entrySuffix): \(bounded(output))",
-                source: source
-            )]
-        case .executionFailed(_, let output):
-            return [diagnostic(
-                code: .swiftCompilationExecutionFailed,
-                "Compiled Swift heist source\(entrySuffix) failed while evaluating the entry: \(bounded(output))",
-                source: source
-            )]
-        case .compileTimedOut(_, let output):
-            return [diagnostic(
-                code: .swiftCompilationCompileTimedOut,
-                "Swift heist source compilation\(entrySuffix) exceeded its deadline: \(bounded(output))",
-                source: source
-            )]
-        case .executionTimedOut(_, let output):
-            return [diagnostic(
-                code: .swiftCompilationExecutionTimedOut,
-                "Compiled Swift heist source\(entrySuffix) exceeded its evaluation deadline: \(bounded(output))",
-                source: source
-            )]
-        case .compileOutputLimitExceeded(_, let stream, let output):
-            return [diagnostic(
-                code: .swiftCompilationCompileOutputLimitExceeded,
-                "Swift compiler\(entrySuffix) exceeded its \(stream.rawValue) output limit: \(bounded(output))",
-                source: source
-            )]
-        case .executionOutputLimitExceeded(_, let stream, let output):
-            return [diagnostic(
-                code: .swiftCompilationExecutionOutputLimitExceeded,
-                """
-                Compiled Swift heist source\(entrySuffix) exceeded its \(stream.rawValue) output limit: \
-                \(bounded(output))
-                """,
-                source: source
-            )]
-        case .compilerTerminated(_, let signal, let output):
-            return [diagnostic(
-                code: .swiftCompilationCompilerTerminated,
-                "Swift compiler\(entrySuffix) terminated by signal \(signal): \(bounded(output))",
-                source: source
-            )]
-        case .executionTerminated(_, let signal, let output):
-            return [diagnostic(
-                code: .swiftCompilationExecutionTerminated,
-                "Compiled Swift heist source\(entrySuffix) terminated by signal \(signal): \(bounded(output))",
-                source: source
-            )]
-        case .invalidCompilerOutput(let output):
-            return [diagnostic(
-                code: .swiftCompilationInvalidOutput,
-                "Compiled Swift heist source\(entrySuffix) did not emit valid HeistPlan JSON: \(bounded(output))",
-                source: source
-            )]
-        case .runtimeSafetyFailed(let output):
-            return [diagnostic(
-                code: .planRuntimeSafety,
-                "Compiled Swift heist source\(entrySuffix) failed runtime safety: \(bounded(output))",
-                phase: .planValidation,
-                source: source
-            )]
-        }
-    }
-#endif
-
-    static func diagnostics(for error: HeistDirectoryCompilationError) -> [HeistBuildDiagnostic] {
-        switch error {
-        case .notDirectory(let url):
-            return [diagnostic(
-                code: .directoryNotDirectory,
-                "Heist catalog source is not a directory.",
-                phase: .planning,
-                source: url
-            )]
-        case .unsupportedHeistSourceFiles(let urls):
-            return urls.map {
-                diagnostic(
-                    code: .directoryUnsupportedSourceFile,
-                    "Unsupported heist source file. Directory compilation only accepts .swift files.",
-                    phase: .planning,
-                    source: $0
-                )
-            }
-        }
     }
 
     static func diagnostic(
@@ -445,11 +333,6 @@ private extension HeistSwiftCompiler {
         }
         return compact.isEmpty ? "no compiler diagnostics" : compact
     }
-}
-
-private enum HeistDirectoryCompilationError: Error, Sendable, Equatable {
-    case notDirectory(URL)
-    case unsupportedHeistSourceFiles([URL])
 }
 
 private extension Severity {

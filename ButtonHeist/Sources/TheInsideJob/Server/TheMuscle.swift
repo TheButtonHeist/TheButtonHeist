@@ -67,7 +67,6 @@ actor TheMuscle {
     private static let authTimeoutSeconds: UInt64 = 10
     private var admission: ClientAdmission.Reducer
     private var session: SessionLease
-    private var delivery: ClientDelivery = .idle(latest: nil)
     private var sessionReleaseTimer = SessionReleaseTimer()
 
     private var delayedDisconnects = ClientAdmission.DelayedDisconnects(
@@ -132,69 +131,40 @@ actor TheMuscle {
         session.activeSessionConnectionCount
     }
 
-    var callbackDeliveryGenerationForTesting: ClientDelivery.Generation? {
-        delivery.generation
-    }
-
-    // MARK: - Callback Wiring
-
-    @discardableResult
-    func beginCallbackWiring(_ generation: ClientDelivery.Generation) -> ClientDelivery.BeginOutcome {
-        delivery.begin(generation)
-    }
-
-    /// Install transport-facing callbacks. Called once by `TheGetaway.wireTransport`.
-    @discardableResult
-    func installCallbacks(
-        sendToClient: @escaping @Sendable (Data, Int) async -> ServerSendOutcome,
-        disconnectClient: @escaping @Sendable (Int) async -> Void,
-        onClientAuthenticated: @escaping @MainActor @Sendable (Int, @escaping SocketResponseHandler) async -> Void,
-        generation: ClientDelivery.Generation
-    ) -> ClientDelivery.InstallOutcome {
-        delivery.install(ClientDelivery.Callbacks(
-            sendToClient: sendToClient,
-            disconnectClient: disconnectClient,
-            onClientAuthenticated: onClientAuthenticated
-        ), for: generation)
-    }
-
-    func invalidateCallbacks(for generation: ClientDelivery.Generation) {
-        delivery.invalidate(generation)
-    }
-
     // MARK: - Public API
 
     /// Register the remote address for a client (called when TCP connection is established).
     func registerClientAddress(
         _ clientId: Int,
         address: ClientNetworkAddress,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
-        guard admitsCurrentGeneration(generation) else { return }
+        guard await delivery.isActive else { return }
         await executeAdmissionEffects(
             admission.registerClientAddress(clientId, address: address),
-            generation: generation
+            delivery: delivery
         )
     }
 
     @discardableResult
     func sendServerHello(
         clientId: Int,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async -> ResponseDeliveryOutcome {
-        await sendResponse(.serverHello, to: .client(clientId), generation: generation)
+        await sendResponse(.serverHello, to: .client(clientId), delivery: delivery)
     }
 
     /// Send an already-encoded envelope to a single client.
     @discardableResult
-    func sendData(_ data: Data, toClient clientId: Int) async -> ServerSendOutcome {
+    func sendData(
+        _ data: Data,
+        toClient clientId: Int,
+        delivery: ClientDelivery
+    ) async -> ServerSendOutcome {
         guard admission.contains(clientId) else {
             return .failed(.clientNotFound(clientId))
         }
-        guard let generation = delivery.generation else {
-            return .failed(.transportUnavailable)
-        }
-        return await delivery.send(data, toClient: clientId, generation: generation)
+        return await delivery.send(data, toClient: clientId)
     }
 
     @discardableResult
@@ -202,51 +172,50 @@ actor TheMuscle {
         _ message: ServerMessage,
         requestId: RequestID? = nil,
         respond: @escaping SocketResponseHandler,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async -> ResponseDeliveryOutcome {
         await sendResponse(
             message,
             requestId: requestId,
             to: .response(respond),
-            generation: generation
+            delivery: delivery
         )
     }
 
     func disconnectClient(
         _ clientId: Int,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
-        _ = await delivery.disconnect(clientId, generation: generation)
+        _ = await delivery.disconnect(clientId)
     }
 
     func admitClientMessage(
         _ clientId: Int,
         data: Data,
         respond: @escaping SocketResponseHandler,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async -> ClientAdmission {
-        guard admitsCurrentGeneration(generation) else {
+        guard await delivery.isActive else {
             return .handled
         }
         return await resolve(admission.admit(
             clientId,
             data: data,
             respond: respond
-        ), generation: generation)
+        ), delivery: delivery)
     }
 
     func handleClientDisconnected(
         _ clientId: Int,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
-        guard admitsCurrentGeneration(generation) else { return }
-        await executeAdmissionEffects(admission.removeClient(clientId), generation: generation)
+        guard await delivery.isActive else { return }
+        await executeAdmissionEffects(admission.removeClient(clientId), delivery: delivery)
         applySessionEffects(session.removeConnection(clientId, at: Date()))
     }
 
     func tearDown() async {
-        delivery.reset()
-        await executeAdmissionEffects(admission.removeAllClients(), generation: nil)
+        await executeAdmissionEffects(admission.removeAllClients(), delivery: nil)
         let disconnectGeneration = delayedDisconnects
         await disconnectGeneration.drain()
         if delayedDisconnects === disconnectGeneration {
@@ -259,23 +228,23 @@ actor TheMuscle {
 
     private func resolve(
         _ decision: ClientAdmission.Decision,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async -> ClientAdmission {
         switch decision {
         case .admitted(let message):
             return .admitted(message)
         case .handled(let effect):
-            await executeAdmissionEffects(effect, generation: generation)
+            await executeAdmissionEffects(effect, delivery: delivery)
             return .handled
         case .sessionAdmission(let sessionAdmission):
-            await admitSession(sessionAdmission, generation: generation)
+            await admitSession(sessionAdmission, delivery: delivery)
             return .handled
         }
     }
 
     private func admitSession(
         _ sessionAdmission: ClientAdmission.SessionAdmission,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
         switch session.acquire(
             owner: sessionAdmission.owner,
@@ -285,11 +254,10 @@ actor TheMuscle {
         case .accepted(let sessionEffect):
             applySessionEffects(sessionEffect)
             let effect = admission.completeAuthentication(sessionAdmission)
-            await executeAdmissionEffects(effect, generation: generation)
+            await executeAdmissionEffects(effect, delivery: delivery)
             _ = await delivery.clientAuthenticated(
                 sessionAdmission.clientId,
-                respond: sessionAdmission.respond,
-                generation: generation
+                respond: sessionAdmission.respond
             )
 
         case .rejected(let diagnostic):
@@ -297,57 +265,57 @@ actor TheMuscle {
                 sessionAdmission.clientId,
                 diagnostic: diagnostic,
                 respond: sessionAdmission.respond
-            ), generation: generation)
+            ), delivery: delivery)
         }
     }
 
     private func executeAdmissionEffects(
         _ effects: [ClientAdmission.Effect],
-        generation: ClientDelivery.Generation?
+        delivery: ClientDelivery?
     ) async {
         for effect in effects {
-            if let generation,
-               !admitsCurrentGeneration(generation) {
+            if let delivery,
+               !(await delivery.isActive) {
                 return
             }
             switch effect {
             case .replaceAuthenticationDeadline(let clientId):
-                guard let generation else {
-                    preconditionFailure("Authentication deadlines require a callback generation")
+                guard let delivery else {
+                    preconditionFailure("Authentication deadlines require a delivery capability")
                 }
                 authenticationTimeouts.replace(for: clientId) { [weak self] in
-                    await self?.executeAuthenticationTimeout(clientId, generation: generation)
+                    await self?.executeAuthenticationTimeout(clientId, delivery: delivery)
                 }
             case .cancelAuthenticationDeadline(let clientId):
                 authenticationTimeouts.cancel(clientId)
             case .cancelAllAuthenticationDeadlines:
                 authenticationTimeouts.cancelAll()
             case .sendResponse(let message, let requestId, let respond):
-                guard let generation else {
-                    preconditionFailure("Transport responses require a callback generation")
+                guard let delivery else {
+                    preconditionFailure("Transport responses require a delivery capability")
                 }
                 await sendResponse(
                     message,
                     requestId: requestId,
                     to: .response(respond),
-                    generation: generation
+                    delivery: delivery
                 )
             case .sendClient(let message, let requestId, let clientId):
-                guard let generation else {
-                    preconditionFailure("Client sends require a callback generation")
+                guard let delivery else {
+                    preconditionFailure("Client sends require a delivery capability")
                 }
                 await sendResponse(
                     message,
                     requestId: requestId,
                     to: .client(clientId),
-                    generation: generation
+                    delivery: delivery
                 )
             case .delayedDisconnect(let clientId):
-                guard let generation else {
-                    preconditionFailure("Delayed disconnects require a callback generation")
+                guard let delivery else {
+                    preconditionFailure("Delayed disconnects require a delivery capability")
                 }
                 authenticationTimeouts.cancel(clientId)
-                scheduleDelayedDisconnect(clientId, generation: generation)
+                scheduleDelayedDisconnect(clientId, delivery: delivery)
             case .log(let event):
                 recordAdmissionLog(event)
             }
@@ -394,10 +362,10 @@ actor TheMuscle {
     /// Schedule a delayed disconnect so the recipient can flush the final error payload.
     private func scheduleDelayedDisconnect(
         _ clientId: Int,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) {
         delayedDisconnects.schedule(clientId: clientId) { [weak self] in
-            await self?.disconnectClient(clientId, generation: generation)
+            await self?.disconnectClient(clientId, delivery: delivery)
         }
     }
 
@@ -405,15 +373,15 @@ actor TheMuscle {
 
     private func executeAuthenticationTimeout(
         _ clientId: Int,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
-        guard admitsCurrentGeneration(generation) else { return }
+        guard await delivery.isActive else { return }
         await executeAdmissionEffects(
             admission.authenticationTimeout(
                 clientId,
                 timeoutSeconds: Self.authTimeoutSeconds
             ),
-            generation: generation
+            delivery: delivery
         )
     }
 
@@ -476,7 +444,7 @@ actor TheMuscle {
         _ message: ServerMessage,
         requestId: RequestID? = nil,
         to destination: ResponseDestination,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async -> ResponseDeliveryOutcome {
         switch ResponseEnvelopeDelivery.encodeEnvelope(message, requestId: requestId) {
         case .success(let data):
@@ -485,14 +453,12 @@ actor TheMuscle {
             case .response(let respond):
                 sendOutcome = await delivery.respond(
                     data,
-                    using: respond,
-                    generation: generation
+                    using: respond
                 )
             case .client(let clientId):
                 sendOutcome = await delivery.send(
                     data,
-                    toClient: clientId,
-                    generation: generation
+                    toClient: clientId
                 )
             }
             let outcome: ResponseDeliveryOutcome
@@ -521,10 +487,6 @@ actor TheMuscle {
         case .transportUnavailable:
             muscleLogger.error("\(outcome.description)")
         }
-    }
-
-    private func admitsCurrentGeneration(_ candidate: ClientDelivery.Generation) -> Bool {
-        delivery.isWired(generation: candidate)
     }
 }
 #endif // DEBUG

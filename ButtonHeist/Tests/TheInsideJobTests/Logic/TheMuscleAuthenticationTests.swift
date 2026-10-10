@@ -50,7 +50,7 @@ final class TheMuscleAuthenticationTests: TheMuscleTestCase {
             1,
             data: pingData,
             respond: respond,
-            generation: deliveryGeneration
+            delivery: delivery
         )
 
         let authFailure = responses()
@@ -70,7 +70,7 @@ final class TheMuscleAuthenticationTests: TheMuscleTestCase {
             1,
             data: Data("not json".utf8),
             respond: respond,
-            generation: deliveryGeneration
+            delivery: delivery
         )
 
         let validationError = responses()

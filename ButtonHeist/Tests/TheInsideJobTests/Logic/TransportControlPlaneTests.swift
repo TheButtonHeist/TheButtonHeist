@@ -14,10 +14,15 @@ final class TransportControlPlaneTests: XCTestCase {
         let events = AsyncStream<TransportControlPlane.MainActorEvent>.makeStream(
             bufferingPolicy: .bufferingOldest(TransportControlPlane.mainActorEventBufferLimit)
         )
+        let delivery = ClientDelivery(callbacks: ClientDelivery.Callbacks(
+            sendToClient: { _, _ in .delivered },
+            disconnectClient: { _ in },
+            onClientAuthenticated: { _, _, _ in }
+        ))
         let controlPlane = TransportControlPlane(
             transport: transport,
             muscle: muscle,
-            generation: ClientDelivery.Generation(rawValue: 1),
+            delivery: delivery,
             pongPayload: PongPayload(bundleIdentifier: "com.buttonheist.tests"),
             probe: { _ in MainThreadProbeResponse(outcome: .responsive) },
             publish: { event in
@@ -43,6 +48,7 @@ final class TransportControlPlaneTests: XCTestCase {
 
         events.continuation.finish()
         await controlPlane.stop()
+        await delivery.invalidate()
         await muscle.tearDown()
     }
 }

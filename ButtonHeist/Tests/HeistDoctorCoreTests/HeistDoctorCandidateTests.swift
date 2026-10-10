@@ -76,8 +76,8 @@ private let repairJSONDiagnosisFixture = HeistRepairDiagnosis.suggested(
         #expect(decodedDiagnosis == repairJSONDiagnosisFixture)
     }
 
-    @Test("Repair request round trips one evidence body and rejects reversed outcomes")
-    func repairRequestRoundTripsOneEvidenceBodyAndRejectsReversedOutcomes() throws {
+    @Test("Repair request admits one evidence body and rejects reversed outcomes")
+    func repairRequestAdmitsOneEvidenceBodyAndRejectsReversedOutcomes() throws {
         let target = AccessibilityTarget.predicate(ElementPredicate(label: "Pay"))
         let interface = makeTestInterface(elements: [
             element(label: "Pay", traits: [.button], actions: [.activate]),
@@ -86,12 +86,10 @@ private let repairJSONDiagnosisFixture = HeistRepairDiagnosis.suggested(
         let current = failedEvidence(target: target, before: interface)
         let repairRequest = try HeistRepairRequest(lastSuccess: last, currentFailure: current)
 
-        let data = try JSONEncoder().encode(repairRequest)
-        let decoded = try JSONDecoder().decode(HeistRepairRequest.self, from: data)
-
-        #expect(decoded == repairRequest)
-        #expect(decoded.lastSuccess.command == .activate(target))
-        #expect(decoded.currentFailure.command == .activate(target))
+        #expect(repairRequest.lastSuccess == last)
+        #expect(repairRequest.currentFailure == current)
+        #expect(repairRequest.lastSuccess.command == .activate(target))
+        #expect(repairRequest.currentFailure.command == .activate(target))
         #expect(throws: (any Error).self) {
             _ = try HeistRepairRequest(lastSuccess: current, currentFailure: last)
         }

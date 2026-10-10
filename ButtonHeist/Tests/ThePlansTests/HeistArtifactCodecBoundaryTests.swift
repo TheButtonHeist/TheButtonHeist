@@ -28,20 +28,17 @@ func `heist artifact package writes manifest and canonical plan`() throws {
     decoder.dateDecodingStrategy = .iso8601
     let manifest = try decoder.decode(HeistArtifactManifest.self, from: Data(contentsOf: manifestURL))
     #expect(manifest.format == .buttonHeist)
-    #expect(manifest.entry == "searchFlow")
-    #expect(manifest.entry == plan.name)
     #expect(manifest.formatVersion == currentHeistArtifactFormatVersion)
-    #expect(manifest.planVersion == currentHeistPlanVersion)
 
     let planObject = try JSONDecoder().decode(EncodedHeistPlanHeaderContract.self, from: Data(contentsOf: planURL))
-    #expect(planObject.version == currentHeistPlanVersion)
+    #expect(planObject.version == HeistPlan.currentVersion)
     #expect(planObject.name == "searchFlow")
     #expect(try HeistArtifactCodec.readPlan(from: artifactURL) == plan)
-    #expect(try HeistArtifactCodec.read(from: artifactURL).manifest.entry == "searchFlow")
+    #expect(try HeistArtifactCodec.read(from: artifactURL).plan.name == "searchFlow")
 }
 
 @Test
-func `heist artifact entry uses root plan name not output path`() throws {
+func `heist artifact plan identity is independent of output path`() throws {
     let temp = try PlansTemporaryDirectory()
     let artifactURL = temp.url.appendingPathComponent("CompletelyDifferent.heist")
     let plan = try representativeArtifactPlan()
@@ -49,7 +46,6 @@ func `heist artifact entry uses root plan name not output path`() throws {
     try HeistArtifactCodec.writePlan(plan, to: artifactURL)
 
     let artifact = try HeistArtifactCodec.read(from: artifactURL)
-    #expect(artifact.manifest.entry == "searchFlow")
     #expect(artifact.plan.name == "searchFlow")
 }
 

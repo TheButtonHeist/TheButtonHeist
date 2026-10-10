@@ -12,12 +12,12 @@ actor TransportControlPlane {
     static let mainActorEventBufferLimit = maximumPendingMainActorDispatches + 1
 
     enum MainActorEvent: Sendable {
-        case controlChanged(generation: ClientDelivery.Generation)
+        case controlChanged(delivery: ClientDelivery)
         case dispatch(
             AdmittedClientMessage,
             respond: SocketResponseHandler,
             lease: TransportClientLease,
-            generation: ClientDelivery.Generation
+            delivery: ClientDelivery
         )
     }
 
@@ -45,7 +45,7 @@ actor TransportControlPlane {
     }
 
     private let muscle: TheMuscle
-    private let generation: ClientDelivery.Generation
+    private let delivery: ClientDelivery
     private let pongPayload: PongPayload
     private let events: ServerTransport.Events
     private let probe: Probe
@@ -63,14 +63,14 @@ actor TransportControlPlane {
     init(
         transport: ServerTransport,
         muscle: TheMuscle,
-        generation: ClientDelivery.Generation,
+        delivery: ClientDelivery,
         pongPayload: PongPayload,
         probe: @escaping Probe,
         publish: @escaping Publish
     ) {
         self.events = transport.transportEvents
         self.muscle = muscle
-        self.generation = generation
+        self.delivery = delivery
         self.pongPayload = pongPayload
         self.probe = probe
         self.publish = publish
@@ -96,14 +96,14 @@ actor TransportControlPlane {
                 await muscle.registerClientAddress(
                     clientId,
                     address: ClientNetworkAddress(remoteAddress),
-                    generation: generation
+                    delivery: delivery
                 )
             }
-            await muscle.sendServerHello(clientId: clientId, generation: generation)
+            await muscle.sendServerHello(clientId: clientId, delivery: delivery)
 
         case .clientDisconnected(let clientId):
             endClientConnection(clientId)
-            await muscle.handleClientDisconnected(clientId, generation: generation)
+            await muscle.handleClientDisconnected(clientId, delivery: delivery)
 
         case .dataReceived(let clientId, let data, let respond):
             await enqueueClientRequest(clientId: clientId, data: data, respond: respond)
@@ -162,7 +162,7 @@ actor TransportControlPlane {
 
     func disconnect(_ lease: TransportClientLease) async {
         guard endClientConnection(lease) else { return }
-        await muscle.disconnectClient(lease.clientId, generation: generation)
+        await muscle.disconnectClient(lease.clientId, delivery: delivery)
     }
 
     private var isRunning: Bool {
@@ -234,7 +234,7 @@ actor TransportControlPlane {
             request.clientId,
             data: request.data,
             respond: request.respond,
-            generation: generation
+            delivery: delivery
         )
         guard !Task.isCancelled, isCurrent(request.lease) else { return }
         guard case .admitted(let message) = admission else { return }
@@ -280,7 +280,7 @@ actor TransportControlPlane {
                 message,
                 respond: request.respond,
                 lease: request.lease,
-                generation: generation
+                delivery: delivery
             )) else {
                 pendingMainActorDispatches -= 1
                 await disconnect(request.lease)
@@ -292,7 +292,7 @@ actor TransportControlPlane {
     private func publishControlChange() {
         guard !isControlChangePublished else { return }
         isControlChangePublished = true
-        guard case .enqueued = publish(.controlChanged(generation: generation)) else {
+        guard case .enqueued = publish(.controlChanged(delivery: delivery)) else {
             isControlChangePublished = false
             return
         }
@@ -307,7 +307,7 @@ actor TransportControlPlane {
             message,
             requestId: envelope.requestId,
             respond: respond,
-            generation: generation
+            delivery: delivery
         )
     }
 }

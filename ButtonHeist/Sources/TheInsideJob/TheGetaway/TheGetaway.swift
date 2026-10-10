@@ -31,16 +31,16 @@ final class TheGetaway {
 
     struct TransportWiringAttempt {
         let transport: ServerTransport
-        let deliveryGeneration: ClientDelivery.Generation
+        let delivery: ClientDelivery
     }
 
     struct TransportWiringBoundary {
-        let beforeCallbackBegin: @MainActor @Sendable (TransportWiringAttempt) async -> Void
-        let beforeCallbackInstallation: @MainActor @Sendable (TransportWiringAttempt) async -> Void
+        let beforeControlPlaneAdmission: @MainActor @Sendable (
+            TransportWiringAttempt
+        ) async -> Void
 
         static let immediate = TransportWiringBoundary(
-            beforeCallbackBegin: { _ in },
-            beforeCallbackInstallation: { _ in }
+            beforeControlPlaneAdmission: { _ in }
         )
     }
 
@@ -85,45 +85,35 @@ final class TheGetaway {
             return cleanup
         }
 
-        var deliveryGeneration: ClientDelivery.Generation? {
+        var delivery: ClientDelivery? {
             switch self {
             case .unwired:
                 nil
             case .wiring(let attempt, _):
-                attempt.deliveryGeneration
+                attempt.delivery
             case .wired(let session):
-                session.attempt.deliveryGeneration
+                session.attempt.delivery
             }
         }
 
         func admits(_ attempt: TransportWiringAttempt) -> Bool {
             guard case .wiring(let current, _) = self else { return false }
-            return current.deliveryGeneration == attempt.deliveryGeneration
+            return current.delivery === attempt.delivery
         }
 
-        func admitsEvent(generation: ClientDelivery.Generation) -> Bool {
+        func admitsEvent(delivery: ClientDelivery) -> Bool {
             guard case .wired(let current) = self else { return false }
-            return current.attempt.deliveryGeneration == generation
+            return current.attempt.delivery === delivery
         }
     }
 
     /// Transport wiring is one explicit state machine so teardown cannot leave a
-    /// stale transport or consumer behind while callback installation is suspended.
+    /// stale transport or consumer behind while control-plane admission is suspended.
     var transportWiring: TransportWiringState = .unwired
-    private var latestIssuedDeliveryGenerationRawValue: UInt64 = 0
     let transportWiringBoundary: TransportWiringBoundary
 
     var transport: ServerTransport? {
         transportWiring.transport
-    }
-
-    func issueDeliveryGeneration() -> ClientDelivery.Generation {
-        precondition(
-            latestIssuedDeliveryGenerationRawValue < .max,
-            "ClientDelivery.Generation exhausted"
-        )
-        latestIssuedDeliveryGenerationRawValue += 1
-        return ClientDelivery.Generation(rawValue: latestIssuedDeliveryGenerationRawValue)
     }
 
     // MARK: - Init
@@ -150,7 +140,7 @@ final class TheGetaway {
     func executeClientMessage(
         _ admitted: AdmittedClientMessage,
         respond: @escaping SocketResponseHandler,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
         let envelope = admitted.envelope
         let requestId = envelope.requestId
@@ -166,21 +156,21 @@ final class TheGetaway {
                 )),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         case .requestInterface(let query):
             await sendInterface(
                 query: query,
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         case .status:
             await sendMessage(
                 .status(await captureStatus()),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
 
         // Observation
@@ -190,21 +180,21 @@ final class TheGetaway {
                 .actionResult(result),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         case .getNotifications:
             await sendMessage(
                 .notifications(brains.notifications()),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         case .requestScreen(let payload):
             await sendScreen(
                 payload,
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         case .runtimeAction(let command):
             let actionResult = await executeDirectRuntimeAction(command)
@@ -212,7 +202,7 @@ final class TheGetaway {
                 .actionResult(actionResult),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         case .heistPlan(let run):
             let message: ServerMessage = switch await brains.executeHeistPlan(
@@ -230,7 +220,7 @@ final class TheGetaway {
                 message,
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         }
     }
@@ -253,7 +243,7 @@ final class TheGetaway {
         query: InterfaceQuery = InterfaceQuery(),
         requestId: RequestID? = nil,
         respond: @escaping SocketResponseHandler,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
         switch await brains.observeInterface(query) {
         case .success(let interface):
@@ -261,7 +251,7 @@ final class TheGetaway {
                 .interface(interface),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         case .failure(let error):
             let message: ServerErrorMessage
@@ -275,7 +265,7 @@ final class TheGetaway {
                 .error(ServerError(kind: .general, message: message)),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         }
     }
@@ -286,7 +276,7 @@ final class TheGetaway {
         _ request: ScreenRequestPayload,
         requestId: RequestID? = nil,
         respond: @escaping SocketResponseHandler,
-        generation: ClientDelivery.Generation
+        delivery: ClientDelivery
     ) async {
         let deadline = SemanticObservationDeadline(
             start: RuntimeElapsed.now,
@@ -301,7 +291,7 @@ final class TheGetaway {
                 .screen(payload),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         case .failure(let failure):
             let message: ServerErrorMessage
@@ -315,7 +305,7 @@ final class TheGetaway {
                 .error(ServerError(kind: .general, message: message)),
                 requestId: requestId,
                 respond: respond,
-                generation: generation
+                delivery: delivery
             )
         }
     }
