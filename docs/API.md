@@ -220,9 +220,10 @@ matches any parser container type that carries that identifier. The current
 delivered tree is the authority for both element and container matches.
 TheVault resolves actions, predicates, and `get_interface` subtree requests
 directly against its `InterfaceTree`; subtree projection happens only after that
-resolution. A delivered `Interface` constructs one validated `InterfaceGraph`
-for client matching and formatting. A flattened element list, screen model, or
-back map is not a second query model.
+resolution. A delivered `Interface` stores one validated `InterfaceGraph` for
+client matching and formatting. Its public tree and annotations are derived
+from that graph rather than retained as parallel truth. A flattened element
+list, screen model, or back map is not a second query model.
 Graph admission requires exactly one geometry-and-action annotation for every
 element path, so downstream projections consume total element records instead
 of repairing or trapping on partial wire data.

@@ -68,90 +68,74 @@ extension TheVault {
         }
     }
 
-    /// Value facts extracted from live UIKit / Objective-C accessibility
-    /// objects before pure interface projection.
-    struct BuildFacts: Equatable {
-        let scroll: ScrollFacts
-        let focus: FocusFacts
-
-        init(
-            scroll: ScrollFacts = ScrollFacts(),
-            focus: FocusFacts = FocusFacts()
-        ) {
-            self.scroll = scroll
-            self.focus = focus
-        }
-    }
-
 }
 
 @MainActor
-extension TheVault.BuildFacts {
+extension TheVault {
 
     /// UIKit boundary for observation-building facts. Keep Objective-C accessibility
     /// inventory/index reads, responder checks, scroll safety checks, and
     /// coordinate conversion here rather than in projection.
-    static func extract(
-        from result: TheVault.CaptureResult,
-        identityContext: TheVault.IdentityContext
-    ) -> TheVault.BuildFacts {
+    static func captureScrollFacts(
+        elements: [CapturedElement],
+        containers: [CapturedContainer],
+        scrollableContainerPaths: Set<TreePath>,
+        objectsByPath: [TreePath: NSObject],
+        scrollViewsByPath: [TreePath: UIScrollView],
+        reportedCountsByContainerPath: [TreePath: Int?]
+    ) -> ScrollFacts {
         let elementScrollFacts = elementScrollFacts(
-            identityContext: identityContext,
-            objectsByPath: result.objectsByPath,
-            scrollViewsByPath: result.scrollViewsByPath
+            elements: elements,
+            objectsByPath: objectsByPath,
+            scrollViewsByPath: scrollViewsByPath
         )
 
-        return TheVault.BuildFacts(
-            scroll: TheVault.ScrollFacts(
-                contextContainerPaths: identityContext.scrollableContainerPaths,
-                elementsByPath: elementScrollFacts,
-                containerViewSpacesByPath: containerViewSpaces(
-                    identityContext: identityContext,
-                    scrollViewsByPath: result.scrollViewsByPath
-                ),
-                inventoriesByPath: scrollInventories(
-                    scrollViewsByPath: result.scrollViewsByPath,
-                    reportedCountsByContainerPath: result.inventoryEnumeration.reportedCountsByContainerPath
-                )
+        return ScrollFacts(
+            contextContainerPaths: scrollableContainerPaths,
+            elementsByPath: elementScrollFacts,
+            containerViewSpacesByPath: containerViewSpaces(
+                containers: containers,
+                scrollViewsByPath: scrollViewsByPath
             ),
-            focus: TheVault.FocusFacts(
-                firstResponderPaths: firstResponderPaths(in: result.objectsByPath)
+            inventoriesByPath: scrollInventories(
+                scrollViewsByPath: scrollViewsByPath,
+                reportedCountsByContainerPath: reportedCountsByContainerPath
             )
         )
     }
 
     static func scrollContextContainerPaths(
-        from result: TheVault.CaptureResult
+        scrollViewsByPath: [TreePath: UIScrollView]
     ) -> Set<TreePath> {
         Set(
-            result.scrollViewsByPath.compactMap { path, scrollView in
+            scrollViewsByPath.compactMap { path, scrollView in
                 scrollView.bhIsUnsafeForProgrammaticScrolling ? nil : path
             }
         )
     }
 
-    private static func firstResponderPaths(in objectsByPath: [TreePath: NSObject]) -> Set<TreePath> {
-        Set(
+    static func captureFocusFacts(objectsByPath: [TreePath: NSObject]) -> FocusFacts {
+        FocusFacts(firstResponderPaths: Set(
             objectsByPath.compactMap { path, object in
                 (object as? UIView)?.isFirstResponder == true ? path : nil
             }
-        )
+        ))
     }
 
     private static func elementScrollFacts(
-        identityContext: TheVault.IdentityContext,
+        elements: [CapturedElement],
         objectsByPath: [TreePath: NSObject],
         scrollViewsByPath: [TreePath: UIScrollView]
-    ) -> [TreePath: TheVault.ElementScrollFacts] {
-        var elementsByPath: [TreePath: TheVault.ElementScrollFacts] = [:]
+    ) -> [TreePath: ElementScrollFacts] {
+        var elementsByPath: [TreePath: ElementScrollFacts] = [:]
 
-        for identity in identityContext.elements {
+        for identity in elements {
             guard let membership = identity.scrollMembership,
                   let scrollView = scrollViewsByPath[membership.containerPath]
             else { continue }
 
             let index = scrollIndex(of: objectsByPath[identity.path], in: scrollView)
-            elementsByPath[identity.path] = TheVault.ElementScrollFacts(
+            elementsByPath[identity.path] = ElementScrollFacts(
                 membership: InterfaceTree.ScrollMembership(
                     containerPath: membership.containerPath,
                     index: index
@@ -204,11 +188,11 @@ extension TheVault.BuildFacts {
     }
 
     private static func containerViewSpaces(
-        identityContext: TheVault.IdentityContext,
+        containers: [CapturedContainer],
         scrollViewsByPath: [TreePath: UIScrollView]
     ) -> [TreePath: HeistElement.Geometry.ViewSpace] {
         Dictionary(
-            uniqueKeysWithValues: identityContext.containers.compactMap { identity in
+            uniqueKeysWithValues: containers.compactMap { identity in
                 guard let membership = identity.scrollMembership,
                       let scrollView = scrollViewsByPath[membership.containerPath]
                 else { return nil }

@@ -9,7 +9,7 @@ import TheScore
 /// context stays derived from hierarchy structure and accessibility size, not
 /// live scroll-view coordinate conversion or moving viewport origin.
 @MainActor
-final class TheVaultIdentityContextTests: XCTestCase {
+final class TheVaultCaptureAnnotationTests: XCTestCase {
 
     private func makeElement(label: String = "Element") -> AccessibilityElement {
         .make(label: label, respondsToUserInteraction: false)
@@ -25,16 +25,17 @@ final class TheVaultIdentityContextTests: XCTestCase {
             .container(container, children: [.element(element, traversalIndex: 0)])
         ]
 
-        let result = TheVault.buildIdentityContext(
+        let result = TheVault.captureAnnotations(
             hierarchy: hierarchy,
         )
+        let containersByPath = Dictionary(uniqueKeysWithValues: result.containers.map { ($0.path, $0) })
 
-        let available = try requireAvailableViewSpace(result.viewSpacesByPath[TreePath([0])])
+        let available = try requireAvailableViewSpace(containersByPath[TreePath([0])]?.viewSpace)
         XCTAssertEqual(available.frame.cgRect, container.frame.cgRect)
-        XCTAssertFalse(result.nestedInScrollViewPaths.contains(TreePath([0])))
+        XCTAssertNil(containersByPath[TreePath([0])]?.scrollMembership)
     }
 
-    func testIdentityContextKeepsParserViewGeometryAndScrollMembershipSeparate() throws {
+    func testCaptureAnnotationsKeepParserViewGeometryAndScrollMembershipSeparate() throws {
         let scrollContainerPath = TreePath([0])
         let outer = AccessibilityContainer(
             type: .none, scrollableContentSize: AccessibilitySize(width: 320, height: 5000),
@@ -51,21 +52,22 @@ final class TheVaultIdentityContextTests: XCTestCase {
             ])
         ]
 
-        let result = TheVault.buildIdentityContext(
+        let result = TheVault.captureAnnotations(
             hierarchy: hierarchy,
             scrollableContainerPaths: [scrollContainerPath]
         )
+        let containersByPath = Dictionary(uniqueKeysWithValues: result.containers.map { ($0.path, $0) })
 
-        let outerAvailable = try requireAvailableViewSpace(result.viewSpacesByPath[TreePath([0])])
+        let outerAvailable = try requireAvailableViewSpace(containersByPath[TreePath([0])]?.viewSpace)
         XCTAssertEqual(outerAvailable.frame.cgRect, outer.frame.cgRect)
-        XCTAssertFalse(result.nestedInScrollViewPaths.contains(TreePath([0])))
+        XCTAssertNil(containersByPath[TreePath([0])]?.scrollMembership)
 
         let innerAvailable = try requireAvailableViewSpace(
-            result.viewSpacesByPath[TreePath([0, 0])]
+            containersByPath[TreePath([0, 0])]?.viewSpace
         )
         XCTAssertEqual(innerAvailable.ownerPath, .root)
         XCTAssertEqual(innerAvailable.frame.cgRect, inner.frame.cgRect)
-        XCTAssertTrue(result.nestedInScrollViewPaths.contains(TreePath([0, 0])))
+        XCTAssertNotNil(containersByPath[TreePath([0, 0])]?.scrollMembership)
     }
 
     func testViewHierarchyOwnsViewGeometryWhenScreenCaptureMoves() throws {
@@ -85,7 +87,7 @@ final class TheVaultIdentityContextTests: XCTestCase {
                 .container(innerParse1, children: [.element(makeElement(), traversalIndex: 0)])
             ])
         ]
-        let result1 = TheVault.buildIdentityContext(
+        let result1 = TheVault.captureAnnotations(
             hierarchy: [.container(outer, children: [
                 .container(innerParse1, children: [.element(makeElement(), traversalIndex: 0)])
             ])],
@@ -97,7 +99,7 @@ final class TheVaultIdentityContextTests: XCTestCase {
             type: .list,
             frame: AccessibilityRect(x: 0, y: -800, width: 320, height: 200)
         )
-        let result2 = TheVault.buildIdentityContext(
+        let result2 = TheVault.captureAnnotations(
             hierarchy: [.container(outer, children: [
                 .container(innerParse2, children: [.element(makeElement(), traversalIndex: 0)])
             ])],
@@ -105,14 +107,16 @@ final class TheVaultIdentityContextTests: XCTestCase {
             scrollableContainerPaths: [scrollContainerPath]
         )
 
+        let firstContainers = Dictionary(uniqueKeysWithValues: result1.containers.map { ($0.path, $0) })
+        let secondContainers = Dictionary(uniqueKeysWithValues: result2.containers.map { ($0.path, $0) })
         XCTAssertEqual(
-            result1.viewSpacesByPath[TreePath([0, 0])],
-            result2.viewSpacesByPath[TreePath([0, 0])]
+            firstContainers[TreePath([0, 0])]?.viewSpace,
+            secondContainers[TreePath([0, 0])]?.viewSpace
         )
-        let available = try requireAvailableViewSpace(result2.viewSpacesByPath[TreePath([0, 0])])
+        let available = try requireAvailableViewSpace(secondContainers[TreePath([0, 0])]?.viewSpace)
         XCTAssertEqual(available.frame.cgRect, innerParse1.frame.cgRect)
-        XCTAssertTrue(result1.nestedInScrollViewPaths.contains(TreePath([0, 0])))
-        XCTAssertTrue(result2.nestedInScrollViewPaths.contains(TreePath([0, 0])))
+        XCTAssertNotNil(firstContainers[TreePath([0, 0])]?.scrollMembership)
+        XCTAssertNotNil(secondContainers[TreePath([0, 0])]?.scrollMembership)
     }
 
     func testOneFoldKeepsNestedScrollAndDuplicateElementContextsPathDistinct() throws {
@@ -136,7 +140,7 @@ final class TheVaultIdentityContextTests: XCTestCase {
             scrollableContentSize: AccessibilitySize(width: 320, height: 800),
             frame: AccessibilityRect(x: 0, y: 200, width: 320, height: 200)
         )
-        let result = TheVault.buildIdentityContext(
+        let result = TheVault.captureAnnotations(
             hierarchy: [
                 .container(outer, children: [
                     .container(group, children: [
@@ -150,15 +154,16 @@ final class TheVaultIdentityContextTests: XCTestCase {
             scrollableContainerPaths: [outerPath, innerPath]
         )
         let elementsByPath = Dictionary(uniqueKeysWithValues: result.elements.map { ($0.path, $0) })
+        let containersByPath = Dictionary(uniqueKeysWithValues: result.containers.map { ($0.path, $0) })
 
         XCTAssertEqual(result.containers.count, 3)
         XCTAssertEqual(result.elements.count, 2)
         XCTAssertEqual(
-            result.scrollMembershipsByPath[groupPath]?.containerPath,
+            containersByPath[groupPath]?.scrollMembership?.containerPath,
             outerPath
         )
         XCTAssertEqual(
-            result.scrollMembershipsByPath[innerPath]?.containerPath,
+            containersByPath[innerPath]?.scrollMembership?.containerPath,
             outerPath,
             "A nested scroll container is itself content of its enclosing scroll container"
         )
@@ -173,8 +178,8 @@ final class TheVaultIdentityContextTests: XCTestCase {
         )
         XCTAssertEqual(elementsByPath[outerElementPath]?.element, repeated)
         XCTAssertEqual(elementsByPath[innerElementPath]?.element, repeated)
-        let groupAvailable = try requireAvailableViewSpace(result.viewSpacesByPath[groupPath])
-        let innerAvailable = try requireAvailableViewSpace(result.viewSpacesByPath[innerPath])
+        let groupAvailable = try requireAvailableViewSpace(containersByPath[groupPath]?.viewSpace)
+        let innerAvailable = try requireAvailableViewSpace(containersByPath[innerPath]?.viewSpace)
         XCTAssertEqual(groupAvailable.frame.cgRect, group.frame.cgRect)
         XCTAssertEqual(innerAvailable.frame.cgRect, inner.frame.cgRect)
     }
@@ -281,7 +286,7 @@ final class TheVaultIdentityContextTests: XCTestCase {
         let firstScrollView = UIScrollView(frame: frame)
         let secondScrollView = UIScrollView(frame: frame)
 
-        let observation = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let observation = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [
                 .container(firstContainer, children: [.element(firstElement, traversalIndex: 0)]),
                 .container(secondContainer, children: [.element(secondElement, traversalIndex: 1)]),
@@ -345,7 +350,7 @@ final class TheVaultIdentityContextTests: XCTestCase {
         let pageScrollView = UIScrollView(frame: frame)
         let listScrollView = UIScrollView(frame: frame)
 
-        let observation = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let observation = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [
                 .container(outer, children: [
                     .container(pager, children: [
@@ -391,7 +396,7 @@ final class TheVaultIdentityContextTests: XCTestCase {
             type: .list,
             frame: AccessibilityRect(x: 0, y: 0, width: 320, height: 400)
         )
-        let observation = TheVault.buildObservation(from: TheVault.CaptureResult(
+        let observation = TheVault.buildObservation(from: TheVault.CaptureTree(
             hierarchy: [
                 .container(container, children: [.element(makeElement(), traversalIndex: 0)]),
             ],
@@ -423,7 +428,7 @@ final class TheVaultIdentityContextTests: XCTestCase {
                 type: .tabBar,
                 frame: AccessibilityRect(CGRect(x: 0, y: originY + 400, width: 320, height: 49))
             )
-            let observation = TheVault.buildObservation(from: TheVault.CaptureResult(
+            let observation = TheVault.buildObservation(from: TheVault.CaptureTree(
                 hierarchy: [
                     .container(outer, children: [
                         .container(inner, children: [

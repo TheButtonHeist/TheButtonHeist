@@ -160,14 +160,14 @@ final class TheVaultInventoryTests: XCTestCase {
         XCTAssertEqual(result.knownUnattemptedCount, 0)
     }
 
-    func testBuildFactsReusesInventoryEnumerationCountSnapshot() throws {
+    func testCaptureTreeReusesInventoryEnumerationCountSnapshot() throws {
         let path = TreePath([0])
         let scrollView = RecordingInventoryScrollView(reportedCount: 2)
         scrollView.contentSize = CGSize(width: 320, height: 1_600)
         let enumeration = vault.enumerateOffscreenScrollInventory(
             objectsByPath: [:], scrollViewsByPath: [path: scrollView], budget: 0
         )
-        let capture = TheVault.CaptureResult(
+        let capture = TheVault.CaptureTree(
             hierarchy: [.container(makeScrollableContainer(), children: [])],
             containerObjectsByPath: [path: scrollView],
             scrollViewsByPath: [path: scrollView],

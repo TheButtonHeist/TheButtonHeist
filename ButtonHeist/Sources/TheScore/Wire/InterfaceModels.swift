@@ -1085,12 +1085,21 @@ public enum ScreenAction: String, Codable, Equatable, Hashable, Sendable, CaseIt
 /// flat elements are an explicit projection for matching and formatting.
 public struct Interface: Codable, Equatable, Sendable {
     public let timestamp: Date
-    public let tree: [AccessibilityHierarchy]
-    public let annotations: InterfaceAnnotations
     public let diagnostics: InterfaceDiagnostics?
     public let screenActions: [ScreenAction]
-    package let observationIdentities: InterfaceElementIdentities
     package let graph: InterfaceGraph
+
+    public var tree: [AccessibilityHierarchy] {
+        graph.tree
+    }
+
+    public var annotations: InterfaceAnnotations {
+        graph.annotations
+    }
+
+    package var observationIdentities: InterfaceElementIdentities {
+        graph.observationIdentities
+    }
 
     /// Button Heist element projection in VoiceOver traversal order.
     public var projectedElements: [HeistElement] {
@@ -1138,30 +1147,21 @@ public struct Interface: Codable, Equatable, Sendable {
         )
         self.init(
             validatedTimestamp: timestamp,
-            tree: tree,
-            annotations: annotations,
             diagnostics: diagnostics,
             screenActions: screenActions,
-            observationIdentities: observationIdentities,
             graph: graph
         )
     }
 
     private init(
         validatedTimestamp timestamp: Date,
-        tree: [AccessibilityHierarchy],
-        annotations: InterfaceAnnotations,
         diagnostics: InterfaceDiagnostics?,
         screenActions: [ScreenAction],
-        observationIdentities: InterfaceElementIdentities,
         graph: InterfaceGraph
     ) {
         self.timestamp = timestamp
-        self.tree = tree
-        self.annotations = annotations
         self.diagnostics = diagnostics
         self.screenActions = screenActions.sorted()
-        self.observationIdentities = observationIdentities
         self.graph = graph
     }
 
@@ -1176,11 +1176,8 @@ public struct Interface: Codable, Equatable, Sendable {
     public func withDiagnostics(_ diagnostics: InterfaceDiagnostics?) -> Interface {
         Interface(
             validatedTimestamp: timestamp,
-            tree: tree,
-            annotations: annotations,
             diagnostics: diagnostics,
             screenActions: screenActions,
-            observationIdentities: observationIdentities,
             graph: graph
         )
     }
@@ -1188,11 +1185,8 @@ public struct Interface: Codable, Equatable, Sendable {
     public func withScreenActions(_ screenActions: [ScreenAction]) -> Interface {
         Interface(
             validatedTimestamp: timestamp,
-            tree: tree,
-            annotations: annotations,
             diagnostics: diagnostics,
             screenActions: screenActions,
-            observationIdentities: observationIdentities,
             graph: graph
         )
     }

@@ -152,7 +152,7 @@ class TheMuscleTestCase: XCTestCase {
     }
 
     private func makeMuscle(
-        sessionReleaseTimeout: TimeInterval = StartupConfiguration.defaultSessionTimeout
+        sessionReleaseTimeout: TimeInterval = InsideJobRuntimeConfiguration.defaultSessionTimeout
     ) -> TheMuscle {
         TheMuscle(sessionToken: "test-token", sessionReleaseTimeout: sessionReleaseTimeout)
     }

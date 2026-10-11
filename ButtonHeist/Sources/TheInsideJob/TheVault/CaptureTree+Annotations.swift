@@ -9,16 +9,16 @@ import AccessibilitySnapshotParser
 
 extension TheVault {
 
-    // MARK: - Hierarchy Identity
+    // MARK: - Capture Annotations
 
-    struct ContainerIdentity {
+    struct CapturedContainer {
         let path: TreePath
         let container: AccessibilityContainer
         let viewSpace: HeistElement.Geometry.ViewSpace
         let scrollMembership: InterfaceTree.ScrollMembership?
     }
 
-    struct ElementIdentity {
+    struct CapturedElement {
         let path: TreePath
         let element: AccessibilityElement
         let traversalIndex: Int
@@ -26,50 +26,21 @@ extension TheVault {
         let scrollMembership: InterfaceTree.ScrollMembership?
     }
 
-    fileprivate struct IdentityTraversal {
+    fileprivate struct CaptureTraversal {
         let path: TreePath
         let parentScrollContainerPath: TreePath?
     }
 
-    fileprivate struct IdentityAccumulator {
-        var containers: [ContainerIdentity] = []
-        var elements: [ElementIdentity] = []
+    fileprivate struct CaptureAccumulator {
+        var containers: [CapturedContainer] = []
+        var elements: [CapturedElement] = []
     }
 
-    /// Path-distinct identity facts derived from one hierarchy traversal.
-    /// Parent-space geometry lasts until a layout or screen change. Scroll
-    /// membership is durable value evidence. Live UIKit conversion remains
-    /// outside this context.
-    struct IdentityContext {
-        let hierarchy: [AccessibilityHierarchy]
-        let scrollableContainerPaths: Set<TreePath>
-        let containers: [ContainerIdentity]
-        let elements: [ElementIdentity]
-
-        var viewSpacesByPath: [TreePath: HeistElement.Geometry.ViewSpace] {
-            Dictionary(uniqueKeysWithValues: containers.map { identity in
-                (identity.path, identity.viewSpace)
-            })
-        }
-
-        var scrollMembershipsByPath: [TreePath: InterfaceTree.ScrollMembership] {
-            Dictionary(
-                uniqueKeysWithValues: containers.compactMap { identity in
-                    identity.scrollMembership.map { (identity.path, $0) }
-                }
-            )
-        }
-
-        var nestedInScrollViewPaths: Set<TreePath> {
-            Set(containers.compactMap { $0.scrollMembership == nil ? nil : $0.path })
-        }
-    }
-
-    static func buildIdentityContext(
+    static func captureAnnotations(
         hierarchy: [AccessibilityHierarchy],
         viewHierarchy: [AccessibilityHierarchy]? = nil,
         scrollableContainerPaths: Set<TreePath> = []
-    ) -> IdentityContext {
+    ) -> (containers: [CapturedContainer], elements: [CapturedElement]) {
         let viewHierarchy = viewHierarchy ?? hierarchy
         let viewElementsByPath = Dictionary(
             uniqueKeysWithValues: viewHierarchy.pathIndexedElements.map { ($0.path, $0.element) }
@@ -77,10 +48,10 @@ extension TheVault {
         let viewContainersByPath = Dictionary(
             uniqueKeysWithValues: viewHierarchy.pathIndexedContainers.map { ($0.path, $0.container) }
         )
-        var accumulator = IdentityAccumulator()
+        var accumulator = CaptureAccumulator()
         for (rootIndex, root) in hierarchy.enumerated() {
             root.foldedPreorder(
-                context: IdentityTraversal(
+                context: CaptureTraversal(
                     path: TreePath([rootIndex]),
                     parentScrollContainerPath: nil
                 ),
@@ -88,7 +59,7 @@ extension TheVault {
                 onElement: { element, traversalIndex, context, accumulator in
                     let viewElement = viewElementsByPath[context.path] ?? element
                     accumulator.elements.append(
-                        ElementIdentity(
+                        CapturedElement(
                             path: context.path,
                             element: element,
                             traversalIndex: traversalIndex,
@@ -106,7 +77,7 @@ extension TheVault {
                     }
                     let viewContainer = viewContainersByPath[context.path] ?? container
                     accumulator.containers.append(
-                        ContainerIdentity(
+                        CapturedContainer(
                             path: context.path,
                             container: container,
                             viewSpace: rootViewSpace(for: viewContainer),
@@ -116,22 +87,20 @@ extension TheVault {
                     let childScrollContainerPath = scrollableContainerPaths.contains(context.path)
                         ? context.path
                         : context.parentScrollContainerPath
-                    return IdentityTraversal(
+                    return CaptureTraversal(
                         path: context.path,
                         parentScrollContainerPath: childScrollContainerPath
                     )
                 },
                 descend: { context, childIndex in
-                    IdentityTraversal(
+                    CaptureTraversal(
                         path: context.path.appending(childIndex),
                         parentScrollContainerPath: context.parentScrollContainerPath
                     )
                 }
             )
         }
-        return IdentityContext(
-            hierarchy: hierarchy,
-            scrollableContainerPaths: scrollableContainerPaths,
+        return (
             containers: accumulator.containers,
             elements: accumulator.elements.sorted { lhs, rhs in
                 if lhs.traversalIndex != rhs.traversalIndex {

@@ -260,7 +260,6 @@ final class TheVaultStateTests: XCTestCase {
         var state = TheVault.State()
         _ = requireCommitted(state.commitObservation(
             admission(observation: baseline),
-            sourceObservation: baseline,
             beginningNewBaseline: false
         ))
         let layoutChange = Observation.AdmittedNotification(
@@ -272,7 +271,6 @@ final class TheVaultStateTests: XCTestCase {
 
         _ = requireCommitted(state.commitObservation(
             admission(notifications: [layoutChange], observation: refreshed),
-            sourceObservation: refreshed,
             beginningNewBaseline: false
         ))
 
@@ -285,7 +283,6 @@ final class TheVaultStateTests: XCTestCase {
 
         let settled = requireCommitted(state.commitObservation(
             admission(observation: refreshed),
-            sourceObservation: refreshed,
             beginningNewBaseline: false
         ))
         XCTAssertEqual(settled.events, [.noChange])
@@ -321,7 +318,6 @@ final class TheVaultStateTests: XCTestCase {
         let initial = requireCommitted(
             state.commitObservation(
                 admission(observation: retained),
-                sourceObservation: retained,
                 beginningNewBaseline: false
             )
         )
@@ -333,15 +329,7 @@ final class TheVaultStateTests: XCTestCase {
             elements: [(AccessibilityElement.make(label: "Replacement"), "replacement")]
         )
 
-        let rejected = state.commitObservation(
-            admission(observation: replacement),
-            sourceObservation: retained,
-            beginningNewBaseline: false
-        )
-
-        guard case .failure(.liveCaptureReattachmentFailed) = rejected else {
-            return XCTFail("Expected capture reattachment to reject the commit")
-        }
+        XCTAssertThrowsError(try retained.replacingTreeWithCurrentCapture(replacement.tree))
         XCTAssertEqual(state.history.endIndex, priorHistoryEnd)
         XCTAssertEqual(state.notificationIndex, priorNotificationIndex)
         XCTAssertEqual(state.current, priorCurrent)
@@ -398,7 +386,6 @@ final class TheVaultStateTests: XCTestCase {
 
         _ = requireCommitted(state.commitObservation(
             admission(observation: restored),
-            sourceObservation: restored,
             beginningNewBaseline: false
         ))
 
@@ -423,7 +410,6 @@ final class TheVaultStateTests: XCTestCase {
         )
         _ = requireCommitted(state.commitObservation(
             admission(notifications: [repeatedLayoutChange], observation: fixture.refreshed),
-            sourceObservation: fixture.refreshed,
             beginningNewBaseline: false
         ))
 
@@ -446,7 +432,7 @@ final class TheVaultStateTests: XCTestCase {
     ) -> Observation.Admission {
         let through = notifications.map(\.sequence).max() ?? 0
         return Observation.Admission(
-            tree: observation.tree,
+            sourceObservation: observation,
             tripwireSignal: .empty,
             discoveryCommitPolicy: .mergeIntoInterface,
             lineage: .resting,
@@ -469,7 +455,6 @@ final class TheVaultStateTests: XCTestCase {
     ) -> Observation.Publication {
         requireCommitted(state.commitObservation(
             admission,
-            sourceObservation: .empty,
             beginningNewBaseline: false
         ))
     }

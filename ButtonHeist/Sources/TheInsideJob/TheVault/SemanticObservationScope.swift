@@ -13,55 +13,37 @@ enum SemanticObservationScope: Int, Comparable, Sendable {
 }
 
 @MainActor
-final class SemanticObservationSubscription {
-    let id: UInt64
-    let scope: SemanticObservationScope
+final class SemanticObservationLease<Value> {
+    let value: Value
     private weak var stream: Observation.Stream?
+    private let release: @MainActor (Observation.Stream) -> Void
     private var isCancelled = false
 
-    init(id: UInt64, scope: SemanticObservationScope, stream: Observation.Stream) {
-        self.id = id
-        self.scope = scope
+    init(
+        value: Value,
+        stream: Observation.Stream,
+        release: @escaping @MainActor (Observation.Stream) -> Void
+    ) {
+        self.value = value
         self.stream = stream
+        self.release = release
     }
 
     func cancel() {
         guard !isCancelled else { return }
         isCancelled = true
-        stream?.removeSubscription(id)
-        stream = nil
-    }
-
-    deinit {
-        MainActor.assumeIsolated {
-            guard !isCancelled else { return }
-            stream?.removeSubscription(id)
+        if let stream {
+            release(stream)
         }
-    }
-}
-
-@MainActor
-final class SemanticObservationDemand {
-    let id: UInt64
-    private weak var stream: Observation.Stream?
-    private var isCancelled = false
-
-    init(id: UInt64, stream: Observation.Stream) {
-        self.id = id
-        self.stream = stream
-    }
-
-    func cancel() {
-        guard !isCancelled else { return }
-        isCancelled = true
-        stream?.removeActiveObservationDemand(id)
         stream = nil
     }
 
     deinit {
         MainActor.assumeIsolated {
             guard !isCancelled else { return }
-            stream?.removeActiveObservationDemand(id)
+            if let stream {
+                release(stream)
+            }
         }
     }
 }

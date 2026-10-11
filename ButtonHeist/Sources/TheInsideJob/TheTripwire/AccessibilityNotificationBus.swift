@@ -14,7 +14,6 @@ final class AccessibilityNotificationBus {
         private(set) var latestSequence: UInt64 = 0
         private(set) var latestScopedScreenChangedSequence: UInt64 = 0
         private var evictedThroughSequence: UInt64 = 0
-        private var ambientEventCount = 0
 
         init(retentionLimit: Int) {
             precondition(retentionLimit > 0, "Notification retention must be positive")
@@ -32,7 +31,6 @@ final class AccessibilityNotificationBus {
             }
             retainedEvents.append(event)
             guard event.owner == .ambient else { return }
-            ambientEventCount += 1
             pruneAmbientEventsAfterAppend()
         }
 
@@ -106,21 +104,11 @@ final class AccessibilityNotificationBus {
             _ owner: PendingAccessibilityNotificationEvent.Owner,
             at index: Int
         ) {
-            let wasAmbient = retainedEvents[index].owner == .ambient
-            let isAmbient = owner == .ambient
-            switch (wasAmbient, isAmbient) {
-            case (true, false):
-                ambientEventCount -= 1
-            case (false, true):
-                ambientEventCount += 1
-            case (true, true), (false, false):
-                break
-            }
             retainedEvents[index].owner = owner
         }
 
         private mutating func pruneAmbientEventsAfterAppend() {
-            let overflow = ambientEventCount - retentionLimit
+            let overflow = retainedEvents.count { $0.owner == .ambient } - retentionLimit
             guard overflow > 0 else { return }
 
             var remaining = overflow
@@ -131,8 +119,7 @@ final class AccessibilityNotificationBus {
                 newestEvictedSequence = max(newestEvictedSequence, event.sequence)
                 return true
             }
-            precondition(remaining == 0, "Ambient notification ownership count drifted")
-            ambientEventCount -= overflow
+            precondition(remaining == 0, "Ambient notification pruning failed")
             evictedThroughSequence = max(evictedThroughSequence, newestEvictedSequence)
         }
     }
