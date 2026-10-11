@@ -1,5 +1,6 @@
 #if canImport(UIKit)
 import ButtonHeistSupport
+import ButtonHeistTestSupport
 import os
 import UIKit
 import XCTest
@@ -48,7 +49,7 @@ final class TheGetawayTransportWiringTests: XCTestCase {
         let priorResponses = TransportResponseSink()
         await controlPlane.observe(.dataReceived(
             clientId: clientId,
-            data: try requestData(id: "prior-incarnation", message: .getNotifications),
+            data: try requestData(id: .fixture("prior-incarnation"), message: .getNotifications),
             respond: priorResponses.respond
         ))
         for _ in 0..<100 { await Task.yield() }
@@ -64,7 +65,7 @@ final class TheGetawayTransportWiringTests: XCTestCase {
         let currentResponses = TransportResponseSink()
         await controlPlane.observe(.dataReceived(
             clientId: clientId,
-            data: try requestData(id: "current-incarnation", message: .getNotifications),
+            data: try requestData(id: .fixture("current-incarnation"), message: .getNotifications),
             respond: currentResponses.respond
         ))
         for _ in 0..<100 { await Task.yield() }
@@ -137,7 +138,7 @@ final class TheGetawayTransportWiringTests: XCTestCase {
         let responses = TransportResponseSink()
         await controlPlane.observe(.dataReceived(
             clientId: clientId,
-            data: try requestData(id: "notifications", message: .getNotifications),
+            data: try requestData(id: .fixture("notifications"), message: .getNotifications),
             respond: responses.respond
         ))
         await responses.delivered.wait()
@@ -260,7 +261,7 @@ final class TheGetawayTransportWiringTests: XCTestCase {
         let responses = TransportResponseSink()
         let probe = try JSONEncoder().encode(
             RequestEnvelope(
-                requestId: "main-thread-probe",
+                requestId: .fixture("main-thread-probe"),
                 message: .mainThreadProbe(try XCTUnwrap(MainThreadProbeRequest.admit(
                     responsivenessTimeoutMilliseconds: 1_000,
                     workTimeoutMilliseconds: 1_000

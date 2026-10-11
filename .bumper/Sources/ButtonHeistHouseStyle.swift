@@ -7,7 +7,6 @@ enum ButtonHeistComponent: String, ComponentKey {
     case client
     case support
     case testing
-    case planTool
     case cli
     case mcp
     case demo

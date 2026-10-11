@@ -191,19 +191,15 @@ fi
 
 # Prepare every parser dependency projection only after main and release state
 # have passed their side-effect-free gates.
-SUBMODULE_DIR="submodules/AccessibilitySnapshotBH"
-if [[ -d "$SUBMODULE_DIR" ]]; then
-    git submodule update --init --recursive "$SUBMODULE_DIR"
-    if [[ "$DRY_RUN" == true ]]; then
-        "$SCRIPT_DIR/bump-parser.sh" --dry-run
-    else
-        "$SCRIPT_DIR/bump-parser.sh"
-    fi
-    if [[ "$TAG_CURRENT" == true && -n $(git status --porcelain) ]]; then
-        echo "Error: --tag-current cannot change parser dependency projections."
-        echo "  Commit the parser alignment through a normal release first."
-        exit 1
-    fi
+if [[ "$DRY_RUN" == true ]]; then
+    "$SCRIPT_DIR/bump-parser.sh" --dry-run
+else
+    "$SCRIPT_DIR/bump-parser.sh"
+fi
+if [[ "$TAG_CURRENT" == true && -n $(git status --porcelain) ]]; then
+    echo "Error: --tag-current cannot change parser dependency projections."
+    echo "  Commit the parser alignment through a normal release first."
+    exit 1
 fi
 
 if [[ "$DRY_RUN" == false ]]; then

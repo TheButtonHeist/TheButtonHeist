@@ -33,7 +33,7 @@ Options:
   --cli-archive PATH       Release CLI archive to stage before smoking.
   --mcp-archive PATH       Release MCP archive to stage before smoking.
   --expected-version VER   Expected buttonheist --version output.
-  --timeout SECONDS        Timeout for CLI/heist-plan invocations. Defaults to 60.
+  --timeout SECONDS        Timeout for CLI plan invocations. Defaults to 60.
   --mcp-timeout SECONDS    Timeout for buttonheist-mcp protocol smoke. Defaults to 5.
   --require-installed      Fail instead of skipping when no install is found.
   -h, --help               Show this help.
@@ -161,7 +161,7 @@ find_installed_prefix() {
         append_unique_prefix "$(brew --prefix buttonheist 2>/dev/null || true)"
     fi
 
-    for tool in buttonheist heist-plan buttonheist-mcp; do
+    for tool in buttonheist buttonheist-mcp; do
         path="$(command -v "$tool" 2>/dev/null || true)"
         [[ -n "$path" ]] || continue
         append_unique_prefix "$(dirname "$path")/.."
@@ -172,7 +172,6 @@ find_installed_prefix() {
     if (( ${#PREFIX_CANDIDATES[@]} > 0 )); then
         for candidate in "${PREFIX_CANDIDATES[@]}"; do
             if [[ -x "$candidate/bin/buttonheist" \
-                || -x "$candidate/bin/heist-plan" \
                 || -x "$candidate/bin/buttonheist-mcp" ]]; then
                 printf '%s\n' "$candidate"
                 return 0
@@ -199,14 +198,12 @@ stage_release_archives() {
     tar -xzf "$MCP_ARCHIVE" -C "$mcp_unpack"
 
     [[ -x "$cli_unpack/buttonheist" ]] || fail "$CLI_ARCHIVE is missing executable buttonheist"
-    [[ -x "$cli_unpack/heist-plan" ]] || fail "$CLI_ARCHIVE is missing executable heist-plan"
     [[ -d "$cli_unpack/ThePlans" ]] || fail "$CLI_ARCHIVE is missing ThePlans compiler artifacts"
     [[ -x "$mcp_unpack/buttonheist-mcp" ]] || fail "$MCP_ARCHIVE is missing executable buttonheist-mcp"
 
     cp "$cli_unpack/buttonheist" "$PREFIX/bin/"
-    cp "$cli_unpack/heist-plan" "$PREFIX/bin/"
     cp "$mcp_unpack/buttonheist-mcp" "$PREFIX/bin/"
-    chmod +x "$PREFIX/bin/buttonheist" "$PREFIX/bin/heist-plan" "$PREFIX/bin/buttonheist-mcp"
+    chmod +x "$PREFIX/bin/buttonheist" "$PREFIX/bin/buttonheist-mcp"
     cp -R "$cli_unpack/ThePlans" "$PREFIX/lib/"
 }
 
@@ -466,12 +463,10 @@ PREFIX="$(cd "$PREFIX" 2>/dev/null && pwd -P)" \
     || fail "install prefix does not exist: $PREFIX"
 
 BUTTONHEIST="$PREFIX/bin/buttonheist"
-HEIST_PLAN="$PREFIX/bin/heist-plan"
 BUTTONHEIST_MCP="$PREFIX/bin/buttonheist-mcp"
 THEPLANS_BUILD_DIR="$PREFIX/lib/ThePlans/arm64-apple-macosx/release"
 missing=()
 [[ -x "$BUTTONHEIST" ]] || missing+=("$BUTTONHEIST")
-[[ -x "$HEIST_PLAN" ]] || missing+=("$HEIST_PLAN")
 [[ -x "$BUTTONHEIST_MCP" ]] || missing+=("$BUTTONHEIST_MCP")
 
 if [[ "${#missing[@]}" -gt 0 ]]; then
@@ -535,11 +530,11 @@ compile_output="$(
     cd "$PLAN_TMP"
     run_with_timeout "$COMMAND_TIMEOUT" \
         env -u HEIST_THEPLANS_BUILD_DIR HEIST_SOURCE_COMPILER_TRACE=1 \
-        "$HEIST_PLAN" compile "$SOURCE" --entry makeHeist --output "$OUTPUT" 2>&1
+        "$BUTTONHEIST" plan compile "$SOURCE" --entry makeHeist --output "$OUTPUT" 2>&1
 )" || {
     status=$?
     printf '%s\n' "$compile_output" >&2
-    fail "heist-plan compile failed with exit status $status"
+    fail "buttonheist plan compile failed with exit status $status"
 }
 
 resolved_theplans_build_dir="$(resolve_path "$THEPLANS_BUILD_DIR")"
@@ -556,9 +551,9 @@ for trace_path in \
 done
 if [[ "$theplans_trace_found" != true ]]; then
     printf '%s\n' "$compile_output" >&2
-    fail "heist-plan compile did not report using installed ThePlans artifacts at $THEPLANS_BUILD_DIR"
+    fail "buttonheist plan compile did not report using installed ThePlans artifacts at $THEPLANS_BUILD_DIR"
 fi
-[[ -d "$OUTPUT" ]] || fail "heist-plan compile did not create .heist package: $OUTPUT"
+[[ -d "$OUTPUT" ]] || fail "buttonheist plan compile did not create .heist package: $OUTPUT"
 require_file "$OUTPUT/manifest.json"
 require_file "$OUTPUT/plan.json"
 printf 'Installed artifact smoke passed.\n'

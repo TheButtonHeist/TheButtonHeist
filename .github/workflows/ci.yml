@@ -85,7 +85,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          submodules: recursive
 
       - name: Classify changed paths
         if: github.event_name == 'pull_request'
@@ -133,17 +132,14 @@ jobs:
         timeout-minutes: 15
         run: scripts/test-runner.py run MacFrameworkTests
 
-      - name: Run CLI, MCP, and heist-plan tests
+      - name: Run CLI, MCP, and plan compiler tests
         if: github.event_name == 'push' || steps.changes.outputs.run_cli_tool_tests == 'true'
         timeout-minutes: 15
-        env:
-          HEIST_PLAN_TOOL: ${{ github.workspace }}/.build/debug/heist-plan
         run: |
-          swift build --product heist-plan
-          scripts/test-heist-plan-compile.sh
-          scripts/swift-test-gate.sh HeistPlanTests --disable-xctest
+          swift build --target ThePlans
           scripts/swift-test-gate.sh ButtonHeistCLI
           scripts/swift-test-gate.sh ButtonHeistMCP
+          scripts/test-plan-compile.sh
 
       - name: Upload macOS failure results
         if: failure()

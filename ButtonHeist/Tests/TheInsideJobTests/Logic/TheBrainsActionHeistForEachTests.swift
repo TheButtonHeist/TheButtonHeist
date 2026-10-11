@@ -27,7 +27,7 @@ final class HeistExecutionForEachTests: XCTestCase {
         XCTAssertEqual(driver.requests.compactMap(\.snapshotScope), [.discovery])
     }
 
-    func testForEachSnapshotRequestIDCannotBeConfusedWithTargetOrdinal() throws {
+    func testForEachSnapshotEffectIDCannotBeConfusedWithTargetOrdinal() throws {
         let snapshot = makeTestObservationSnapshot(labels: ["Delete", "Delete"])
         let plan = try elementLoopPlan(body: [
             .warn(WarnStep(message: "iteration")),
@@ -37,7 +37,7 @@ final class HeistExecutionForEachTests: XCTestCase {
         let firstRequest = try XCTUnwrap(execution.start(at: now, timeout: .default).singleSnapshotRequest)
 
         guard case .perform(.currentSnapshot(let retainedID, _, _)) = execution.reduce(.currentSnapshot(
-            HeistExecution.RequestID(rawValue: 0),
+            HeistExecution.EffectID(rawValue: 0),
             snapshot,
             at: now
         )), retainedID == firstRequest.id else {

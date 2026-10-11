@@ -42,16 +42,16 @@ final class WireTypeRoundTripTests: XCTestCase {
     // MARK: - RequestID
 
     func testRequestIDRoundTripsAsWireString() throws {
-        let requestID: RequestID = "request-1"
+        let requestID: RequestID = .fixture("request-1")
 
         let data = try encoder.encode(requestID)
 
-        XCTAssertEqual(String(bytes: data, encoding: .utf8), #""request-1""#)
+        XCTAssertEqual(String(bytes: data, encoding: .utf8), #""\#(requestID.description)""#)
         XCTAssertEqual(try decoder.decode(RequestID.self, from: data), requestID)
     }
 
-    func testRequestEnvelopeRejectsBlankRequestID() throws {
-        for requestID in ["", " \n\t"] {
+    func testRequestEnvelopeRejectsInvalidRequestID() throws {
+        for requestID in ["", " \n\t", "request-1"] {
             let data = try JSONSerialization.data(withJSONObject: [
                 "buttonHeistVersion": buttonHeistVersion.description,
                 "requestId": requestID,
@@ -59,7 +59,7 @@ final class WireTypeRoundTripTests: XCTestCase {
             ])
 
             XCTAssertThrowsError(try decoder.decode(RequestEnvelope.self, from: data)) { error in
-                assertDecodingError(error, contains: ["value must not be blank"])
+                assertDecodingError(error, contains: ["request identifier must be a UUID"])
             }
         }
     }

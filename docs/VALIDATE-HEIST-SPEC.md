@@ -92,8 +92,8 @@ The same typed `TheFence.Command.validateHeist` command is exposed through:
 - `buttonheist validate_heist`;
 - `buttonheist json_lines` with `{"command":"validate_heist","plan":"..."}`.
 
-Existing `heist-plan` commands remain the lower-level local compiler and
-artifact tools.
+The `buttonheist plan` commands are the lower-level local compiler and artifact
+tools.
 
 ### Tool description
 
@@ -152,7 +152,7 @@ options. It MUST use the local TheFence path used by `list_heists` and
 The CLI forwards inline source and `.heist` paths to TheFence without parsing
 the plan itself. It MUST reject `.swift`, `.json`, and every other path type.
 Trusted Swift source already has one offline validation pipeline:
-`heist-plan compile`. Keeping Swift out of `validate_heist` makes the CLI, MCP,
+`buttonheist plan compile`. Keeping Swift out of `validate_heist` makes the CLI, MCP,
 and JSON-lines source contracts identical.
 
 ### CLI exit status
@@ -189,7 +189,6 @@ The shared command accepts these top-level fields:
 | `path` | string | Conditional | — | Path to a generated `.heist` package |
 | `argument` | object | No | `{"type":"none"}` | Root invocation argument, using the `run_heist` argument schema |
 | `lint` | string enum | No | `composition_quality` | Authoring lint mode: `none`, `composition_quality`, or `strict_test` |
-| `requestId` | `RequestID` string | No | Generated | Existing request correlation field |
 
 Exactly one of `plan` or `path` MUST be present. The generated JSON Schema MUST
 continue the repository convention of ordinary properties with
@@ -935,13 +934,13 @@ artifact between calls, and a validation report carries no authority.
 - `run_heist` remains the durable multi-step execution tool.
 - `list_heists` remains offline catalog discovery for an admitted plan.
 - `describe_heist` remains offline capability inspection for an admitted plan.
-- `heist-plan validate` remains artifact-only local validation.
-- `heist-plan compile` remains trusted Swift-to-artifact compilation outside
+- `buttonheist plan validate` remains artifact-only local validation.
+- `buttonheist plan compile` remains trusted Swift-to-artifact compilation outside
   MCP.
 
 The top-level CLI command is the ergonomic preflight counterpart to
-`run_heist`. `heist-plan` remains useful for explicit artifact pipelines and
-format conversion.
+`run_heist`. `buttonheist plan` remains useful for explicit artifact pipelines
+and format conversion.
 
 Do not implement `validate_heist` by calling `list_heists` or
 `describe_heist`. They consume an admitted plan for different purposes.

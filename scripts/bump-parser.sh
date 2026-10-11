@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Align every AccessibilitySnapshotBH dependency projection with the checked-out submodule.
+# Align every AccessibilitySnapshotBH dependency projection with upstream main.
 #
 # The root Package.swift exact pin is canonical. This script updates the other
 # manifests and tracked lockfiles as one working-tree transaction. The caller
@@ -14,7 +14,6 @@ cd "$REPO_ROOT"
 
 PARSER_REPO_URL="https://github.com/TheButtonHeist/AccessibilitySnapshotBH"
 PARSER_IDENTITY="accessibilitysnapshotbh"
-SUBMODULE_DIR="submodules/AccessibilitySnapshotBH"
 ROOT_MANIFEST="Package.swift"
 SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
 
@@ -50,9 +49,6 @@ tracked_parser_files() {
     done < <(git ls-files -- "$pattern")
 }
 
-[[ -d "$SUBMODULE_DIR/.git" || -f "$SUBMODULE_DIR/.git" ]] \
-    || fail "submodule not initialized at $SUBMODULE_DIR; run git submodule update --init --recursive"
-
 CURRENT_PIN=$(exact_parser_pin "$ROOT_MANIFEST")
 CURRENT_PIN_COUNT=$(printf '%s\n' "$CURRENT_PIN" | sed '/^$/d' | wc -l | tr -d '[:space:]')
 [[ "$CURRENT_PIN_COUNT" == "1" ]] \
@@ -75,21 +71,18 @@ while IFS= read -r lockfile; do
     LOCKFILES+=("$lockfile")
 done < <(tracked_parser_files '*Package.resolved')
 
-SUBMODULE_SHA=$(git -C "$SUBMODULE_DIR" rev-parse HEAD)
-git -C "$SUBMODULE_DIR" fetch origin main --tags --quiet
-
-TARGET_TAG=$(git -C "$SUBMODULE_DIR" tag -l --points-at "$SUBMODULE_SHA" --sort=-v:refname \
-    | grep -E "$SEMVER_REGEX" \
-    | head -1 || true)
+BRANCH_TIP=$(git ls-remote "$PARSER_REPO_URL" refs/heads/main | awk '{print $1}')
+[[ -n "$BRANCH_TIP" ]] || fail "could not resolve AccessibilitySnapshotBH main"
+REMOTE_TAGS=$(git ls-remote --tags "$PARSER_REPO_URL")
+TARGET_TAG=$(printf '%s\n' "$REMOTE_TAGS" \
+    | awk -v sha="$BRANCH_TIP" '$1 == sha { ref=$2; sub("refs/tags/", "", ref); sub(/\^\{\}$/, "", ref); print ref }' \
+    | grep -E "$SEMVER_REGEX" | sort -Vu | tail -1 || true)
 
 NEEDS_TAG=false
 if [[ -z "$TARGET_TAG" ]]; then
-    BRANCH_TIP=$(git -C "$SUBMODULE_DIR" rev-parse origin/main)
-    [[ "$SUBMODULE_SHA" == "$BRANCH_TIP" ]] || fail "AccessibilitySnapshotBH submodule ${SUBMODULE_SHA:0:8} is untagged and is not parser origin/main ${BRANCH_TIP:0:8}"
-
-    LATEST_TAG=$(git -C "$SUBMODULE_DIR" tag -l --sort=-v:refname \
-        | grep -E "$SEMVER_REGEX" \
-        | head -1 || true)
+    LATEST_TAG=$(printf '%s\n' "$REMOTE_TAGS" \
+        | awk '{ ref=$2; sub("refs/tags/", "", ref); sub(/\^\{\}$/, "", ref); print ref }' \
+        | grep -E "$SEMVER_REGEX" | sort -Vu | tail -1 || true)
     [[ -n "$LATEST_TAG" ]] || fail "no semver tags found on AccessibilitySnapshotBH"
 
     IFS='.' read -r MAJOR MINOR _ <<< "$LATEST_TAG"
@@ -97,7 +90,7 @@ if [[ -z "$TARGET_TAG" ]]; then
     NEEDS_TAG=true
 fi
 
-echo "AccessibilitySnapshotBH: $CURRENT_PIN -> $TARGET_TAG (${SUBMODULE_SHA:0:8})"
+echo "AccessibilitySnapshotBH: $CURRENT_PIN -> $TARGET_TAG (${BRANCH_TIP:0:8})"
 
 TMP_DIR=$(mktemp -d)
 UPDATED=false
@@ -140,7 +133,7 @@ LOCKFILES_JOINED="$(printf '%s\n' "${LOCKFILES[@]}")" \
     PARSER_REPO_URL="$PARSER_REPO_URL" \
     PARSER_IDENTITY="$PARSER_IDENTITY" \
     TARGET_TAG="$TARGET_TAG" \
-    TARGET_REVISION="$SUBMODULE_SHA" \
+    TARGET_REVISION="$BRANCH_TIP" \
     OUTPUT_ROOT="$TMP_DIR/updated" \
     python3 <<'PY'
 import json
@@ -192,9 +185,11 @@ if [[ "$DRY_RUN" == true ]]; then
 fi
 
 if [[ "$NEEDS_TAG" == true ]]; then
-    git -C "$SUBMODULE_DIR" tag "$TARGET_TAG" "$SUBMODULE_SHA"
-    git -C "$SUBMODULE_DIR" push origin "$TARGET_TAG"
-    echo "Tagged AccessibilitySnapshotBH $TARGET_TAG on ${SUBMODULE_SHA:0:8}"
+    git -C "$TMP_DIR" init --bare parser.git >/dev/null
+    git -C "$TMP_DIR/parser.git" fetch --quiet "$PARSER_REPO_URL" "$BRANCH_TIP"
+    git -C "$TMP_DIR/parser.git" tag "$TARGET_TAG" FETCH_HEAD
+    git -C "$TMP_DIR/parser.git" push "$PARSER_REPO_URL" "$TARGET_TAG"
+    echo "Tagged AccessibilitySnapshotBH $TARGET_TAG on ${BRANCH_TIP:0:8}"
 fi
 
 UPDATED=true

@@ -1,3 +1,4 @@
+import ButtonHeistTestSupport
 import XCTest
 @_spi(ButtonHeistTooling) @testable import ButtonHeist
 import TheScore
@@ -16,11 +17,11 @@ final class TheHandoffKeepaliveStateTests: XCTestCase {
         XCTAssertEqual(handoff.tickKeepalive(), 1)
         XCTAssertEqual(handoff.tickKeepalive(), 2)
 
-        handoff.handleServerMessage(.pong(PongPayload(bundleIdentifier: "com.buttonheist.test")), requestId: "ping-1")
+        handoff.handleServerMessage(.pong(PongPayload(bundleIdentifier: "com.buttonheist.test")), requestId: .fixture("ping-1"))
 
         XCTAssertEqual(handoff.connectionLifecycle.missedPongCount, 0)
         XCTAssertEqual(forwarded.count, 1)
-        XCTAssertEqual(forwarded.first?.1, "ping-1")
+        XCTAssertEqual(forwarded.first?.1, .fixture("ping-1"))
         guard case .pong = forwarded.first?.0 else {
             return XCTFail("Expected request-scoped pong to be forwarded")
         }
@@ -30,7 +31,7 @@ final class TheHandoffKeepaliveStateTests: XCTestCase {
     func testConnectionEventForwardsTypedSendFailureRequestID() async {
         let handoff = TheHandoff()
         let connection = connectMockHandoff(handoff)
-        let requestID: RequestID = "request-1"
+        let requestID: RequestID = .fixture("request-1")
         var received: (DeviceSendFailure, RequestID?)?
         handoff.onSendFailure = { failure, eventRequestID in
             received = (failure, eventRequestID)

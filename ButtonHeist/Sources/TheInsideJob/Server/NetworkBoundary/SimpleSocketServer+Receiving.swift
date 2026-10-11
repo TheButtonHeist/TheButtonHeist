@@ -10,7 +10,9 @@ extension SimpleSocketServer {
     func startReceiving(clientId: Int, connection: NWConnection, generation: SocketListenerGeneration) {
         receiveNextChunk(
             clientId: clientId, connection: connection,
-            framer: NewlineDelimitedFramer(), generation: generation
+            framer: NewlineDelimitedFramer(
+                maxPendingBytes: WireFrameLimits.clientToServerMaxBufferedBytes
+            ), generation: generation
         )
     }
 
@@ -55,8 +57,7 @@ extension SimpleSocketServer {
         var receiveFramer = framer
         let messageFrames: [Data]
         do {
-            try SocketReceiveBufferPolicy.validate(receiveFramer, appending: content)
-            messageFrames = receiveFramer.append(content ?? Data())
+            messageFrames = try receiveFramer.append(content ?? Data())
         } catch {
             receiveLogger.warning("Client \(clientId) exceeded max buffer size, disconnecting")
             rejectClientWithServerError(

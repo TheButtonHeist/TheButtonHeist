@@ -57,7 +57,9 @@ final class DeviceConnection: DeviceConnecting, TransportReachabilityConnecting 
         init(
             id: UUID = UUID(),
             connection: NWConnection,
-            receiveFramer: NewlineDelimitedFramer = NewlineDelimitedFramer(),
+            receiveFramer: NewlineDelimitedFramer = NewlineDelimitedFramer(
+                maxPendingBytes: WireFrameLimits.serverToClientMaxBufferedBytes
+            ),
             eventConsumerTask: Task<Void, Never>? = nil,
             eventStream: DeviceConnectionEventStream = DeviceConnectionEventStream()
         ) {

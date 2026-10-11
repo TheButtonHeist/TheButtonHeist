@@ -1,19 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# --- Submodule freshness check ---
-# Compare the staged gitlink with the remote branch without moving the worktree.
-submodule_name="submodules/AccessibilitySnapshotBH"
-submodule_path=$(git config -f .gitmodules --get "submodule.$submodule_name.path")
-submodule_url=$(git config -f .gitmodules --get "submodule.$submodule_name.url")
-submodule_branch=$(git config -f .gitmodules --get "submodule.$submodule_name.branch")
-submodule_pin=$(git ls-files --stage "$submodule_path" | awk '{print $2}')
-remote_tip=$(git ls-remote "$submodule_url" "refs/heads/$submodule_branch" 2>/dev/null | awk '{print $1}' || true)
-if [[ -n "$submodule_pin" && -n "$remote_tip" && "$submodule_pin" != "$remote_tip" ]]; then
-    echo "warning: AccessibilitySnapshotBH submodule is behind the tip of $submodule_branch"
-    echo "Run: git submodule update --remote -- $submodule_path && git add $submodule_path"
-fi
-
 # --- SwiftLint ---
 if ! command -v swiftlint >/dev/null 2>&1; then
     echo "warning: SwiftLint not installed, skipping pre-commit lint"

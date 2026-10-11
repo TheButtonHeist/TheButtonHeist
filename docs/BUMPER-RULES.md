@@ -33,7 +33,6 @@ The internal dependency graph is:
 | ButtonHeist | ButtonHeistSupport, ThePlans, TheScore |
 | ButtonHeistSupport | None |
 | ButtonHeistTesting | TheInsideJob, ThePlans |
-| HeistPlanTool | ThePlans |
 | ButtonHeistCLI | ButtonHeist, ThePlans, TheScore |
 | ButtonHeistMCP | ButtonHeist, TheScore |
 | BH Demo | TheInsideJob, ThePlans, TheScore |

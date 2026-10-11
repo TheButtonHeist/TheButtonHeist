@@ -91,7 +91,7 @@ failed run cannot leak an ambiguous future destination.
 ```mermaid
 flowchart LR
     PR["Pull request SHA"] --> Contracts["Release contracts"]
-    PR --> Mac["macOS + CLI + MCP + heist-plan"]
+    PR --> Mac["macOS + CLI + MCP + plan compiler"]
     PR --> Core["Deterministic iOS core + demo smoke"]
     PR --> Hosted["Hosted behavior canaries"]
     Contracts --> Merge{"All required lanes green"}

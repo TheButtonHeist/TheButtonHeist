@@ -64,7 +64,7 @@ extension TheFence {
         timeout: TimeInterval
     ) async throws -> Response {
         guard handoff.connectionLifecycle.isConnected else { throw FenceError.notConnected }
-        let requestId = try RequestID(validating: UUID().uuidString)
+        let requestId = RequestID()
         return try await pendingRequests.waitForResponse(
             expectation,
             requestId: requestId,

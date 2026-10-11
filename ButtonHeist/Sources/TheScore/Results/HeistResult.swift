@@ -1,7 +1,7 @@
 import Foundation
 import ThePlans
 
-/// Complete typed result of one heist-plan execution.
+/// Complete typed result of one heist plan execution.
 public struct HeistResult: Codable, Sendable, Equatable {
     public let steps: [HeistExecutionStepResult]
     package let failureCapture: HeistFailureCapture?

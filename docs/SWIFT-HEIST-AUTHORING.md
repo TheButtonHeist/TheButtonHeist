@@ -424,11 +424,11 @@ only in the authoring tools:
   to a `HeistPlan`, validates that plan for runtime behavior, then sends it down
   the ordinary `run_heist` path — identical to passing a durable `.heist`
   package or canonical ButtonHeist `HeistPlan` source.
-- `heist-plan compile Flow.swift --entry makeHeist --output Flow.heist` compiles
+- `buttonheist plan compile Flow.swift --entry makeHeist --output Flow.heist` compiles
   and persists a `.heist` package without running it.
 
 The runtime never compiles arbitrary Swift. Local `.swift` files remain authoring
-tool inputs only: compile them with the CLI or `heist-plan`, then run the
+tool inputs only: compile them with the CLI, then run the
 resulting plan or artifact.
 
 `--entry` names a zero-argument throwing function returning `HeistPlan`, such as
@@ -514,9 +514,10 @@ module. The compiler accepts only these sources, in this order:
    CI uses for SwiftPM command-line compilation:
 
    ```bash
-   swift build --product heist-plan
+   swift build --target ThePlans
+   swift build --package-path ButtonHeistCLI
    HEIST_THEPLANS_BUILD_DIR="$(swift build --show-bin-path)" \
-     heist-plan compile Flow.swift --entry makeHeist --output Flow.heist
+     ButtonHeistCLI/.build/debug/buttonheist plan compile Flow.swift --entry makeHeist --output Flow.heist
    ```
 
 2. **An explicit package root** —
@@ -526,7 +527,7 @@ module. The compiler accepts only these sources, in this order:
    layouts, inspect sibling checkouts, or fall back to another configuration.
 
 3. **Installed compiler artifacts** — The Homebrew distribution supports Apple
-   Silicon macOS only. It installs `heist-plan` next to `buttonheist` and
+   Silicon macOS only. It installs the `buttonheist` plan compiler and
    installs the arm64 `ThePlans` build artifacts under
    `lib/ThePlans/arm64-apple-macosx/release`. The compiler accepts this layout
    only when its resolved executable lives in the matching `bin` directory. The
@@ -539,7 +540,7 @@ module. The compiler accepts only these sources, in this order:
 
    ```bash
    buttonheist run_heist --path Flow.swift --entry makeHeist
-   heist-plan compile Flow.swift --entry makeHeist --output Flow.heist
+   buttonheist plan compile Flow.swift --entry makeHeist --output Flow.heist
    ```
 
 The compiler never builds `ThePlans` from source on demand. If no built

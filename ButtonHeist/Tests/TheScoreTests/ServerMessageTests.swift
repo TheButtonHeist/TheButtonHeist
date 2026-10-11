@@ -142,7 +142,7 @@ final class ServerMessageTests: XCTestCase {
 
     func testResponseEnvelopeRejectsMissingPongPayload() throws {
         let data = Data("""
-        {"buttonHeistVersion":"\(TheScore.buttonHeistVersion)","requestId":"ping-1","type":"pong"}
+        {"buttonHeistVersion":"\(TheScore.buttonHeistVersion)","requestId":"00000000-0000-4000-8000-000000000001","type":"pong"}
         """.utf8)
 
         XCTAssertThrowsError(try JSONDecoder().decode(ResponseEnvelope.self, from: data))

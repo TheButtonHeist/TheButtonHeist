@@ -141,7 +141,7 @@ final class TheFingerprintsTests: XCTestCase {
 }
 
 @MainActor
-private final class ManualFingerprintScheduler: FingerprintScheduling {
+private final class ManualFingerprintScheduler {
     private struct ScheduledAction {
         let deadline: CFTimeInterval
         let action: @MainActor @Sendable () -> Void
@@ -168,6 +168,16 @@ private final class ManualFingerprintScheduler: FingerprintScheduling {
             now = max(now, next.deadline)
             next.action()
         }
+    }
+}
+
+private extension TheFingerprints {
+    convenience init(isEnabled: Bool, scheduler: ManualFingerprintScheduler) {
+        self.init(
+            isEnabled: isEnabled,
+            now: { scheduler.now },
+            schedule: { delay, action in scheduler.schedule(after: delay, action: action) }
+        )
     }
 }
 #endif

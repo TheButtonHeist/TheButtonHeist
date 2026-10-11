@@ -202,7 +202,7 @@ extension HeistExecution {
         ) = leaf.phase else {
             return wait()
         }
-        let requestID = nextID()
+        let effectID = nextID()
         let activeLeaf = HeistExecution.ActiveLeaf.action(leaf)
         let outcome = observationOutcome(
             activeLeaf,
@@ -227,7 +227,7 @@ extension HeistExecution {
             return update(
                 .action(leaf),
                 performing: .sampleObservationClose(
-                    requestID: requestID,
+                    effectID: effectID,
                     observationID: leaf.id,
                     exitPosition: .current,
                     capture: needsDeadlineStability ? .nextCycle : .refresh,
@@ -243,7 +243,7 @@ extension HeistExecution {
         )
         return update(
             .action(leaf),
-            performing: .commitObservationClose(requestID, observationID: leaf.id)
+            performing: .commitObservationClose(effectID, observationID: leaf.id)
         )
     }
 
@@ -280,7 +280,7 @@ extension HeistExecution {
         ) = leaf.phase else {
             return wait()
         }
-        let requestID = nextID()
+        let effectID = nextID()
         let activeLeaf = HeistExecution.ActiveLeaf.wait(leaf)
         let outcome = observationOutcome(
             activeLeaf,
@@ -304,7 +304,7 @@ extension HeistExecution {
             return update(
                 .wait(leaf),
                 performing: .sampleObservationClose(
-                    requestID: requestID,
+                    effectID: effectID,
                     observationID: leaf.id,
                     exitPosition: .current,
                     capture: needsDeadlineStability ? .nextCycle : .refresh,
@@ -319,7 +319,7 @@ extension HeistExecution {
         )
         return update(
             .wait(leaf),
-            performing: .commitObservationClose(requestID, observationID: leaf.id)
+            performing: .commitObservationClose(effectID, observationID: leaf.id)
         )
     }
 
@@ -468,7 +468,7 @@ extension HeistExecution {
             guard source == .deadline else { return wait() }
             return resume(afterCompletedLeaf: HeistExecution.ResultProjector.heistTimeout(action: leaf))
         }
-        let requestID = nextID()
+        let effectID = nextID()
         leaf.phase = .finishingObservation(
             expectation: expectation,
             dispatch: dispatch,
@@ -478,7 +478,7 @@ extension HeistExecution {
         return update(
             .action(leaf),
             performing: .sampleObservationClose(
-                requestID: requestID,
+                effectID: effectID,
                 observationID: leaf.id,
                 exitPosition: exitPosition,
                 capture: capture,
@@ -611,7 +611,7 @@ extension HeistExecution {
             }
             return wait()
         }
-        let requestID = nextID()
+        let effectID = nextID()
         leaf.phase = .finishingObservation(
             expectation: expectation,
             source: source,
@@ -620,7 +620,7 @@ extension HeistExecution {
         return update(
             .wait(leaf),
             performing: .sampleObservationClose(
-                requestID: requestID,
+                effectID: effectID,
                 observationID: leaf.id,
                 exitPosition: exitPosition,
                 capture: capture,

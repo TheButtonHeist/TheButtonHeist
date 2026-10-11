@@ -28,7 +28,6 @@ class Buttonheist < Formula
 
   def install
     bin.install "buttonheist"
-    bin.install "heist-plan" if (buildpath/"heist-plan").exist?
     lib.install "ThePlans" if (buildpath/"ThePlans").exist?
     resource("mcp").stage { bin.install "buttonheist-mcp" }
   end
@@ -52,7 +51,6 @@ class Buttonheist < Formula
 
   test do
     assert_match version.to_s, shell_output("#{bin}/buttonheist --version")
-    assert_predicate bin/"heist-plan", :exist?
     assert_predicate bin/"buttonheist-mcp", :exist?
     assert_predicate bin/"buttonheist-mcp", :executable?
     assert_predicate lib/"ThePlans/arm64-apple-macosx/release/Modules/ThePlans.swiftinterface", :exist?

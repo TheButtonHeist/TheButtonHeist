@@ -295,14 +295,14 @@ final class ClientMessageTests: XCTestCase {
             )),
         ])
         let envelope = RequestEnvelope(
-            requestId: "heist-1",
+            requestId: .fixture("heist-1"),
             message: .heistPlan(HeistPlanRun(plan: plan))
         )
 
         let data = try JSONEncoder().encode(envelope)
         let decoded = try JSONDecoder().decode(RequestEnvelope.self, from: data)
 
-        XCTAssertEqual(decoded.requestId, "heist-1")
+        XCTAssertEqual(decoded.requestId, .fixture("heist-1"))
         guard case .heistPlan(let decodedRun) = decoded.message,
               let step = decodedRun.plan.body.first,
               case .action(let action) = step,
@@ -402,7 +402,7 @@ final class ClientMessageTests: XCTestCase {
 
     func testRequestAccessibilityScreenshotEncodeDecode() throws {
         let envelope = RequestEnvelope(
-            requestId: "screen-1",
+            requestId: .fixture("screen-1"),
             message: .requestScreen(ScreenRequestPayload(
                 mode: .accessibility,
                 timeout: 12
@@ -503,13 +503,13 @@ final class ClientMessageTests: XCTestCase {
             .action(ActionStep(command: .setPasteboard(SetPasteboardTarget(text: "hello")))),
         ])
         let envelope = RequestEnvelope(
-            requestId: "pb-set",
+            requestId: .fixture("pb-set"),
             message: .heistPlan(HeistPlanRun(plan: plan))
         )
         let data = try JSONEncoder().encode(envelope)
         let decoded = try JSONDecoder().decode(RequestEnvelope.self, from: data)
 
-        XCTAssertEqual(decoded.requestId, "pb-set")
+        XCTAssertEqual(decoded.requestId, .fixture("pb-set"))
         guard case .heistPlan(let run) = decoded.message,
               case .action(let step)? = run.plan.body.first else {
             return XCTFail("Expected heistPlan setPasteboard, got \(decoded.message)")
@@ -533,13 +533,13 @@ final class ClientMessageTests: XCTestCase {
 
     func testGetPasteboardEnvelopeRoundTrip() throws {
         let envelope = RequestEnvelope(
-            requestId: "pb-get",
+            requestId: .fixture("pb-get"),
             message: .getPasteboard
         )
         let data = try JSONEncoder().encode(envelope)
         let decoded = try JSONDecoder().decode(RequestEnvelope.self, from: data)
 
-        XCTAssertEqual(decoded.requestId, "pb-get")
+        XCTAssertEqual(decoded.requestId, .fixture("pb-get"))
         if case .getPasteboard = decoded.message {
             // pass
         } else {
@@ -564,13 +564,13 @@ final class ClientMessageTests: XCTestCase {
 
     func testGetNotificationsEnvelopeRoundTrip() throws {
         let envelope = RequestEnvelope(
-            requestId: "notifications-get",
+            requestId: .fixture("notifications-get"),
             message: .getNotifications
         )
         let data = try JSONEncoder().encode(envelope)
         let decoded = try JSONDecoder().decode(RequestEnvelope.self, from: data)
 
-        XCTAssertEqual(decoded.requestId, "notifications-get")
+        XCTAssertEqual(decoded.requestId, .fixture("notifications-get"))
         if case .getNotifications = decoded.message {
             // pass
         } else {
@@ -633,13 +633,13 @@ final class ClientMessageTests: XCTestCase {
             .wait(WaitStep(predicate: .elementsChanged, timeout: 8.0)),
         ])
         let envelope = RequestEnvelope(
-            requestId: "wait-1",
+            requestId: .fixture("wait-1"),
             message: .heistPlan(HeistPlanRun(plan: plan))
         )
         let data = try JSONEncoder().encode(envelope)
         let decoded = try JSONDecoder().decode(RequestEnvelope.self, from: data)
 
-        XCTAssertEqual(decoded.requestId, "wait-1")
+        XCTAssertEqual(decoded.requestId, .fixture("wait-1"))
         guard case .heistPlan(let run) = decoded.message,
               case .wait(let target)? = run.plan.body.first else {
             return XCTFail("Expected heistPlan wait, got \(decoded.message)")

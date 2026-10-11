@@ -26,7 +26,7 @@ final class HeistExecutionTests: XCTestCase {
         }
 
         guard case .wait = execution.reduce(.observationBegan(
-            HeistExecution.RequestID(rawValue: 1),
+            HeistExecution.EffectID(rawValue: 1),
             baseline: nil,
             at: now
         )) else {
@@ -98,7 +98,7 @@ final class HeistExecutionTests: XCTestCase {
         let request = try XCTUnwrap(state.singleSnapshotRequest)
 
         guard case .perform(.currentSnapshot(let retainedID, _, _)) = execution.reduce(.currentSnapshot(
-            HeistExecution.RequestID(rawValue: request.id.rawValue + 1),
+            HeistExecution.EffectID(rawValue: request.id.rawValue + 1),
             makeTestObservationSnapshot(labels: ["Home"]),
             at: now
         )), retainedID == request.id else {

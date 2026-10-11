@@ -144,19 +144,19 @@ Every message is a JSON object terminated by `\n`.
 Client request:
 
 ```json
-{"buttonHeistVersion":"<semver>","requestId":"abc-123","type":"requestInterface","payload":{}}
+{"buttonHeistVersion":"<semver>","requestId":"00000000-0000-4000-8000-000000000001","type":"requestInterface","payload":{}}
 ```
 
 Server response:
 
 ```json
-{"buttonHeistVersion":"<semver>","requestId":"abc-123","type":"interface","payload":{"timestamp":791807445.123,"tree":[],"annotations":{"elements":[],"containers":[]}}}
+{"buttonHeistVersion":"<semver>","requestId":"00000000-0000-4000-8000-000000000001","type":"interface","payload":{"timestamp":791807445.123,"tree":[],"annotations":{"elements":[],"containers":[]}}}
 ```
 
 | Field | Description |
 |-------|-------------|
 | `buttonHeistVersion` | `ButtonHeistVersion` encoded as a `MAJOR.MINOR.PATCH` string. Must match exactly across client and server. |
-| `requestId` | Optional `RequestID` encoded as a nonblank string. Echoed by the matching response. |
+| `requestId` | Optional `RequestID` encoded as a UUID string. Echoed by the matching response. |
 | `type` | Explicit TheScore message discriminator. |
 | `payload` | Optional payload object. |
 
@@ -192,13 +192,13 @@ a response from its prior connection.
 Main-thread probe request:
 
 ```json
-{"buttonHeistVersion":"<semver>","requestId":"probe-1","type":"mainThreadProbe","payload":{"responsivenessTimeoutMilliseconds":1000,"workTimeoutMilliseconds":1000}}
+{"buttonHeistVersion":"<semver>","requestId":"00000000-0000-4000-8000-000000000002","type":"mainThreadProbe","payload":{"responsivenessTimeoutMilliseconds":1000,"workTimeoutMilliseconds":1000}}
 ```
 
 Main-thread probe response:
 
 ```json
-{"buttonHeistVersion":"<semver>","requestId":"probe-1","type":"mainThreadProbe","payload":{"outcome":"responsive"}}
+{"buttonHeistVersion":"<semver>","requestId":"00000000-0000-4000-8000-000000000002","type":"mainThreadProbe","payload":{"outcome":"responsive"}}
 ```
 
 Both timeout fields are positive integer millisecond durations. Unknown fields,
@@ -398,7 +398,7 @@ events.
 ```json
 {
   "buttonHeistVersion": "<semver>",
-  "requestId": "act-1",
+  "requestId": "00000000-0000-4000-8000-000000000003",
   "type": "heistPlan",
   "payload": {
     "plan": {

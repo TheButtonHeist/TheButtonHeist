@@ -19,8 +19,9 @@ run_step "Release contract and parser pin" "$SCRIPT_DIR/validate-release-contrac
 run_step "Swift public API breakage" "$SCRIPT_DIR/check-swift-api-breaking-changes.sh"
 run_step "Generate Xcode project" "$SCRIPT_DIR/generate-project.sh"
 run_step "External ButtonHeist import fixture" "$SCRIPT_DIR/check-buttonheist-import-contract.sh"
-run_step "Build heist-plan" swift build --product heist-plan
-run_step "heist-plan compile smoke" "$SCRIPT_DIR/test-heist-plan-compile.sh"
+run_step "Build ThePlans" swift build --target ThePlans
+run_step "Build buttonheist" swift build --package-path ButtonHeistCLI
+run_step "plan compile smoke" "$SCRIPT_DIR/test-plan-compile.sh"
 run_step "Installed artifact smoke when available" "$SCRIPT_DIR/installed-artifact-smoke.sh"
 
 echo "Release readiness checks passed."
