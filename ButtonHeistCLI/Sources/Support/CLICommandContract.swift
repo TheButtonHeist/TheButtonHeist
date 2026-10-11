@@ -206,7 +206,7 @@ enum CLICommandCatalog {
             CLI command types must cover exactly the Fence descriptors marked directCommand.
             """
         )
-        return commandTypes + [AdversarialCatalogCommand.self, JSONLinesCommand.self]
+        return commandTypes + [PlanCommand.self, AdversarialCatalogCommand.self, JSONLinesCommand.self]
     }()
 }
 

@@ -9,7 +9,7 @@ final class CLICommandSyncTests: XCTestCase {
 
     func testTopLevelSubcommandsMatchFenceCLIExposure() {
         let descriptorNames = TheFence.Command.cliDirectCommandDescriptors.map(\.command.rawValue)
-        let expected = (descriptorNames + ["adversarial_catalog", "json_lines"]).sorted()
+        let expected = (descriptorNames + ["adversarial_catalog", "json_lines", "plan"]).sorted()
 
         XCTAssertEqual(topLevelCommandNames().sorted(), expected)
     }

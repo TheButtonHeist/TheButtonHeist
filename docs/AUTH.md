@@ -126,7 +126,7 @@ envelopes. See [WIRE-PROTOCOL.md](WIRE-PROTOCOL.md) for full details.
 
 ```json
 {"buttonHeistVersion":"<semver>","requestId":null,"type":"clientHello"}
-{"buttonHeistVersion":"<semver>","requestId":"req-1","type":"authenticate","payload":{"token":"agent-token"}}
+{"buttonHeistVersion":"<semver>","requestId":"00000000-0000-4000-8000-000000000001","type":"authenticate","payload":{"token":"agent-token"}}
 ```
 
 Only token-derived TLS-PSK auth is valid. Any non-current auth response is an

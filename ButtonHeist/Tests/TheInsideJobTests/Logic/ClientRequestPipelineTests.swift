@@ -428,11 +428,11 @@ final class ClientRequestPipelineTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "first-ui")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "first-ui")), .enqueued)
         await uiGate.entered.wait()
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "ping")), .enqueued)
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "status")), .enqueued)
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "second-ui")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "ping")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "status")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "second-ui")), .enqueued)
         await controlCompleted.wait()
         XCTAssertEqual(controlTrace.withLock { $0 }, ["ping", "status"])
         XCTAssertFalse(secondUIExecuted.withLock { $0 })
@@ -454,21 +454,20 @@ final class ClientRequestPipelineTests: XCTestCase {
             await activeGate.suspend()
         }
 
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "active")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "active")), .enqueued)
         await activeGate.entered.wait()
         for requestIndex in 0..<ClientRequestPipeline.maximumQueuedRequests {
-            let requestID = try RequestID(validating: "queued-\(requestIndex)")
             XCTAssertEqual(
-                pipeline.enqueue(request(clientId: 1, requestId: requestID)),
+                pipeline.enqueue(request(clientId: 1, text: "queued-\(requestIndex)")),
                 .enqueued
             )
         }
 
         XCTAssertEqual(
-            pipeline.enqueue(request(clientId: 1, requestId: "overflow")),
+            pipeline.enqueue(request(clientId: 1, text: "overflow")),
             .overflowed
         )
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "late")), .stopped)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "late")), .stopped)
 
         let consumer = pipeline.stop()
         activeGate.release()
@@ -491,9 +490,9 @@ final class ClientRequestPipelineTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(first.enqueue(request(clientId: 1, requestId: "blocked")), .enqueued)
+        XCTAssertEqual(first.enqueue(request(clientId: 1, text: "blocked")), .enqueued)
         await blocked.entered.wait()
-        XCTAssertEqual(second.enqueue(request(clientId: 2, requestId: "ping")), .enqueued)
+        XCTAssertEqual(second.enqueue(request(clientId: 2, text: "ping")), .enqueued)
 
         await otherClientCompleted.wait()
 
@@ -521,8 +520,8 @@ final class ClientRequestPipelineTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "first")), .enqueued)
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "second")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "first")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "second")), .enqueued)
         await blocked.entered.wait()
         XCTAssertEqual(trace.withLock { $0 }, ["start-first"])
 
@@ -549,8 +548,8 @@ final class ClientRequestPipelineTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "active")), .enqueued)
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "queued")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "active")), .enqueued)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "queued")), .enqueued)
         await blocked.entered.wait()
 
         let consumer = pipeline.stop()
@@ -558,14 +557,14 @@ final class ClientRequestPipelineTests: XCTestCase {
         await consumer?.value
 
         XCTAssertEqual(executedRequestIds.withLock { $0 }, ["active"])
-        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, requestId: "late")), .stopped)
+        XCTAssertEqual(pipeline.enqueue(request(clientId: 1, text: "late")), .stopped)
     }
 
     @MainActor
-    private func request(clientId: Int, requestId: RequestID) -> ClientTransportRequest {
+    private func request(clientId: Int, text: String) -> ClientTransportRequest {
         ClientTransportRequest(
             lease: testLease(clientId),
-            data: Data(requestId.description.utf8),
+            data: Data(text.utf8),
             respond: { _ in .delivered }
         )
     }

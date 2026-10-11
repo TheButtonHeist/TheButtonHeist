@@ -21,7 +21,7 @@ enum ExecutionWaitDisposition {
 }
 
 struct SnapshotRequest {
-    let id: HeistExecution.RequestID
+    let id: HeistExecution.EffectID
     let scope: SemanticObservationScope
 }
 
@@ -36,7 +36,7 @@ struct HeistExecutionTestDriver {
     private(set) var requests: [HeistExecution.Effect] = []
     private var script: ExecutionRunScript
     private var currentSnapshot: Observation.Snapshot?
-    private var observationStarts: [HeistExecution.RequestID: ExecutionObservationStart] = [:]
+    private var observationStarts: [HeistExecution.EffectID: ExecutionObservationStart] = [:]
     private var now = RuntimeElapsed.now
     private var pendingClose: HeistExecution.ObservationClose?
 
@@ -113,7 +113,7 @@ struct HeistExecutionTestDriver {
             return execution.reduce(.viewportExited(id, .retained, at: now))
 
         case .sampleObservationClose(
-            let requestID,
+            let effectID,
             let observationID,
             _,
             let capture,
@@ -129,7 +129,7 @@ struct HeistExecutionTestDriver {
                 lastTreeChangeAt: nil
             )
             return execution.reduce(.observationCloseSampled(
-                requestID,
+                effectID,
                 source: source,
                 observationID: observationID,
                 evidence: evidence(since: start, captureAvailable: close.captureAvailable),

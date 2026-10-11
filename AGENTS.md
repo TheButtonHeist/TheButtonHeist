@@ -133,7 +133,7 @@ This project uses [Tuist](https://tuist.io) to generate Xcode projects and works
 | `Project.swift` | Root project: TheScore, TheInsideJob, ButtonHeist frameworks + tests |
 | `TestApp/Project.swift` | The `BH Demo` test app |
 | `Tuist.swift` | Tuist configuration (default) |
-| `Tuist/Package.swift` | External dependencies (ArgumentParser, AccessibilitySnapshotParser) |
+| `Tuist/Package.swift` | External AccessibilitySnapshotParser dependency |
 
 ### When to regenerate
 
@@ -731,9 +731,9 @@ Save a new baseline when landing major changes.
 - **Formally** (code, API, module): use **TheInsideJob** for the iOS server framework.
 - **Colloquially** (prose, chat): "inside job" or "Inside Job" is fine for that framework; don't over-correct.
 
-## AccessibilitySnapshotBH Submodule
+## AccessibilitySnapshotBH Package
 
-The `AccessibilitySnapshotBH` submodule points at our fork (`TheButtonHeist/AccessibilitySnapshotBH`) on `main`. Upstream is `cashapp/AccessibilitySnapshot` (default branch: `main`). Our `main` is rebased on upstream `main` and carries five targeted commits:
+The exact `AccessibilitySnapshotBH` SwiftPM dependency points at our fork (`TheButtonHeist/AccessibilitySnapshotBH`). Upstream is `cashapp/AccessibilitySnapshot` (default branch: `main`). Our `main` is rebased on upstream `main` and carries five targeted commits:
 
 1. `elementVisitor` closure on the hierarchy parser + xcodegen project support
 2. `Hashable` conformance on `AccessibilityElement`
@@ -741,11 +741,12 @@ The `AccessibilitySnapshotBH` submodule points at our fork (`TheButtonHeist/Acce
 4. `containerVisitor` closure on the hierarchy parser + `.scrollable(contentSize:)` container type
 5. Popover modal sibling fix: traverse from the last modal subview onward (`subviews[lastModalIndex...]`) so popover content presented as a sibling after an empty dismiss region is not dropped
 
-**Rules for this submodule:**
-- Only touch files in the hierarchy parser (`Sources/AccessibilitySnapshot/Parser/`).
+**Rules for this package:**
+- Make parser changes in the `AccessibilitySnapshotBH` repository, not in this repository.
+- Only touch files in its hierarchy parser (`Sources/AccessibilitySnapshot/Parser/`).
 - Keep changes minimal and targeted — do not modify snapshot testing, examples, or package config.
 - When upstream `cashapp/AccessibilitySnapshot:main` updates, rebase our `main` onto the new upstream `main` rather than merging.
-- After updating the submodule, run `git submodule update --remote` and commit the new pin.
+- After updating its `main`, run `./scripts/bump-parser.sh` and commit the aligned exact pins and lockfiles.
 
 ## Swift File Structure
 

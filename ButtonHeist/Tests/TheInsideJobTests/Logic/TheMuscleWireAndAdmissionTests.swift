@@ -28,7 +28,7 @@ final class TheMuscleWireTests: TheMuscleTestCase {
     }
 
     func testExplicitErrorEnvelopeStillEncodes() async throws {
-        let requestID: RequestID = "explicit-error"
+        let requestID: RequestID = .fixture("explicit-error")
         let result = ResponseEnvelopeDelivery.encodeEnvelope(
             .error(ServerError(kind: .general, message: "Explicit failure")),
             requestId: requestID
@@ -65,7 +65,7 @@ final class TheMuscleWireTests: TheMuscleTestCase {
 
     func testAdmissionFailureResponseEnvelopeKeepsStableWireShape() async throws {
         let (respond, responses) = collectResponses()
-        let data = try JSONEncoder().encode(RequestEnvelope(requestId: "unauth-ping", message: .ping))
+        let data = try JSONEncoder().encode(RequestEnvelope(requestId: .fixture("unauth-ping"), message: .ping))
 
         _ = await muscle.admitClientMessage(
             1,
@@ -76,7 +76,7 @@ final class TheMuscleWireTests: TheMuscleTestCase {
 
         let response = try XCTUnwrap(responses().first)
         let envelope = try JSONDecoder().decode(ResponseEnvelope.self, from: response)
-        XCTAssertEqual(envelope.requestId, "unauth-ping")
+        XCTAssertEqual(envelope.requestId, .fixture("unauth-ping"))
         guard case .error(let error) = envelope.message else {
             return XCTFail("Expected error envelope, got \(envelope.message)")
         }

@@ -14,53 +14,53 @@ extension HeistExecution {
     /// A boundary operation requested by the pure reducer.
     internal enum Effect {
         case currentSnapshot(
-            RequestID,
+            EffectID,
             scope: SemanticObservationScope,
             deadline: SemanticObservationDeadline
         )
         case beginObservation(
-            RequestID,
+            EffectID,
             scope: SemanticObservationScope,
             deadline: SemanticObservationDeadline
         )
-        case dispatch(RequestID, ResolvedHeistActionCommand, deadline: SemanticObservationDeadline)
-        case explore(RequestID, Predicate, deadline: SemanticObservationDeadline)
+        case dispatch(EffectID, ResolvedHeistActionCommand, deadline: SemanticObservationDeadline)
+        case explore(EffectID, Predicate, deadline: SemanticObservationDeadline)
         case sampleObservationClose(
-            requestID: RequestID,
-            observationID: RequestID,
+            effectID: EffectID,
+            observationID: EffectID,
             exitPosition: Navigation.ViewportExitPosition,
             capture: ObservationCloseCapture,
             source: ObservationCloseSource
         )
-        case commitObservationClose(RequestID, observationID: RequestID)
+        case commitObservationClose(EffectID, observationID: EffectID)
         case captureFailureScreenshot(
-            RequestID,
+            EffectID,
             failedPath: HeistExecutionPath,
             mode: ScreenCaptureMode
         )
-        case cancelObservation(RequestID, observationID: RequestID?)
+        case cancelObservation(EffectID, observationID: EffectID?)
     }
 
     /// A fact received by the pure reducer.
     internal enum Event {
-        case currentSnapshot(RequestID, Observation.Snapshot?, at: RuntimeElapsed.Instant)
-        case observationBegan(RequestID, baseline: Observation.Snapshot?, at: RuntimeElapsed.Instant)
-        case observation(RequestID, Observation.Event, at: RuntimeElapsed.Instant)
-        case dispatchCompleted(RequestID, TheSafecracker.ActionDispatchResult, at: RuntimeElapsed.Instant)
-        case viewportExited(RequestID, Navigation.ViewportExit.Outcome, at: RuntimeElapsed.Instant)
+        case currentSnapshot(EffectID, Observation.Snapshot?, at: RuntimeElapsed.Instant)
+        case observationBegan(EffectID, baseline: Observation.Snapshot?, at: RuntimeElapsed.Instant)
+        case observation(EffectID, Observation.Event, at: RuntimeElapsed.Instant)
+        case dispatchCompleted(EffectID, TheSafecracker.ActionDispatchResult, at: RuntimeElapsed.Instant)
+        case viewportExited(EffectID, Navigation.ViewportExit.Outcome, at: RuntimeElapsed.Instant)
         case observationCloseSampled(
-            RequestID,
+            EffectID,
             source: ObservationCloseSource,
-            observationID: RequestID,
+            observationID: EffectID,
             evidence: Observation.Evidence,
             close: ObservationClose,
             at: RuntimeElapsed.Instant
         )
-        case failureScreenshotCaptured(RequestID, HeistFailureCapture, at: RuntimeElapsed.Instant)
-        case deadlineElapsed(RequestID, at: RuntimeElapsed.Instant)
+        case failureScreenshotCaptured(EffectID, HeistFailureCapture, at: RuntimeElapsed.Instant)
+        case deadlineElapsed(EffectID, at: RuntimeElapsed.Instant)
         case cancellationRequested(at: RuntimeElapsed.Instant)
-        case cancellationCompleted(RequestID, at: RuntimeElapsed.Instant)
-        case observationCloseCommitted(RequestID, at: RuntimeElapsed.Instant)
+        case cancellationCompleted(EffectID, at: RuntimeElapsed.Instant)
+        case observationCloseCommitted(EffectID, at: RuntimeElapsed.Instant)
     }
 
     /// Raw boundary facts from one observation-close attempt.
@@ -73,7 +73,7 @@ extension HeistExecution {
 
     /// The next external fact the reducer may admit.
     internal struct WaitRequest: Sendable, Equatable {
-        internal let id: RequestID
+        internal let id: EffectID
         internal let deadline: SemanticObservationDeadline
     }
 
@@ -91,7 +91,7 @@ extension HeistExecution {
 }
 
 extension HeistExecution {
-    internal struct RequestID: RawRepresentable, Sendable, Equatable, Hashable {
+    internal struct EffectID: RawRepresentable, Sendable, Equatable, Hashable {
         internal let rawValue: UInt64
     }
 
@@ -288,7 +288,7 @@ extension HeistExecution {
         case action(ActionLeaf)
         case wait(WaitLeaf)
 
-        internal var id: RequestID {
+        internal var id: EffectID {
             switch self {
             case .action(let leaf):
                 leaf.id
@@ -334,7 +334,7 @@ extension HeistExecution {
     }
 
     internal struct ActionLeaf: Sendable {
-        internal let id: RequestID
+        internal let id: EffectID
         internal let step: ActionStep
         internal let command: ResolvedHeistActionCommand
         internal let expectation: ActionObservationExpectation
@@ -344,7 +344,7 @@ extension HeistExecution {
     }
 
     internal struct WaitLeaf: Sendable {
-        internal let id: RequestID
+        internal let id: EffectID
         internal let predicate: Predicate
         internal let purpose: WaitPurpose
         internal var phase: WaitLeafPhase

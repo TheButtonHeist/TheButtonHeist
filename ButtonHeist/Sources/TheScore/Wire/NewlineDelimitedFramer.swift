@@ -6,16 +6,35 @@ import Foundation
 /// wire message. The retained bytes are always the single suffix after the last
 /// delimiter observed so far.
 package struct NewlineDelimitedFramer: Equatable, Sendable {
-    package private(set) var pendingData = Data()
+    package enum Violation: Error, Equatable, LocalizedError, Sendable {
+        case pendingBytesExceeded(observed: Int, maximum: Int)
 
-    package var pendingByteCount: Int {
-        pendingData.count
+        package var errorDescription: String? {
+            switch self {
+            case let .pendingBytesExceeded(observed, maximum):
+                return "received frame buffer exceeded \(maximum) bytes (\(observed) bytes)"
+            }
+        }
     }
 
-    package init() {}
+    private let maxPendingBytes: Int
+    package private(set) var pendingData = Data()
 
-    package mutating func append(_ content: Data) -> [Data] {
+    package init(maxPendingBytes: Int) {
+        precondition(maxPendingBytes > 0)
+        self.maxPendingBytes = maxPendingBytes
+    }
+
+    package mutating func append(_ content: Data) throws -> [Data] {
         guard !content.isEmpty else { return [] }
+
+        let (observed, overflowed) = pendingData.count.addingReportingOverflow(content.count)
+        guard !overflowed, observed <= maxPendingBytes else {
+            throw Violation.pendingBytesExceeded(
+                observed: overflowed ? .max : observed,
+                maximum: maxPendingBytes
+            )
+        }
 
         var frames: [Data] = []
         var sawDelimiter = false

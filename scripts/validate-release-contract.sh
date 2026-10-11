@@ -92,8 +92,6 @@ grep -Fq "$EXPECTED_RELEASE_URL/$CLI_TEMPLATE_PATH" "$BUTTONHEIST_FORMULA_TEMPLA
     || fail "$BUTTONHEIST_FORMULA_TEMPLATE CLI URL does not match release contract"
 grep -Fq "$EXPECTED_RELEASE_URL/$MCP_TEMPLATE_PATH" "$BUTTONHEIST_FORMULA_TEMPLATE" \
     || fail "$BUTTONHEIST_FORMULA_TEMPLATE MCP URL does not match release contract"
-grep -Fq 'bin.install "heist-plan"' "$BUTTONHEIST_FORMULA_TEMPLATE" \
-    || fail "$BUTTONHEIST_FORMULA_TEMPLATE must install the heist-plan compiler"
 grep -Fq 'bin.install "buttonheist-mcp"' "$BUTTONHEIST_FORMULA_TEMPLATE" \
     || fail "$BUTTONHEIST_FORMULA_TEMPLATE must install the MCP server"
 grep -Fq 'assert_predicate bin/"buttonheist-mcp", :executable?' "$BUTTONHEIST_FORMULA_TEMPLATE" \

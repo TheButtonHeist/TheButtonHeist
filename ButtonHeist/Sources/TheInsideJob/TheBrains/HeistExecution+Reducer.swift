@@ -24,7 +24,7 @@ internal struct HeistExecution {
         var activeLeaf: ActiveLeaf?
         var awaiting: WaitRequest?
         var pendingEffect: Effect?
-        var nextRequestID: UInt64
+        var nextEffectID: UInt64
         let executionDeadline: SemanticObservationDeadline
         var observationDeadline: SemanticObservationDeadline?
         var now: RuntimeElapsed.Instant
@@ -81,7 +81,7 @@ extension HeistExecution {
                 activeLeaf: nil,
                 awaiting: nil,
                 pendingEffect: nil,
-                nextRequestID: 0,
+                nextEffectID: 0,
                 executionDeadline: .init(start: startedAt, timeout: .seconds(timeout.seconds)),
                 observationDeadline: nil,
                 now: startedAt
@@ -169,9 +169,9 @@ extension HeistExecution {
             }
         }
 
-        internal mutating func nextID() -> RequestID {
-            running.nextRequestID += 1
-            return RequestID(rawValue: running.nextRequestID)
+        internal mutating func nextID() -> EffectID {
+            running.nextEffectID += 1
+            return EffectID(rawValue: running.nextEffectID)
         }
 
         internal mutating func wait() -> Decision {
@@ -226,9 +226,9 @@ extension HeistExecution {
         }
 
         private mutating func reduceCancellation() -> Decision {
-            let requestID = nextID()
+            let effectID = nextID()
             let effect = Effect.cancelObservation(
-                requestID,
+                effectID,
                 observationID: running.activeLeaf?.id
             )
             state = .cancelling(effect)

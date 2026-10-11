@@ -76,16 +76,15 @@ extension DeviceConnection {
         _ content: Data,
         into session: inout RuntimeSession
     ) -> Bool {
-        let (bufferedByteCount, overflowed) = session.receiveFramer.pendingByteCount.addingReportingOverflow(
-            content.count
-        )
-        if overflowed || bufferedByteCount > WireFrameLimits.serverToClientMaxBufferedBytes {
+        let messageFrames: [Data]
+        do {
+            messageFrames = try session.receiveFramer.append(content)
+        } catch {
             deviceConnectionLogger.warning("Server exceeded max buffer size, disconnecting")
             transitionToDisconnected(.failure(.bufferOverflow))
             return false
         }
 
-        let messageFrames = session.receiveFramer.append(content)
         updateConnectedSession(session)
         for messageData in messageFrames {
             guard connectedSession(matching: session.id, connection: session.connection) != nil else {

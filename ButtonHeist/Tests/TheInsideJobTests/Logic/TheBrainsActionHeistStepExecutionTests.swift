@@ -204,7 +204,7 @@ final class HeistExecutionStepExecutionTests: XCTestCase {
         }
 
         guard case .perform(.dispatch(let retainedStaleDispatchID, _, _)) = execution.reduce(.dispatchCompleted(
-            HeistExecution.RequestID(rawValue: dispatchRequest.id.rawValue + 1),
+            HeistExecution.EffectID(rawValue: dispatchRequest.id.rawValue + 1),
             .success(payload: .dismiss),
             at: now
         )), retainedStaleDispatchID == dispatchRequest.id else {
@@ -351,13 +351,13 @@ private enum ExecutionEffectKind: Equatable {
 }
 
 struct BeginObservationRequest {
-    let id: HeistExecution.RequestID
+    let id: HeistExecution.EffectID
     let scope: SemanticObservationScope
     let deadline: SemanticObservationDeadline
 }
 
 struct DispatchRequest {
-    let id: HeistExecution.RequestID
+    let id: HeistExecution.EffectID
 }
 
 private extension HeistExecution.Effect {

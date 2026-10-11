@@ -26,7 +26,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
-          submodules: recursive
 
       - name: Verify CI passed on exact release commit
         env:
@@ -89,12 +88,11 @@ jobs:
             -output .build/buttonheist-mcp
           file .build/buttonheist-mcp
 
-      - name: Build heist-plan compiler artifacts (arm64)
+      - name: Build plan compiler artifacts (arm64)
         run: |
-          swift build -c release --arch arm64 --product heist-plan \
+          swift build -c release --arch arm64 --target ThePlans \
             -Xswiftc -enable-library-evolution \
             -Xswiftc -emit-module-interface
-          test -x .build/arm64-apple-macosx/release/heist-plan
           test -f .build/arm64-apple-macosx/release/Modules/ThePlans.swiftmodule
           test -f .build/arm64-apple-macosx/release/ThePlans.build/ThePlans.swiftinterface
           test -f .build/arm64-apple-macosx/release/description.json
@@ -145,7 +143,6 @@ jobs:
 
           # CLI + compiler artifacts
           cp ButtonHeistCLI/.build/buttonheist dist/
-          cp .build/arm64-apple-macosx/release/heist-plan dist/
           mkdir -p dist/ThePlans/arm64-apple-macosx/release/Modules
           cp -R \
             .build/arm64-apple-macosx/release/ThePlans.build \
@@ -156,9 +153,8 @@ jobs:
             dist/ThePlans/arm64-apple-macosx/release/Modules/
           cp .build/arm64-apple-macosx/release/description.json \
             dist/ThePlans/arm64-apple-macosx/release/
-          tar -czf "dist/${CLI_ARCHIVE}" -C dist buttonheist heist-plan ThePlans
+          tar -czf "dist/${CLI_ARCHIVE}" -C dist buttonheist ThePlans
           rm dist/buttonheist
-          rm dist/heist-plan
           rm -rf dist/ThePlans
 
           # MCP
@@ -199,7 +195,10 @@ jobs:
           source scripts/release-contract.sh
           VERSION="${{ steps.version.outputs.version }}"
           PARSER_TAG=$(grep 'AccessibilitySnapshotBH' Package.swift | grep -oE 'exact: "[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-          PARSER_SHA=$(git ls-tree HEAD submodules/AccessibilitySnapshotBH | awk '{print $3}' | cut -c1-12)
+          PARSER_SHA=$(git ls-remote https://github.com/TheButtonHeist/AccessibilitySnapshotBH.git "refs/tags/${PARSER_TAG}^{}" | awk '{print $1}' | cut -c1-12)
+          if [[ -z "$PARSER_SHA" ]]; then
+            PARSER_SHA=$(git ls-remote https://github.com/TheButtonHeist/AccessibilitySnapshotBH.git "refs/tags/${PARSER_TAG}" | awk '{print $1}' | cut -c1-12)
+          fi
           RELEASE_NOTES=$(mktemp)
           cat > "$RELEASE_NOTES" <<EOF
           Parser contract:

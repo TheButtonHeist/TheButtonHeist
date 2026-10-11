@@ -19,15 +19,6 @@ internal enum SemanticObservationWaitBoundary: Sendable, Equatable {
     }
 }
 
-@MainActor
-internal final class SemanticObservationCycleReceipt {
-    var completed = false
-}
-
-internal enum SemanticObservationCycleContext {
-    @TaskLocal static var receipt: SemanticObservationCycleReceipt?
-}
-
 internal enum SemanticObservationWaitResult: Sendable, Equatable {
     case observation(TheVault.State.Current)
     case cycleCompletedWithoutObservation
@@ -96,11 +87,6 @@ extension Observation.Stream {
                     observationWaiters.remove(id: waiterID)?.oneShot.cancelTimeout()
                 }
             )
-        }
-        if boundary.completesObservationCycle,
-           result != .cancelled,
-           result != .deadlineReached {
-            SemanticObservationCycleContext.receipt?.completed = true
         }
         return result
     }

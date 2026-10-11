@@ -9,7 +9,6 @@ cd "$REPO_ROOT"
 
 PARSER_REPO_URL="https://github.com/TheButtonHeist/AccessibilitySnapshotBH"
 PARSER_IDENTITY="accessibilitysnapshotbh"
-SUBMODULE_PATH="submodules/AccessibilitySnapshotBH"
 ROOT_MANIFEST="Package.swift"
 SEMVER_PATTERN='[0-9]+\.[0-9]+\.[0-9]+'
 
@@ -65,9 +64,6 @@ for manifest in "${MANIFEST_FILES[@]}"; do
     MANIFEST_TAGS+=("$manifest:$manifest_tags")
 done
 
-SUBMODULE_SHA=$(git ls-tree HEAD "$SUBMODULE_PATH" | awk '{print $3}')
-[[ -n "$SUBMODULE_SHA" ]] || fail "$SUBMODULE_PATH is not tracked as a submodule"
-
 BRANCH_TIP=$(git ls-remote "$PARSER_REPO_URL" refs/heads/main | awk '{print $1}')
 [[ -n "$BRANCH_TIP" ]] || fail "could not resolve AccessibilitySnapshotBH main branch"
 
@@ -81,13 +77,8 @@ FAILED=0
 if [[ -z "$TAG_SHA" ]]; then
     echo "::error::Tracked Package.swift files reference AccessibilitySnapshotBH tag $PACKAGE_TAG, but that tag does not exist."
     FAILED=1
-elif [[ "$TAG_SHA" != "$SUBMODULE_SHA" ]]; then
-    echo "::error::AccessibilitySnapshotBH tag $PACKAGE_TAG ($TAG_SHA) does not match submodule ($SUBMODULE_SHA). Run: ./scripts/bump-parser.sh"
-    FAILED=1
-fi
-
-if [[ "$SUBMODULE_SHA" != "$BRANCH_TIP" ]]; then
-    echo "::error::Submodule ($SUBMODULE_SHA) is behind AccessibilitySnapshotBH main ($BRANCH_TIP). Run: git submodule update --remote submodules/AccessibilitySnapshotBH && ./scripts/bump-parser.sh"
+elif [[ "$TAG_SHA" != "$BRANCH_TIP" ]]; then
+    echo "::error::AccessibilitySnapshotBH tag $PACKAGE_TAG ($TAG_SHA) is behind main ($BRANCH_TIP). Run: ./scripts/bump-parser.sh"
     FAILED=1
 fi
 

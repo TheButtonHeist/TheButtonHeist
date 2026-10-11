@@ -464,7 +464,6 @@ buttonheist get_interface
 ### Build locally
 
 ```bash
-git submodule update --init --recursive
 ./scripts/generate-project.sh
 open ButtonHeist.xcworkspace
 ```
@@ -487,7 +486,6 @@ ButtonHeist/
 +-- ButtonHeistCLI/               # CLI tool
 +-- ButtonHeistMCP/               # MCP server
 +-- TestApp/                      # SwiftUI + UIKit test apps
-+-- submodules/AccessibilitySnapshotBH/
 +-- docs/                         # Architecture, contracts, API, connectivity
 +-- examples/                     # Canonical semantic examples
 ```

@@ -40,7 +40,6 @@ PACKAGE_CONTRACT_PATHS = {
 }
 PACKAGE_CONTRACT_PREFIXES = (
     "ButtonHeist/Sources/",
-    "submodules/AccessibilitySnapshotBH/",
     "tests/fixtures/buttonheist-external-import-contract/",
     "tests/fixtures/buttonheist-ios-public-products-import-contract/",
     "tests/fixtures/buttonheist-public-products-import-contract/",
@@ -50,12 +49,11 @@ PACKAGE_CONTRACT_PREFIXES = (
 CLI_TOOL_PREFIXES = (
     "ButtonHeistCLI/",
     "ButtonHeistMCP/",
-    "HeistPlanTests/",
     "examples/",
 )
 CLI_TOOL_PATHS = {
     "scripts/swift-test-gate.sh",
-    "scripts/test-heist-plan-compile.sh",
+    "scripts/test-plan-compile.sh",
 }
 
 # These paths are covered by the always-on lint/framework/iOS lanes. They do not

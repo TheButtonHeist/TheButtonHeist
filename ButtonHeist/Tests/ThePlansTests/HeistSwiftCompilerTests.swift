@@ -590,7 +590,7 @@ struct HeistSwiftCompilerTests {
 
 #if os(macOS) || os(Linux)
     @Test
-    func `explicit package root ignores sibling and nested checkouts`() throws {
+    func `explicit package root ignores sibling and nested checkouts`() async throws {
         let temp = try CompilerTemporaryDirectory()
         let admittedRoot = try temp.makeButtonHeistPackage(named: "admitted")
         let admittedBuild = try temp.writeThePlansArtifacts(in: admittedRoot.appendingPathComponent(".build/debug"))
@@ -599,7 +599,7 @@ struct HeistSwiftCompilerTests {
         let nestedRoot = try temp.makeButtonHeistPackage(named: "admitted/ButtonHeist")
         _ = try temp.writeThePlansArtifacts(in: nestedRoot.appendingPathComponent(".build/debug"))
 
-        let arguments = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
+        let arguments = try await HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
             explicitPackageRoot: admittedRoot,
             environment: [:],
             executableURL: nil,
@@ -610,14 +610,14 @@ struct HeistSwiftCompilerTests {
     }
 
     @Test
-    func `explicit package root wins over installed artifacts`() throws {
+    func `explicit package root wins over installed artifacts`() async throws {
         let temp = try CompilerTemporaryDirectory()
         let localRoot = try temp.makeButtonHeistPackage(named: "local")
         let localBuild = try temp.writeThePlansArtifacts(in: localRoot.appendingPathComponent(".build/debug"))
-        let installedExecutable = temp.url.appendingPathComponent("installed/bin/heist-plan")
+        let installedExecutable = temp.url.appendingPathComponent("installed/bin/buttonheist")
         let installedBuild = try temp.writeInstalledThePlansArtifacts(for: installedExecutable)
 
-        let arguments = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
+        let arguments = try await HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
             explicitPackageRoot: localRoot,
             environment: [:],
             executableURL: installedExecutable,
@@ -629,14 +629,14 @@ struct HeistSwiftCompilerTests {
     }
 
     @Test
-    func `explicit package root never selects artifacts outside that root`() throws {
+    func `explicit package root never selects artifacts outside that root`() async throws {
         let temp = try CompilerTemporaryDirectory()
         let admittedRoot = try temp.makeButtonHeistPackage(named: "admitted")
         let outsideRoot = try temp.makeButtonHeistPackage(named: "neighbor")
         let outsideBuild = try temp.writeThePlansArtifacts(in: outsideRoot.appendingPathComponent(".build/debug"))
 
         do {
-            _ = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
+            _ = try await HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
                 explicitPackageRoot: admittedRoot,
                 environment: [:],
                 executableURL: nil,
@@ -653,9 +653,9 @@ struct HeistSwiftCompilerTests {
     }
 
     @Test
-    func `missing artifact context fails with typed diagnostic`() throws {
+    func `missing artifact context fails with typed diagnostic`() async throws {
         do {
-            _ = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
+            _ = try await HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
                 explicitPackageRoot: nil,
                 environment: [:],
                 executableURL: nil
@@ -667,12 +667,12 @@ struct HeistSwiftCompilerTests {
     }
 
     @Test
-    func `installed executable prefix resolves its deterministic release artifact`() throws {
+    func `installed executable prefix resolves its deterministic release artifact`() async throws {
         let temp = try CompilerTemporaryDirectory()
-        let executable = temp.url.appendingPathComponent("prefix/bin/heist-plan")
+        let executable = temp.url.appendingPathComponent("prefix/bin/buttonheist")
         let installedBuild = try temp.writeInstalledThePlansArtifacts(for: executable)
 
-        let arguments = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
+        let arguments = try await HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
             explicitPackageRoot: nil,
             environment: [:],
             executableURL: executable
@@ -682,15 +682,15 @@ struct HeistSwiftCompilerTests {
     }
 
     @Test
-    func `explicit environment artifact override has first precedence`() throws {
+    func `explicit environment artifact override has first precedence`() async throws {
         let temp = try CompilerTemporaryDirectory()
         let localRoot = try temp.makeButtonHeistPackage(named: "local")
         _ = try temp.writeThePlansArtifacts(in: localRoot.appendingPathComponent(".build/debug"))
         let overrideBuild = try temp.writeThePlansArtifacts(in: temp.url.appendingPathComponent("override"))
-        let executable = temp.url.appendingPathComponent("prefix/bin/heist-plan")
+        let executable = temp.url.appendingPathComponent("prefix/bin/buttonheist")
         _ = try temp.writeInstalledThePlansArtifacts(for: executable)
 
-        let arguments = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
+        let arguments = try await HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
             explicitPackageRoot: localRoot,
             environment: ["HEIST_THEPLANS_BUILD_DIR": overrideBuild.path],
             executableURL: executable
@@ -700,13 +700,16 @@ struct HeistSwiftCompilerTests {
     }
 
     @Test
-    func `relative environment artifact override is rejected`() throws {
-        #expect(throws: HeistPlanBuildError.self) {
-            _ = try HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
+    func `relative environment artifact override is rejected`() async throws {
+        do {
+            _ = try await HeistSwiftFileCompilation.resolveThePlansSwiftcArguments(
                 explicitPackageRoot: nil,
                 environment: ["HEIST_THEPLANS_BUILD_DIR": ".build/debug"],
                 executableURL: nil
             )
+            Issue.record("Expected relative override to fail")
+        } catch is HeistPlanBuildError {
+            // Expected typed boundary failure.
         }
     }
 

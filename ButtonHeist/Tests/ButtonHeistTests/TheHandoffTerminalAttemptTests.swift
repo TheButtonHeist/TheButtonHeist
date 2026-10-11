@@ -32,7 +32,7 @@ final class TheHandoffTerminalAttemptTests: XCTestCase {
 
         mock.onEvent?(.message(
             .error(ServerError(kind: .general, message: "request failed")),
-            requestId: "request-1"
+            requestId: .fixture("request-1")
         ))
 
         XCTAssertNil(receivedMessage)
@@ -68,7 +68,7 @@ final class TheHandoffTerminalAttemptTests: XCTestCase {
         )
         mock.onEvent?(.message(
             .interface(interface),
-            requestId: "interface-1"
+            requestId: .fixture("interface-1")
         ))
 
         let screen = ScreenPayload(
@@ -80,7 +80,7 @@ final class TheHandoffTerminalAttemptTests: XCTestCase {
         )
         mock.onEvent?(.message(
             .screen(screen),
-            requestId: "screen-1"
+            requestId: .fixture("screen-1")
         ))
 
         XCTAssertTrue(receivedMessages.isEmpty)
@@ -105,7 +105,7 @@ final class TheHandoffTerminalAttemptTests: XCTestCase {
 
         mock.onEvent?(.message(
             .info(TheFenceFixtures.testServerInfo),
-            requestId: "request-1"
+            requestId: .fixture("request-1")
         ))
 
         XCTAssertNil(handoff.connectionLifecycle.serverInfo)
@@ -150,7 +150,7 @@ final class TheHandoffTerminalAttemptTests: XCTestCase {
         handoff.connect(to: device)
         handoff.disconnect()
 
-        let outcome = handoff.send(.ping, requestId: "late")
+        let outcome = handoff.send(.ping, requestId: .fixture("late"))
 
         guard case .failed(.notConnected) = outcome else {
             return XCTFail("Expected notConnected send failure, got \(outcome)")

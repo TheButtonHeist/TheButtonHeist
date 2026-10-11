@@ -64,29 +64,6 @@ private final class FingerprintOverlayModel: ObservableObject {
     }
 }
 
-@MainActor
-protocol FingerprintScheduling {
-    var now: CFTimeInterval { get }
-
-    func schedule(
-        after delay: TimeInterval,
-        action: @escaping @MainActor @Sendable () -> Void
-    )
-}
-
-private struct MainQueueFingerprintScheduler: FingerprintScheduling {
-    var now: CFTimeInterval { CACurrentMediaTime() }
-
-    func schedule(
-        after delay: TimeInterval,
-        action: @escaping @MainActor @Sendable () -> Void
-    ) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            action()
-        }
-    }
-}
-
 private struct FingerprintOverlayView: View {
     @ObservedObject var model: FingerprintOverlayModel
 
@@ -197,7 +174,8 @@ final class TheFingerprints {
     private var nextRetirementID = 0
 
     private let isEnabled: Bool
-    private let scheduler: any FingerprintScheduling
+    private let now: () -> CFTimeInterval
+    private let schedule: (TimeInterval, @escaping @MainActor @Sendable () -> Void) -> Void
     var fingerprintWindow: FingerprintWindow? { currentContext?.window }
 
     var activeFingerprintCenters: [CGPoint] {
@@ -221,12 +199,22 @@ final class TheFingerprints {
 
     init(isEnabled: Bool) {
         self.isEnabled = isEnabled
-        scheduler = MainQueueFingerprintScheduler()
+        now = { CACurrentMediaTime() }
+        schedule = { delay, action in
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                action()
+            }
+        }
     }
 
-    init(isEnabled: Bool, scheduler: any FingerprintScheduling) {
+    init(
+        isEnabled: Bool,
+        now: @escaping () -> CFTimeInterval,
+        schedule: @escaping (TimeInterval, @escaping @MainActor @Sendable () -> Void) -> Void
+    ) {
         self.isEnabled = isEnabled
-        self.scheduler = scheduler
+        self.now = now
+        self.schedule = schedule
     }
 
     func beginTracking(at points: [CGPoint]) {
@@ -240,7 +228,7 @@ final class TheFingerprints {
         lifecycle = .tracking(TrackingSession(
             context: context,
             fingerprintIDs: fingerprintIDs,
-            startedAt: scheduler.now
+            startedAt: now()
         ))
 
         overlayModel.append(fingerprints)
@@ -291,7 +279,7 @@ final class TheFingerprints {
     func endTracking() {
         guard case let .tracking(session) = lifecycle else { return }
         let ids = session.fingerprintIDs
-        let elapsed = scheduler.now - session.startedAt
+        let elapsed = now() - session.startedAt
         let remainingHold = max(Self.minimumDisplayDuration - elapsed, 0)
 
         nextRetirementID += 1
@@ -299,7 +287,7 @@ final class TheFingerprints {
         session.context.retirements[retirementID] = ids
         lifecycle = .idle(session.context)
 
-        scheduler.schedule(after: remainingHold) { [weak self] in
+        schedule(remainingHold) { [weak self] in
             self?.beginFadeOut(retirementID: retirementID)
         }
     }
@@ -317,7 +305,7 @@ final class TheFingerprints {
     }
 
     private func fadeInFingerprints(ids: [Int]) {
-        scheduler.schedule(after: 0) { [overlayModel] in
+        schedule(0) { [overlayModel] in
             withAnimation(.easeOut(duration: Self.appearDuration)) {
                 overlayModel.setVisibility(for: ids, isVisible: true)
             }
@@ -337,7 +325,7 @@ final class TheFingerprints {
             overlayModel.setVisibility(for: ids, isVisible: false)
         }
 
-        scheduler.schedule(after: Self.fadeOutDuration) { [weak self] in
+        schedule(Self.fadeOutDuration) { [weak self] in
             self?.completeRetirement(id: retirementID)
         }
     }

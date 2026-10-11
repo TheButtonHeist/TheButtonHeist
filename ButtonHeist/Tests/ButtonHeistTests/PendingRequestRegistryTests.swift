@@ -9,11 +9,12 @@ final class PendingRequestRegistryTests: XCTestCase {
     func testWrongResponseTypeFailsRegisteredExpectation() async throws {
         let registry = TheFence.PendingRequestRegistry()
         let registered = expectation(description: "request registered")
+        let requestId = RequestID.fixture("req-mismatch")
 
         let task = Task { @ButtonHeistActor in
             try await registry.waitForResponse(
                 .pong,
-                requestId: "req-mismatch",
+                requestId: requestId,
                 timeout: 5,
                 afterRegister: { registered.fulfill() }
             )
@@ -24,7 +25,7 @@ final class PendingRequestRegistryTests: XCTestCase {
 
         XCTAssertTrue(registry.resolveTransientResponse(
             .interface(makeTestInterface(elements: [], timestamp: Date())),
-            requestId: "req-mismatch"
+            requestId: requestId
         ))
 
         do {
@@ -34,20 +35,20 @@ final class PendingRequestRegistryTests: XCTestCase {
             assertProtocolMismatch(
                 error,
                 contains: [
-                    "req-mismatch",
+                    requestId.description,
                     "expected pong response",
                     "received interface response",
                 ]
             )
         }
 
-        XCTAssertTrue(registry.resolveTransientResponse(.pong(makePong()), requestId: "req-mismatch"))
+        XCTAssertTrue(registry.resolveTransientResponse(.pong(makePong()), requestId: requestId))
     }
 
     @ButtonHeistActor
     func testRequestIdCannotRegisterDifferentResponseShapes() async throws {
         let registry = TheFence.PendingRequestRegistry()
-        let requestId: RequestID = "shared-request-id"
+        let requestId: RequestID = .fixture("shared-request-id")
         let registered = expectation(description: "original request registered")
 
         let actionTask = Task { @ButtonHeistActor in
@@ -92,7 +93,7 @@ final class PendingRequestRegistryTests: XCTestCase {
         let failedTask = Task { @ButtonHeistActor in
             try await registry.waitForResponse(
                 .pong,
-                requestId: "req-failure",
+                requestId: .fixture("req-failure"),
                 timeout: 5,
                 afterRegister: { failedRegistered.fulfill() }
             )
@@ -100,7 +101,7 @@ final class PendingRequestRegistryTests: XCTestCase {
         let survivingTask = Task { @ButtonHeistActor in
             try await registry.waitForResponse(
                 .interface,
-                requestId: "req-survives",
+                requestId: .fixture("req-survives"),
                 timeout: 5,
                 afterRegister: { survivingRegistered.fulfill() }
             )
@@ -114,12 +115,12 @@ final class PendingRequestRegistryTests: XCTestCase {
 
         registry.resolveTransientFailure(
             FenceError(DeviceSendFailure.notConnected),
-            requestId: "req-failure"
+            requestId: .fixture("req-failure")
         )
-        registry.resolveTransientFailure(FenceError.actionTimeout, requestId: "req-failure")
+        registry.resolveTransientFailure(FenceError.actionTimeout, requestId: .fixture("req-failure"))
         XCTAssertTrue(registry.resolveTransientResponse(
             .interface(makeTestInterface(elements: [], timestamp: Date())),
-            requestId: "req-survives"
+            requestId: .fixture("req-survives")
         ))
 
         do {
@@ -138,7 +139,7 @@ final class PendingRequestRegistryTests: XCTestCase {
     @ButtonHeistActor
     func testServerErrorPreservesCanonicalPayload() async throws {
         let registry = TheFence.PendingRequestRegistry()
-        let requestId: RequestID = "req-server-error"
+        let requestId: RequestID = .fixture("req-server-error")
         let registered = expectation(description: "request registered")
         let serverError = ServerError(
             kind: .general,
@@ -172,7 +173,7 @@ final class PendingRequestRegistryTests: XCTestCase {
     @ButtonHeistActor
     func testProtocolTrafficDoesNotConsumePendingResponse() async throws {
         let registry = TheFence.PendingRequestRegistry()
-        let requestId: RequestID = "req-protocol-traffic"
+        let requestId: RequestID = .fixture("req-protocol-traffic")
         let registered = expectation(description: "request registered")
 
         let task = Task { @ButtonHeistActor in
@@ -200,7 +201,7 @@ final class PendingRequestRegistryTests: XCTestCase {
         let pongTask = Task { @ButtonHeistActor in
             try await registry.waitForResponse(
                 .pong,
-                requestId: "req-pong",
+                requestId: .fixture("req-pong"),
                 timeout: 5,
                 afterRegister: { pongRegistered.fulfill() }
             )
@@ -208,7 +209,7 @@ final class PendingRequestRegistryTests: XCTestCase {
         let interfaceTask = Task { @ButtonHeistActor in
             try await registry.waitForResponse(
                 .interface,
-                requestId: "req-interface",
+                requestId: .fixture("req-interface"),
                 timeout: 5,
                 afterRegister: { interfaceRegistered.fulfill() }
             )
@@ -244,7 +245,7 @@ final class PendingRequestRegistryTests: XCTestCase {
     @ButtonHeistActor
     func testTimeoutReleasesRequestIdForAReplacementOwner() async throws {
         let registry = TheFence.PendingRequestRegistry()
-        let requestId: RequestID = "req-timeout"
+        let requestId: RequestID = .fixture("req-timeout")
 
         do {
             _ = try await registry.waitForResponse(
@@ -280,7 +281,7 @@ final class PendingRequestRegistryTests: XCTestCase {
     @ButtonHeistActor
     func testCancellationReleasesOnlyTheCancelledRequestOwner() async throws {
         let registry = TheFence.PendingRequestRegistry()
-        let requestId: RequestID = "req-cancelled"
+        let requestId: RequestID = .fixture("req-cancelled")
         let registered = expectation(description: "cancelled request registered")
 
         let cancelledTask = Task { @ButtonHeistActor in

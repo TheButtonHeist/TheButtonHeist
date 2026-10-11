@@ -10,7 +10,6 @@ let package = Package(
     products: [
         .library(name: "ThePlans", targets: ["ThePlans"]),
         .library(name: "TheScore", targets: ["TheScore"]),
-        .executable(name: "heist-plan", targets: ["HeistPlanTool"]),
         // TheInsideJob with auto-start: includes both Swift implementation and ObjC loader
         .library(name: "TheInsideJob", targets: ["TheInsideJob", "ThePlant"]),
         .library(name: "ButtonHeistTesting", targets: ["ButtonHeistTesting"]),
@@ -18,10 +17,9 @@ let package = Package(
     ],
     dependencies: [
         // Parser semantics are part of Button Heist's release contract.
-        // Keep this exact tag aligned with submodules/AccessibilitySnapshotBH
-        // via scripts/check-parser-contract.sh and scripts/bump-parser.sh.
+        // Keep this exact tag aligned across manifests and lockfiles via
+        // scripts/check-parser-contract.sh and scripts/bump-parser.sh.
         .package(url: "https://github.com/TheButtonHeist/AccessibilitySnapshotBH", exact: "0.25.1"),
-        .package(url: "https://github.com/apple/swift-argument-parser", .upToNextMinor(from: "1.7.0")),
         // Source-shape validation runs the dependency's executable product
         // directly through SwiftPM; it is not linked into a Button Heist target.
         .package(url: "https://github.com/TheButtonHeist/BumperBowling.git", exact: "0.6.0"),
@@ -44,14 +42,6 @@ let package = Package(
                 .product(name: "AccessibilitySnapshotModel", package: "AccessibilitySnapshotBH"),
             ],
             path: "ButtonHeist/Sources/TheScore"
-        ),
-        .executableTarget(
-            name: "HeistPlanTool",
-            dependencies: [
-                "ThePlans",
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            ],
-            path: "ButtonHeist/Sources/HeistPlanTool"
         ),
         // Swift implementation of TheInsideJob
         .target(

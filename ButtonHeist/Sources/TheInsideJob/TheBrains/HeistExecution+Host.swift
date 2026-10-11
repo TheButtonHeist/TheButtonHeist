@@ -40,7 +40,7 @@ extension HeistExecution {
         }
 
         private struct ObservationResource {
-            let id: RequestID
+            let id: EffectID
             let boundary: TheVault.State.HistoryBoundary
             let subscription: SemanticObservationLease<UInt64>
             let notifications: AccessibilityNotificationScopeLease
@@ -181,9 +181,9 @@ extension HeistExecution {
                 let outcome = await runtimeBoundary.explore(predicate.resolved.watchTarget, deadline)
                 return .viewportExited(id, outcome, at: runtimeBoundary.now())
 
-            case .sampleObservationClose(let requestID, let observationID, let exitPosition, let capture, let source):
+            case .sampleObservationClose(let effectID, let observationID, let exitPosition, let capture, let source):
                 return await sampleObservationClose(
-                    requestID: requestID,
+                    effectID: effectID,
                     observationID: observationID,
                     exitPosition: exitPosition,
                     capture: capture,
@@ -208,7 +208,7 @@ extension HeistExecution {
         }
 
         private func captureFailure(
-            id: RequestID,
+            id: EffectID,
             path: HeistExecutionPath,
             mode: ScreenCaptureMode
         ) async -> Event {
@@ -236,7 +236,7 @@ extension HeistExecution {
         }
 
         private func beginObservation(
-            id: RequestID,
+            id: EffectID,
             scope: SemanticObservationScope,
             deadline: SemanticObservationDeadline,
             runtime: inout Runtime,
@@ -282,8 +282,8 @@ extension HeistExecution {
         }
 
         private func sampleObservationClose(
-            requestID: RequestID,
-            observationID: RequestID,
+            effectID: EffectID,
+            observationID: EffectID,
             exitPosition: Navigation.ViewportExitPosition,
             capture: ObservationCloseCapture,
             source: ObservationCloseSource,
@@ -321,7 +321,7 @@ extension HeistExecution {
             let evidence = evidence(after: resource.boundary, captureAvailable: captureAvailable)
             let endedAt = runtimeBoundary.now()
             return .observationCloseSampled(
-                requestID, source: source, observationID: observationID, evidence: evidence,
+                effectID, source: source, observationID: observationID, evidence: evidence,
                 close: .init(
                     captureAvailable: captureAvailable,
                     viewportExit: viewportExit,
@@ -337,8 +337,8 @@ extension HeistExecution {
         }
 
         private func commitObservation(
-            id: RequestID,
-            observationID: RequestID,
+            id: EffectID,
+            observationID: EffectID,
             runtime: inout Runtime
         ) async -> Event {
             guard let resource = runtime.observation else {

@@ -12,7 +12,6 @@ let bumper = BumperProject {
         ".build"
         "Derived"
         "DerivedData"
-        "submodules"
         "tests/fixtures"
     }
 
@@ -76,18 +75,6 @@ let bumper = BumperProject {
             Owns("ButtonHeist/Sources/ButtonHeistTesting")
             Modules("ButtonHeistTesting")
             MayDependOn(.embeddedRuntime, .plans)
-            Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoNetworkAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
-        }
-
-        Component(.planTool) {
-            Owns("ButtonHeist/Sources/HeistPlanTool")
-            Modules("HeistPlanTool")
-            MayDependOn(.plans)
             Applies(.buttonHeistCheckedConcurrency)
             Applies(.buttonHeistNoUIAuthority)
             Applies(.buttonHeistNoNetworkAuthority)

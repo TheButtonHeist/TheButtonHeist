@@ -3,6 +3,7 @@ import Foundation
 import Network
 import os
 
+import ButtonHeistTestSupport
 import TheScore
 @testable import TheInsideJob
 
@@ -203,7 +204,7 @@ final class ButtonHeistWireTestClient: @unchecked Sendable {
         return info
     }
 
-    func requestInterface(requestId: RequestID = "interface") async throws -> Interface {
+    func requestInterface(requestId: RequestID = .fixture("interface")) async throws -> Interface {
         try await send(.requestInterface(InterfaceQuery()), requestId: requestId)
         let envelope = try await receiveEnvelope(requestId: requestId)
         guard case .interface(let interface) = envelope.message else {
@@ -226,7 +227,9 @@ final class ButtonHeistWireTestClient: @unchecked Sendable {
                 return envelope
             }
         }
-        throw ButtonHeistNetworkTestFailure("Timed out waiting for response \(requestId ?? "<none>")")
+        throw ButtonHeistNetworkTestFailure(
+            "Timed out waiting for response \(requestId?.description ?? "<none>")"
+        )
     }
 }
 

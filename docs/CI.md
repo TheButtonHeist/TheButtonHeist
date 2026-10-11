@@ -253,9 +253,10 @@ To validate authored Swift heists without running them, compile in a build
 step:
 
 ```bash
-swift build --product heist-plan
+swift build --target ThePlans
+swift build --package-path ButtonHeistCLI
 HEIST_THEPLANS_BUILD_DIR="$PWD/.build/debug" \
-  heist-plan compile Heists/Checkout.swift --entry makeCheckoutHeist --output Checkout.heist
+  ButtonHeistCLI/.build/debug/buttonheist plan compile Heists/Checkout.swift --entry makeCheckoutHeist --output Checkout.heist
 ```
 
 Artifact resolution options and diagnostics are covered in
