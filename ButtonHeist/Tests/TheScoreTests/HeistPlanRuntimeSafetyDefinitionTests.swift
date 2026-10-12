@@ -16,7 +16,7 @@ func runtimeSafetyRejectsInvalidHeistDefinitionsAndInvocations() throws {
     let cases: [(() throws -> HeistPlan, String)] = [
         (
             {
-                try HeistSourceCompilation.compile("""
+                try HeistSourceParser.parse("""
                 HeistPlan {
                     HeistDef<Void>("duplicate") { Warn("a") }
                     HeistDef<Void>("duplicate") { Warn("b") }

@@ -2,7 +2,7 @@ import Testing
 @testable import ThePlans
 
 @Test func `inline plan source accepts controlled predicate and loop sugar`() throws {
-    let plan = try HeistSourceCompilation.compile(root(#"""
+    let plan = try HeistSourceParser.parse(root(#"""
     Activate(.label("Search"))
         .expect(.exists(.label("Results")))
     Activate(.label("Open Details"))
@@ -67,7 +67,7 @@ import Testing
 }
 
 @Test func `inline plan source unicode string escapes preserve following characters`() throws {
-    let plan = try HeistSourceCompilation.compile(root(#"""
+    let plan = try HeistSourceParser.parse(root(#"""
     Warn("A\u0062C")
     """#))
     let expected = try HeistPlan(body: [
@@ -77,7 +77,7 @@ import Testing
     #expect(plan == expected)
 }
 
-@Test func `runtime authored product DSL compiles through canonical parser`() throws {
+@Test func `runtime authored product DSL parses through canonical parser`() throws {
     let source = """
     HeistPlan("checkout") {
         HeistDef<String>("Cart.addItem", parameter: "item") { item in
@@ -98,7 +98,7 @@ import Testing
     }
     """
 
-    let plan = try HeistSourceCompilation.compile(source)
+    let plan = try HeistSourceParser.parse(source)
 
     #expect(plan.name == "checkout")
     #expect(plan.definitions.first?.name == "Cart")
@@ -177,7 +177,7 @@ import Testing
     }
     """
 
-    let plan = try HeistSourceCompilation.compile(source)
+    let plan = try HeistSourceParser.parse(source)
 
     #expect(plan.name == "RuntimeSurface")
     #expect(plan.parameter == .accessibilityTarget(name: "rootTarget"))
@@ -205,8 +205,8 @@ import Testing
     try assertCanonicalRoundTrip(plan)
 }
 
-@Test func `inline plan source ForEach string compiles`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `inline plan source ForEach string parses`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     ForEach("a", "b") { item in
         Activate(.label(item)).expect(.exists(.label(item)))
     }
@@ -231,8 +231,8 @@ import Testing
     #expect(plan == expected)
 }
 
-@Test func `inline plan source RepeatUntil compiles`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `inline plan source RepeatUntil parses`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     RepeatUntil(.exists(.value("3")), timeout: 2) {
         Increment(.identifier("Quantity"))
     }
@@ -253,7 +253,7 @@ import Testing
 
 @Test func `inline plan source RepeatUntil else is rejected`() throws {
     #expect(throws: HeistPlanBuildError.self) {
-        _ = try HeistSourceCompilation.compile(root("""
+        _ = try HeistSourceParser.parse(root("""
         RepeatUntil(.exists(.value("3")), timeout: 2) {
             Increment(.identifier("Quantity"))
         }.else {
@@ -263,8 +263,8 @@ import Testing
     }
 }
 
-@Test func `inline plan source action until compiles to repeat until`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `inline plan source action until parses to repeat until`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     Increment(.label("Volume")).until(.exists(.element(.label("Volume"), .value("100"))))
     """))
     let expected = try HeistPlan(body: [
@@ -281,8 +281,8 @@ import Testing
     try assertCanonicalRoundTrip(plan)
 }
 
-@Test func `inline plan source WaitFor and If compile`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `inline plan source WaitFor and If parse`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     WaitFor(.exists(.label("Home")), timeout: 1)
     If {
         Case(.exists(.label("Pay"))) {
@@ -300,8 +300,8 @@ import Testing
     #expect(plan == expected)
 }
 
-@Test func `inline plan source ForEach element predicate compiles`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `inline plan source ForEach element predicate parses`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     ForEach(.label("Row"), limit: 2) { target in
         Activate(target).expect(.missing(target))
     }
@@ -326,14 +326,14 @@ import Testing
 }
 
 @Test func `inline plan source rejects old ForEach compatibility spellings`() {
-    let arrayDiagnostic = compileError(root("""
+    let arrayDiagnostic = parseError(root("""
     ForEach(["a"]) { item in
         TypeText(item)
     }
     """))
     expect(arrayDiagnostic, contains: #"ForEach string loops use `ForEach("a", "b")`, not array literals"#)
 
-    let matchingDiagnostic = compileError(root("""
+    let matchingDiagnostic = parseError(root("""
     ForEach(.matching(.label("Row")), limit: 2) { target in
         Activate(target)
     }

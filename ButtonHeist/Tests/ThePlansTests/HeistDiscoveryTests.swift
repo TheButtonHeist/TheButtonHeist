@@ -200,7 +200,7 @@ private let screenChangePredicate = AccessibilityPredicate.screenChanged
 
 @Test func `list heists cannot be reached for invalid raw plan`() throws {
     #expect(throws: HeistPlanBuildError.self) {
-        _ = try HeistSourceCompilation.compile("""
+        _ = try HeistSourceParser.parse("""
         HeistPlan("root") {
             HeistDef<Void>("duplicate") { Warn("one") }
             HeistDef<Void>("duplicate") { Warn("two") }

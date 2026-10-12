@@ -1,8 +1,8 @@
 import Testing
 @testable import ThePlans
 
-@Test func `inline plan source simple Activate compiles to HeistPlan`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `inline plan source simple Activate parses to HeistPlan`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     Activate(.label("Pay"))
     """))
     let expected = try HeistPlan(body: [
@@ -14,7 +14,7 @@ import Testing
 }
 
 @Test func `runtime parser accepts explicit StringMatch enum cases for all string predicate fields`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+    let plan = try HeistSourceParser.parse(root("""
     Activate(.identifier(.suffix("field")))
     WaitFor(
         .exists(.element(
@@ -45,7 +45,7 @@ import Testing
 }
 
 @Test func `runtime parser accepts notification predicates`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+    let plan = try HeistSourceParser.parse(root("""
     Activate(.label("Delete")).expect(.notification("Item deleted"))
     WaitFor(.notification(.contains("processed")), timeout: 5)
     WaitFor(.notification)
@@ -74,7 +74,7 @@ import Testing
 }
 
 @Test func `checked in predicate guidance uses canonical source spellings`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+    let plan = try HeistSourceParser.parse(root("""
     Activate(.label("Pay")).expect(.screenChanged)
     WaitFor(.screenChanged("Receipt"), timeout: 10)
     WaitFor(.screenChanged(.contains("Receipt")))
@@ -93,7 +93,7 @@ import Testing
 }
 
 @Test func `runtime parser accepts container predicates and scoped targets`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+    let plan = try HeistSourceParser.parse(root("""
     WaitFor(.exists(.container(.label("Checkout"))), timeout: 2)
     WaitFor(.exists(.container(.actions(.init(.custom("Archive"))))), timeout: 1)
     WaitFor(.exists(.container(.dataTable(rowCount: .init(3), columnCount: .init(2)))))
@@ -138,7 +138,7 @@ import Testing
     ]
 
     for (source, expected) in cases {
-        expect(compileError(root(source)), contains: expected)
+        expect(parseError(root(source)), contains: expected)
     }
 }
 
@@ -157,7 +157,7 @@ import Testing
     ]
 
     for (source, expected) in cases {
-        expect(compileError(root(source)), contains: expected)
+        expect(parseError(root(source)), contains: expected)
     }
 }
 
@@ -211,12 +211,12 @@ import Testing
     ]
 
     for (source, expected) in cases {
-        expect(compileError(root(source)), contains: expected)
+        expect(parseError(root(source)), contains: expected)
     }
 }
 
 @Test func `runtime parser requires canonical dotted enum cases`() throws {
-    _ = try HeistSourceCompilation.compile(root("""
+    _ = try HeistSourceParser.parse(root("""
     Activate(.traits([.button]))
     Edit(.paste)
     Rotor("Headings", on: .label("Article"), direction: .previous)
@@ -234,6 +234,6 @@ import Testing
     ]
 
     for (source, expected) in cases {
-        expect(compileError(root(source)), contains: expected)
+        expect(parseError(root(source)), contains: expected)
     }
 }

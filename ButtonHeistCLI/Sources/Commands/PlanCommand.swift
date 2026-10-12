@@ -32,8 +32,8 @@ struct PlanCommand: AsyncParsableCommand {
                 throw ValidationError(String(describing: error))
             }
             do {
-                let plan = try await HeistSwiftCompiler().compileFile(
-                    URL(fileURLWithPath: source),
+                let plan = try await HeistPlanCompiler.compile(
+                    file: URL(fileURLWithPath: source),
                     entry: entrySymbol
                 )
                 try PlanIO.write(plan, to: output)

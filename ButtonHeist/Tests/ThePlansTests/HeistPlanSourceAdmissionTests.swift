@@ -20,7 +20,7 @@ func `plan loading loads generated heist artifact source`() throws {
 }
 
 @Test
-func `plan loading compiles inline ButtonHeist DSL source`() throws {
+func `plan loading parses inline ButtonHeist DSL source`() throws {
     let request = try HeistPlanSourceAdmission.admit(
         commandName: "run_heist",
         path: nil,

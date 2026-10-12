@@ -33,16 +33,16 @@ import Testing
             }
         },
         PublicBoundaryAdmissionCase(
-            boundary: "source compilation",
+            boundary: "source parsing",
             expectedContract: "max nested step depth"
         ) {
-            try HeistSourceCompilation.compile(deeplyNestedSource)
+            try HeistSourceParser.parse(deeplyNestedSource)
         },
         PublicBoundaryAdmissionCase(
-            boundary: "source compilation cycle",
+            boundary: "source parsing cycle",
             expectedContract: "heist runs must not be recursive"
         ) {
-            try HeistSourceCompilation.compile(recursiveSource)
+            try HeistSourceParser.parse(recursiveSource)
         },
         PublicBoundaryAdmissionCase(
             boundary: "live composition",
@@ -157,7 +157,7 @@ HeistPlan {
 @Test func `semantic validation rejects duplicate unresolved and recursive plans`() throws {
     try expectSemanticDiagnostic(
         {
-            try HeistSourceCompilation.compile("""
+            try HeistSourceParser.parse("""
             HeistPlan {
                 HeistDef<Void>("checkout") { Warn("one") }
                 HeistDef<Void>("checkout") { Warn("two") }
@@ -176,7 +176,7 @@ HeistPlan {
     )
 
     try expectSemanticDiagnostic(
-        { try HeistSourceCompilation.compile(recursiveSource) },
+        { try HeistSourceParser.parse(recursiveSource) },
         path: "$.definitions[0].definitions[0].body[0].invoke.body[0].invoke.path",
         message: "heist runs must not be recursive"
     )
@@ -210,7 +210,7 @@ HeistPlan {
 
     for testCase in cases {
         let diagnostic = try semanticDiagnostic {
-            try HeistSourceCompilation.compile(testCase.0)
+            try HeistSourceParser.parse(testCase.0)
         }
         #expect(diagnostic.code == .planRuntimeSafety)
         #expect(diagnostic.title == "Plan semantic validation failed")
@@ -224,7 +224,7 @@ HeistPlan {
 @Test func `source and JSON admit nested plans once at the root diagnostic path`() throws {
     let expectedPath = "$.body[0].conditional.cases[0].body[0].heist.body[0].invoke.path"
     let sourceDiagnostic = try semanticDiagnostic {
-        try HeistSourceCompilation.compile("""
+        try HeistSourceParser.parse("""
         HeistPlan {
             If(.exists(.label("Home"))) {
                 HeistPlan { RunHeist("Missing") }

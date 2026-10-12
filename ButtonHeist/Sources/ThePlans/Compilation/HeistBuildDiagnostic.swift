@@ -56,15 +56,6 @@ public enum HeistKnownBuildDiagnosticCode: String, Sendable, Hashable, CaseItera
     case swiftCompilationCompilerTerminated = "heist.swift_compilation.compiler_terminated"
     case swiftCompilationExecutionTerminated = "heist.swift_compilation.execution_terminated"
     case swiftCompilationInvalidOutput = "heist.swift_compilation.invalid_output"
-
-    case directoryNoSources = "heist.directory.no_sources"
-    case directoryCancelled = "heist.directory.cancelled"
-    case directoryNotDirectory = "heist.directory.not_directory"
-    case directoryUnsupportedSourceFile = "heist.directory.unsupported_source_file"
-
-    case catalogAnonymousCapability = "heist.catalog.anonymous_capability"
-    case catalogDuplicateCapability = "heist.catalog.duplicate_capability"
-    case catalogInvalidEntry = "heist.catalog.invalid_entry"
 }
 
 public struct HeistBuildDiagnosticCode: Sendable, Hashable, CustomStringConvertible {
@@ -350,13 +341,6 @@ public extension HeistBuildDiagnosticCode {
              .swiftCompilationCompilerTerminated,
              .swiftCompilationExecutionTerminated,
              .swiftCompilationInvalidOutput,
-             .directoryNoSources,
-             .directoryCancelled,
-             .directoryNotDirectory,
-             .directoryUnsupportedSourceFile,
-             .catalogAnonymousCapability,
-             .catalogDuplicateCapability,
-             .catalogInvalidEntry,
              .none:
             break
         }

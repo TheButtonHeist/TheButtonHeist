@@ -142,7 +142,7 @@ import Testing
             let plan = try HeistPlan(body: [.action(ActionStep(command: testCase.command))])
             let expectedSource = canonicalPlanSource(canonicalLine)
             #expect(try plan.canonicalSwiftDSL() == expectedSource)
-            #expect(try HeistSourceCompilation.compile(expectedSource) == plan)
+            #expect(try HeistSourceParser.parse(expectedSource) == plan)
         } else {
             let expectedFailure = try #require(testCase.durabilityFailure)
             let diagnostics = runtimeSafetyDiagnostics {

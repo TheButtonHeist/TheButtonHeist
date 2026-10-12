@@ -261,8 +261,9 @@ including an explicit `{"type":"none"}` argument. It is false only when the
 field is absent and TheFence supplies the normal `.none` default.
 
 Canonical Button Heist source is untrusted declarative input. The MCP server
-MUST parse it with the restricted source compiler. It MUST NOT invoke `swiftc`,
-load a dynamic library, or evaluate arbitrary Swift.
+MUST parse it with `HeistSourceParser`. This boundary exists separately from
+`HeistPlanCompiler` because it MUST NOT invoke `swiftc`, load a dynamic
+library, or evaluate arbitrary Swift supplied by a remote client.
 
 ## Validation model
 
@@ -388,14 +389,10 @@ revalidate them.
 
 Trusted Swift compilation is not a `validate_heist` input and is never invoked
 by this command. Its lower-level contract still converges on the same admitted
-plan: `compileFile(_:)` returns `HeistPlan`, while failure throws
-`HeistPlanBuildError` with ordered diagnostics. `compileDirectory(_:)` returns
-`HeistCatalogCompilationResult`; its `catalog` is the successful value and its
-`diagnostics` retain ordered non-error diagnostics. A single anonymous
-capability succeeds with `catalogAnonymousCapability` as a warning. The same
-condition in a multi-source catalog is an error and throws
-`HeistPlanBuildError`. Compiler arguments flow directly from artifact
-resolution to execution without a second artifact or validation result shape.
+plan: `HeistPlanCompiler.compile(file:)` returns `HeistPlan`, while failure
+throws `HeistPlanBuildError` with ordered diagnostics. Compiler arguments flow
+directly from artifact resolution to execution without a second artifact or
+validation result shape.
 
 ### 4. Root invocation validation
 

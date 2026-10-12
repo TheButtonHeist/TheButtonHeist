@@ -75,7 +75,7 @@ name:
 | Type | Compiler-enforced entry point |
 | --- | --- |
 | `TheSafecracker.TouchEvent` | Its private initializer is used only by `dispatch(touches:)`. |
-| `HeistSwiftFileCompilation` | Its private initializer is used only by its static `compile` operation. |
+| `HeistSwiftCompilation` | Its private initializer is used only by its static `compile` operation. |
 | `TheFence.HeistExecutionBudget` | Its private initializer is used only by `project`. |
 | `HeistReport` | Its private initializer is used only by `project(result:)`. |
 

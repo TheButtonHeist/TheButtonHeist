@@ -423,8 +423,11 @@ private func compileCanonicalHeist(_ source: String) async throws -> HeistPlan {
     defer { try? FileManager.default.removeItem(at: tempDirectory) }
     let sourceURL = tempDirectory.appendingPathComponent("Canonical.swift")
     try source.write(to: sourceURL, atomically: true, encoding: .utf8)
-    return try await HeistSwiftCompiler(configuration: .init(packageRoot: buttonHeistPackageRoot()))
-        .compileFile(sourceURL, entry: "heist")
+    return try await HeistPlanCompiler.compile(
+        file: sourceURL,
+        entry: "heist",
+        configuration: .init(packageRoot: buttonHeistPackageRoot())
+    )
 }
 
 private func buttonHeistPackageRoot() -> URL {

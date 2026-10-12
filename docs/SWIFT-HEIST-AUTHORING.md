@@ -467,40 +467,26 @@ either compiles to an admissible `HeistPlan` ahead of time or the command fails.
 
 ### Compilation results and diagnostics
 
-`HeistSwiftCompiler` returns the compiled value on success and throws
-`HeistPlanBuildError` on failure. File compilation returns `HeistPlan`;
-directory compilation returns `HeistCatalogCompilationResult`, whose `catalog`
-is the compiled value and whose `diagnostics` retain non-error diagnostics from
-the successful compilation:
+`HeistPlanCompiler` compiles one trusted local Swift file into an admitted
+`HeistPlan`. It invokes the external Swift toolchain and executes a generated
+wrapper; it does not implement a Swift compiler. Failure throws
+`HeistPlanBuildError` with ordered diagnostics:
 
 ```swift
 import Foundation
 import ThePlans
 
-let compiler = HeistSwiftCompiler()
-
 do {
-    let plan = try await compiler.compileFile(
-        URL(fileURLWithPath: "Flow.swift"),
+    let plan = try await HeistPlanCompiler.compile(
+        file: URL(fileURLWithPath: "Flow.swift"),
         entry: "makeHeist"
-    )
-    let result = try await compiler.compileDirectory(
-        URL(fileURLWithPath: "Heists", isDirectory: true)
     )
 
     print(plan)
-    print(result.catalog)
-    result.diagnostics.forEach { print($0.renderedMessage) }
 } catch let error {
     error.diagnostics.forEach { print($0.renderedMessage) }
 }
 ```
-
-All failure diagnostics are carried by the thrown error. A directory containing
-one anonymous plan still compiles successfully and returns a
-`catalogAnonymousCapability` warning. In a catalog compiled from multiple
-plans, anonymity is ambiguous, so the same diagnostic is an error and
-`compileDirectory(_:)` throws.
 
 ### Resolving built ThePlans artifacts
 
@@ -521,7 +507,7 @@ module. The compiler accepts only these sources, in this order:
    ```
 
 2. **An explicit package root** —
-   `HeistSwiftCompiler.Configuration(packageRoot:)` admits one Button Heist
+   `HeistPlanCompiler.Configuration(packageRoot:)` admits one Button Heist
    package. The compiler asks SwiftPM for that package's one active binary
    directory with `swift build --show-bin-path`; it does not guess build
    layouts, inspect sibling checkouts, or fall back to another configuration.
@@ -549,7 +535,7 @@ that was checked and tells you to install The Button Heist with compiler
 artifacts, supply an explicit package root, or set an absolute
 `HEIST_THEPLANS_BUILD_DIR`. It never inspects the working directory, `PATH`,
 source-file location, sibling checkouts, Xcode environment variables, or test
-bundle ancestors. Set `HEIST_SOURCE_COMPILER_TRACE=1` to trace the selected
+bundle ancestors. Set `HEIST_SWIFT_COMPILATION_TRACE=1` to trace the selected
 source.
 
 ## Explicit non-goals

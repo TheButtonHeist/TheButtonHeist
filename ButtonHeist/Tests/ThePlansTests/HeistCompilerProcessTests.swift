@@ -285,14 +285,14 @@ struct HeistCompilerProcessTests {
             }
             """
         )
-        let configuration = HeistSwiftCompiler.Configuration(
+        let configuration = HeistPlanCompiler.Configuration(
             packageRoot: buttonHeistPackageRoot,
             processLimits: limits(compilationTimeout: .nanoseconds(1)),
             temporaryDirectory: temp.url
         )
 
         let diagnostic = try await compilerDiagnostic {
-            try await HeistSwiftCompiler(configuration: configuration).compileFile(source)
+            try await HeistPlanCompiler.compile(file: source, configuration: configuration)
         }
 
         #expect(diagnostic.code.knownCode == .swiftCompilationCompileTimedOut)
@@ -312,7 +312,7 @@ struct HeistCompilerProcessTests {
             }
             """
         )
-        let configuration = HeistSwiftCompiler.Configuration(
+        let configuration = HeistPlanCompiler.Configuration(
             packageRoot: buttonHeistPackageRoot,
             processLimits: limits(
                 compilationTimeout: .seconds(30),
@@ -322,7 +322,7 @@ struct HeistCompilerProcessTests {
         )
 
         let diagnostic = try await compilerDiagnostic {
-            try await HeistSwiftCompiler(configuration: configuration).compileFile(source)
+            try await HeistPlanCompiler.compile(file: source, configuration: configuration)
         }
 
         #expect(diagnostic.code.knownCode == .swiftCompilationExecutionTimedOut)
@@ -342,7 +342,7 @@ struct HeistCompilerProcessTests {
             }
             """
         )
-        let configuration = HeistSwiftCompiler.Configuration(
+        let configuration = HeistPlanCompiler.Configuration(
             packageRoot: buttonHeistPackageRoot,
             processLimits: limits(
                 compilationTimeout: .seconds(30),
@@ -352,7 +352,7 @@ struct HeistCompilerProcessTests {
         )
 
         let diagnostic = try await compilerDiagnostic {
-            try await HeistSwiftCompiler(configuration: configuration).compileFile(source)
+            try await HeistPlanCompiler.compile(file: source, configuration: configuration)
         }
 
         #expect(diagnostic.code.knownCode == .swiftCompilationExecutionTerminated)

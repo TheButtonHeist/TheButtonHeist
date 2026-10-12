@@ -529,7 +529,7 @@ SWIFT
 compile_output="$(
     cd "$PLAN_TMP"
     run_with_timeout "$COMMAND_TIMEOUT" \
-        env -u HEIST_THEPLANS_BUILD_DIR HEIST_SOURCE_COMPILER_TRACE=1 \
+        env -u HEIST_THEPLANS_BUILD_DIR HEIST_SWIFT_COMPILATION_TRACE=1 \
         "$BUTTONHEIST" plan compile "$SOURCE" --entry makeHeist --output "$OUTPUT" 2>&1
 )" || {
     status=$?

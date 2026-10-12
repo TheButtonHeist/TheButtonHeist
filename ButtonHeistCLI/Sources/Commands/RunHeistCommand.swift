@@ -6,7 +6,7 @@ import TheScore
 
 struct RunHeistCommand: ConnectedOneShotCLICommand {
     static let fenceCommand = TheFence.Command.runHeist
-    typealias SwiftHeistCompilation = @Sendable (
+    typealias SwiftPlanCompilation = @Sendable (
         _ source: URL,
         _ entry: HeistEntrySymbol
     ) async throws(HeistPlanBuildError) -> HeistPlan
@@ -102,8 +102,8 @@ struct RunHeistCommand: ConnectedOneShotCLICommand {
     static func prepareInput(
         path: String?,
         entry: String?,
-        compileSwiftSource: SwiftHeistCompilation = { source, entry in
-            try await HeistSwiftCompiler().compileFile(source, entry: entry)
+        compileSwiftSource: SwiftPlanCompilation = { source, entry in
+            try await HeistPlanCompiler.compile(file: source, entry: entry)
         }
     ) async throws -> PreparedInput {
         guard let path, path.lowercased().hasSuffix(".swift") else {
