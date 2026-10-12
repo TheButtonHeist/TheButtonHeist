@@ -1,7 +1,7 @@
 import Testing
 @testable import ThePlans
 
-@Test func `canonical semantic actions round trip through source compilation`() throws {
+@Test func `canonical semantic actions round trip through source parsing`() throws {
     try assertCanonicalRoundTrip(try HeistPlan(body: [
         .action(ActionStep(
             command: .activate(.predicate(.label("Pay"))),
@@ -32,7 +32,7 @@ import Testing
     ]))
 }
 
-@Test func `canonical spatial gesture actions round trip through source compilation`() throws {
+@Test func `canonical spatial gesture actions round trip through source parsing`() throws {
     try assertCanonicalRoundTrip(try HeistPlan(body: [
         .action(ActionStep(command: .oneFingerTap(TapTarget(
             selection: .coordinate(ScreenPoint(x: 12, y: 34))
@@ -66,8 +66,8 @@ import Testing
     ]))
 }
 
-@Test func `spatial gesture tap ScreenPoint source compiles to raw coordinate tap`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `spatial gesture tap ScreenPoint source parses to raw coordinate tap`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     oneFingerTap(ScreenPoint(x: 888, y: 372))
     """))
     let expected = try HeistPlan(body: [
@@ -79,8 +79,8 @@ import Testing
     #expect(plan == expected)
 }
 
-@Test func `spatial gesture element unit-point source compiles to element-relative gesture`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `spatial gesture element unit-point source parses to element-relative gesture`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     oneFingerTap(.label("Row"), at: UnitPoint(x: 0.25, y: 0.75))
     longPress(.label("Row"), at: UnitPoint(x: 0.5, y: 0.5), duration: 1.4)
     drag(.label("Slider"), from: UnitPoint(x: 0.8, y: 0.5), to: ScreenPoint(x: 200, y: 40))
@@ -117,11 +117,11 @@ import Testing
     ]
 
     for source in sources {
-        expect(compileError(root(source)), contains: "coordinate must be finite")
+        expect(parseError(root(source)), contains: "coordinate must be finite")
     }
 }
 
-@Test func `canonical control flow and loops round trip through source compilation`() throws {
+@Test func `canonical control flow and loops round trip through source parsing`() throws {
     try assertCanonicalRoundTrip(try HeistPlan(body: [
         .conditional(try ConditionalStep(
             cases: [
@@ -160,7 +160,7 @@ import Testing
     ]))
 }
 
-@Test func `canonical definitions and root parameters round trip through source compilation`() throws {
+@Test func `canonical definitions and root parameters round trip through source parsing`() throws {
     let tapDefinition = try HeistPlan(
         name: "tap",
         body: [.action(ActionStep(command: .activate(.predicate(.label("Add to Cart")))))]
@@ -216,7 +216,7 @@ import Testing
     }
     """
 
-    _ = try HeistSourceCompilation.compile(source)
+    _ = try HeistSourceParser.parse(source)
 }
 
 @Test func `element semantic surfaces parse and render canonically`() throws {
@@ -232,7 +232,7 @@ import Testing
     )), timeout: 2)
     """#)
 
-    let plan = try HeistSourceCompilation.compile(source)
+    let plan = try HeistSourceParser.parse(source)
     let canonical = try plan.canonicalSwiftDSL()
 
     #expect(canonical.contains(#".hint(.contains("edit"))"#))

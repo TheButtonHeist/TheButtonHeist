@@ -1,7 +1,12 @@
 import Foundation
 
-public enum HeistSourceCompilation {
-    public static func compile(
+/// Parses untrusted Button Heist DSL into the canonical executable plan.
+///
+/// MCP and JSON-lines clients send this declarative language. This parser
+/// accepts only that grammar: it never invokes `swiftc` or executes the input.
+/// Trusted local `.swift` authoring instead belongs to `HeistPlanCompiler`.
+public enum HeistSourceParser {
+    public static func parse(
         _ source: String,
         sourceName: String = "inline-heist-plan"
     ) throws(HeistPlanBuildError) -> HeistPlan {

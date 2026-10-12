@@ -71,7 +71,7 @@ multi-step source, raw wire IR, direct viewport/debug/session command text, and
 `WaitFor(...).else { ... }`. Branching or composition belongs behind
 `run_heist`.
 
-## Compilation and validation
+## Construction and validation
 
 Canonical ButtonHeist source, trusted local Swift DSL, and generated plan JSON
 are construction boundaries, not alternate plan models. Each MUST return one
@@ -126,14 +126,14 @@ part of the contract.
 
 Canonical spellings are the only accepted spellings. Unsupported source forms
 fail at the source boundary, and removed wire fields or values fail strict
-decoding. The compiler and decoder MUST NOT translate them through aliases,
+decoding. The parser and decoder MUST NOT translate them through aliases,
 deprecated overloads, adapters, or fallback branches.
 
 ## Diagnostics
 
 Diagnostics are part of the public language contract. Each diagnostic MUST
 include a stable code, title, phase, message, and actionable hint when a useful
-repair exists. Source compilation diagnostics SHOULD include a source span with
+repair exists. Source parsing diagnostics SHOULD include a source span with
 source name, line, column, byte offset, and token length.
 
 Representative stable codes:
@@ -437,7 +437,7 @@ expectations, authored-outcome waivers, `WaitFor`, `RepeatUntil`, `If`, `Case`,
 Durable heist source MUST use the canonical rendered spelling for each
 construct. Unsupported historical property wrappers, labeled element fields,
 exact-match wrappers, change wrappers, and include/exclude wrappers are syntax
-errors. Source compilation MUST NOT reinterpret them as a retained construct.
+errors. Source parsing MUST NOT reinterpret them as a retained construct.
 
 Durable heist source MUST NOT depend on viewport position, current pixels,
 runtime IDs, capture-local IDs, generated container names, or session state as

@@ -36,7 +36,7 @@ extension HeistPlanBuildError {
             code: .swiftCompilationPackageRootNotFound,
             boundedCompilerDiagnostics("""
             Swift plan compilation has no admitted ThePlans artifact context. \
-            Supply HeistSwiftCompiler.Configuration(packageRoot:) with one ButtonHeist package root, \
+            Supply HeistPlanCompiler.Configuration(packageRoot:) with one ButtonHeist package root, \
             run an installed Button Heist executable with its lib/ThePlans artifacts, or set \
             HEIST_THEPLANS_BUILD_DIR to one exact build directory holding ThePlans artifacts \
             (Modules/ThePlans.swiftmodule or Modules/ThePlans.swiftinterface, plus ThePlans.build/*.swift.o).
@@ -112,7 +112,7 @@ extension HeistPlanBuildError {
     }
 }
 
-enum HeistSwiftFileCompilationProcessPhase {
+enum HeistSwiftCompilationProcessPhase {
     case compilation(source: URL, entry: HeistEntrySymbol)
     case execution(source: URL, entry: HeistEntrySymbol)
 

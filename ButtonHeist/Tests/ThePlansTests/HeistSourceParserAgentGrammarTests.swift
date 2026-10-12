@@ -2,12 +2,12 @@ import Testing
 @testable import ThePlans
 
 @Test func `reported agent target grammar gaps parse`() throws {
-    let ordinal = try HeistSourceCompilation.compile(root(#"Activate(.target(.label("Pay"), ordinal: 0))"#))
+    let ordinal = try HeistSourceParser.parse(root(#"Activate(.target(.label("Pay"), ordinal: 0))"#))
     #expect(ordinal.body == [
         .action(ActionStep(command: .activate(.predicate(.label("Pay"), ordinal: 0)))),
     ])
 
-    let scopedOrdinal = try HeistSourceCompilation.compile(root(
+    let scopedOrdinal = try HeistSourceParser.parse(root(
         #"Activate(.within(container: .identifier("Sheet"), .target(.label("Pay"), ordinal: 0)))"#
     ))
     #expect(scopedOrdinal.body == [
@@ -17,22 +17,22 @@ import Testing
         )))),
     ])
 
-    let traits = try HeistSourceCompilation.compile(root(#"Activate(.element(.label("Pay"), .traits([.button])))"#))
+    let traits = try HeistSourceParser.parse(root(#"Activate(.element(.label("Pay"), .traits([.button])))"#))
     #expect(traits.body == [
         .action(ActionStep(command: .activate(.predicate(.element(.label("Pay"), .traits([.button])))))),
     ])
 
-    let typeText = try HeistSourceCompilation.compile(root(#"TypeText("milk", into: .label("Search"))"#))
+    let typeText = try HeistSourceParser.parse(root(#"TypeText("milk", into: .label("Search"))"#))
     #expect(typeText.body == [
         .action(ActionStep(command: .typeText(text: "milk", target: .predicate(.label("Search"))))),
     ])
 
-    let screenshot = try HeistSourceCompilation.compile(root("TakeScreenshot()"))
+    let screenshot = try HeistSourceParser.parse(root("TakeScreenshot()"))
     #expect(screenshot.body == [
         .action(ActionStep(command: .takeScreenshot)),
     ])
 
-    let waived = try HeistSourceCompilation.compile(root(#"Activate(.label("Pay")).withoutExpectation("reason")"#))
+    let waived = try HeistSourceParser.parse(root(#"Activate(.label("Pay")).withoutExpectation("reason")"#))
     #expect(waived.body == [
         .action(ActionStep(
             command: .activate(.predicate(.label("Pay"))),
@@ -41,16 +41,16 @@ import Testing
 }
 
 @Test func `reported agent grammar mistakes fail with corrections`() throws {
-    let stringTraits = compileError(root(#"Activate(.element(.label("Pay"), .traits(["button"])))"#))
+    let stringTraits = parseError(root(#"Activate(.element(.label("Pay"), .traits(["button"])))"#))
     expect(stringTraits, contains: "traits must use enum-style syntax like [.button]")
 
-    let actionOrdinal = compileError(root(#"Activate(.label("Pay"), ordinal: 0)"#))
+    let actionOrdinal = parseError(root(#"Activate(.label("Pay"), ordinal: 0)"#))
     expect(
         actionOrdinal,
         contains: #"Ordinal belongs to the target. Use Activate(.target(.label("Pay"), ordinal: 0))."#
     )
 
-    let scopedActionOrdinal = compileError(root(
+    let scopedActionOrdinal = parseError(root(
         #"Activate(.within(container: .identifier("Sheet"), .label("Pay")), ordinal: 0)"#
     ))
     expect(
@@ -58,10 +58,10 @@ import Testing
         contains: #"Use Activate(.within(container: .identifier("Sheet"), .target(.label("Pay"), ordinal: 0)))."#
     )
 
-    let labeledStringMatchMode = compileError(root(#"Activate(.label(contains: "Pay"))"#))
+    let labeledStringMatchMode = parseError(root(#"Activate(.label(contains: "Pay"))"#))
     expect(labeledStringMatchMode, contains: #"StringMatch modes use enum-case syntax; use `.label(.contains("..."))`"#)
 
-    let nativeIf = compileError(root("""
+    let nativeIf = parseError(root("""
     if true {
         Activate(.label("Pay"))
     } else {
@@ -71,7 +71,7 @@ import Testing
     expect(nativeIf, contains: "native Swift if/else is not supported")
     expect(nativeIf, contains: "If { Case(...) { ... } Else { ... } }")
 
-    let ifShorthand = try HeistSourceCompilation.compile(root("""
+    let ifShorthand = try HeistSourceParser.parse(root("""
     If(.exists(.label("Pay"))) {
         Activate(.label("Pay"))
     }.else {
@@ -90,10 +90,10 @@ import Testing
         )),
     ])
 
-    let unknownAction = compileError(root(#"Tap(.label("Pay"))"#))
+    let unknownAction = parseError(root(#"Tap(.label("Pay"))"#))
     expect(unknownAction, contains: "unsupported ButtonHeist source statement 'Tap'")
 
-    let wrongRunHeistArgument = compileError("""
+    let wrongRunHeistArgument = parseError("""
     HeistPlan {
         HeistDef<String>("addItem", parameter: "item") { item in
             Activate(.label(item))
@@ -104,23 +104,23 @@ import Testing
     """)
     expect(wrongRunHeistArgument, contains: "heist run argument type must match the target parameter")
 
-    let emptyCustomActionName = compileError(root(#"CustomAction("", on: .label("Message"))"#))
+    let emptyCustomActionName = parseError(root(#"CustomAction("", on: .label("Message"))"#))
     expect(emptyCustomActionName, contains: "custom action name must not be blank")
 
-    let emptyRunHeistPath = compileError(root(#"RunHeist("")"#))
+    let emptyRunHeistPath = parseError(root(#"RunHeist("")"#))
     expect(emptyRunHeistPath, contains: "heist path must not be empty")
 
-    let emptyRunHeistPathComponent = compileError(root(#"RunHeist("lib..checkout")"#))
+    let emptyRunHeistPathComponent = parseError(root(#"RunHeist("lib..checkout")"#))
     expect(emptyRunHeistPathComponent, contains: "heist path component at index 1 must not be empty")
 
-    let bodyTry = compileError(root("""
+    let bodyTry = parseError(root("""
     try ForEach("Milk") { item in
         Activate(.label(item))
     }
     """))
     expect(bodyTry, contains: "`try` is only allowed in Swift wrapper code")
 
-    let caseAfterElse = compileError(root("""
+    let caseAfterElse = parseError(root("""
     If {
         Else {
             Warn("fallback")
@@ -134,46 +134,46 @@ import Testing
 }
 
 @Test func `reported agent update grammar mistakes fail with corrections`() throws {
-    let emptyUpdated = compileError(root(#"Activate(.label("Pay")).expect(.elementsChanged([.updated()]))"#))
+    let emptyUpdated = parseError(root(#"Activate(.label("Pay")).expect(.elementsChanged([.updated()]))"#))
     expect(emptyUpdated, contains: "expected a ButtonHeist expression beginning with '.'")
 
-    let elementOnlyUpdated = compileError(root(
+    let elementOnlyUpdated = parseError(root(
         #"Activate(.label("Pay")).expect(.elementsChanged([.updated(.label("Total"))]))"#
     ))
     expect(elementOnlyUpdated, contains: "expected ','")
 
-    let explicitlyElementOnlyUpdated = compileError(root(
+    let explicitlyElementOnlyUpdated = parseError(root(
         #"Activate(.label("Pay")).expect("# +
             #".elementsChanged([.updated(.element(.label("Quantity")))]))"#
     ))
     expect(explicitlyElementOnlyUpdated, contains: "expected ','")
 
-    let labeledElementUpdated = compileError(root(
+    let labeledElementUpdated = parseError(root(
         #"Activate(.label("Pay")).expect("# +
             #".elementsChanged([.updated(element: .label("Total"), .value("$3"))]))"#
     ))
     expect(labeledElementUpdated, contains: "expected a ButtonHeist expression beginning with '.'")
 
-    let labeledExplicitElementUpdated = compileError(root(
+    let labeledExplicitElementUpdated = parseError(root(
         #"Activate(.label("Pay")).expect("# +
             #".elementsChanged([.updated(element: .element(.label("Total")), "# +
             #".value("$3"))]))"#
     ))
     expect(labeledExplicitElementUpdated, contains: "expected a ButtonHeist expression beginning with '.'")
 
-    let beforeOnlyUpdate = compileError(root(
+    let beforeOnlyUpdate = parseError(root(
         #"Activate(.label("Pay")).expect("# +
             #".elementsChanged([.updated(.label("Total"), .value(before: "$2"))]))"#
     ))
     expect(beforeOnlyUpdate, contains: "value update predicate requires after when before is set")
 
-    let containerUpdate = compileError(root(
+    let containerUpdate = parseError(root(
         #"Activate(.label("Pay")).expect("# +
             #".elementsChanged([.updated(.container(.identifier("Checkout")), .value("$3"))]))"#
     ))
     expect(containerUpdate, contains: "element updates require an element target")
 
-    let scopedContainerUpdate = compileError(root(
+    let scopedContainerUpdate = parseError(root(
         #"Activate(.label("Pay")).expect("# +
             #".elementsChanged([.updated(.within(container: .identifier("Checkout"), "# +
             #".container(.identifier("List"))), .value("$3"))]))"#
@@ -183,12 +183,12 @@ import Testing
     // An element assertion written inside `.screen(...)` is the costume mistake:
     // `.screen` names the arrived-at screen, so the correction has to point at
     // `.elements([...])`, which is where an element question belongs.
-    let screenChangedAppeared = compileError(root(
+    let screenChangedAppeared = parseError(root(
         #"Activate(.label("Pay")).expect(.screenChanged([.appeared(.label("Receipt"))]))"#
     ))
     expect(screenChangedAppeared, contains: ".elementsChanged([...]) for element assertions")
 
-    let screenChangedUpdated = compileError(root(
+    let screenChangedUpdated = parseError(root(
         #"Activate(.label("Pay")).expect("# +
             #".screenChanged([.updated(.label("Total"), .value("$3"))]))"#
     ))
@@ -196,29 +196,29 @@ import Testing
 }
 
 @Test func `runtime parser rejects empty predicates`() throws {
-    let emptyExists = compileError(root(#"WaitFor(.exists())"#))
+    let emptyExists = parseError(root(#"WaitFor(.exists())"#))
     expect(emptyExists, contains: "expected a ButtonHeist expression beginning with '.'")
 
-    let emptyMissing = compileError(root(#"WaitFor(.missing())"#))
+    let emptyMissing = parseError(root(#"WaitFor(.missing())"#))
     expect(emptyMissing, contains: "expected a ButtonHeist expression beginning with '.'")
 
-    let emptyAppeared = compileError(root(#"WaitFor(.elementsChanged([.appeared()]))"#))
+    let emptyAppeared = parseError(root(#"WaitFor(.elementsChanged([.appeared()]))"#))
     expect(emptyAppeared, contains: "expected a ButtonHeist expression beginning with '.'")
 
-    let emptyDisappeared = compileError(root(#"WaitFor(.elementsChanged([.disappeared()]))"#))
+    let emptyDisappeared = parseError(root(#"WaitFor(.elementsChanged([.disappeared()]))"#))
     expect(emptyDisappeared, contains: "expected a ButtonHeist expression beginning with '.'")
 
 }
 
 @Test func `runtime parser rejects transition predicates in conditionals`() throws {
-    let ifAppeared = compileError(root(#"""
+    let ifAppeared = parseError(root(#"""
     If(.appeared(.label("Receipt"))) {
         Warn("ready")
     }
     """#))
     expect(ifAppeared, contains: "branch conditions accept only .exists and .missing")
 
-    let caseUpdated = compileError(root(#"""
+    let caseUpdated = parseError(root(#"""
     If {
         Case(.updated(.value("Ready"))) {
             Warn("ready")
@@ -319,6 +319,6 @@ import Testing
     ]
 
     for (source, expectedDiagnostic) in cases {
-        expect(compileError(source), contains: expectedDiagnostic)
+        expect(parseError(source), contains: expectedDiagnostic)
     }
 }

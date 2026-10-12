@@ -23,7 +23,7 @@ import Testing
     }
     """
 
-    let plan = try HeistSourceCompilation.compile(source)
+    let plan = try HeistSourceParser.parse(source)
     let lib = try #require(plan.definitions.first { $0.name == "lib" })
     let checkout = try #require(lib.definitions.first { $0.name == "checkout" })
 
@@ -39,7 +39,7 @@ import Testing
 }
 
 @Test func `nested namespace duplicate definitions return typed admission diagnostics`() {
-    let diagnostic = compileDiagnostic("""
+    let diagnostic = parseDiagnostic("""
     HeistPlan {
         Namespace("lib") {
             Namespace("checkout") {
@@ -65,7 +65,7 @@ import Testing
 }
 
 @Test func `qualified namespace calls fail clearly when the export is missing`() throws {
-    let diagnostic = compileError("""
+    let diagnostic = parseError("""
     HeistPlan {
         HeistDef<Void>("caller") {
             RunHeist("lib.nope")
@@ -80,7 +80,7 @@ import Testing
 }
 
 @Test func `unqualified sibling call inside namespace remains local only`() throws {
-    let diagnostic = compileError("""
+    let diagnostic = parseError("""
     HeistPlan {
         Namespace("lib") {
             HeistDef<Void>("payOpen") {
@@ -100,7 +100,7 @@ import Testing
 }
 
 @Test func `exported namespace capability cycle is rejected`() throws {
-    let diagnostic = compileError("""
+    let diagnostic = parseError("""
     HeistPlan {
         Namespace("lib") {
             HeistDef<Void>("a") {
@@ -121,7 +121,7 @@ import Testing
 }
 
 @Test func `exported namespace calls enforce target arity`() throws {
-    let diagnostic = compileError("""
+    let diagnostic = parseError("""
     HeistPlan {
         Namespace("lib") {
             HeistDef<String>("addItem", parameter: "dish") { dish in
@@ -165,7 +165,7 @@ import Testing
     }
     """
 
-    let plan = try HeistSourceCompilation.compile(source)
+    let plan = try HeistSourceParser.parse(source)
     let echo = try #require(plan.definitions.first { $0.name == "Echo" })
     let item = try #require(echo.definitions.first { $0.name == "item" })
     let messages = try #require(plan.definitions.first { $0.name == "Messages" })
@@ -250,7 +250,7 @@ import Testing
     ]
 
     for testCase in cases {
-        expect(compileError(testCase.source), contains: testCase.diagnostic)
+        expect(parseError(testCase.source), contains: testCase.diagnostic)
     }
 }
 
@@ -321,7 +321,7 @@ import Testing
     ]
 
     for testCase in cases {
-        let diagnostic = compileDiagnostic(testCase.source)
+        let diagnostic = parseDiagnostic(testCase.source)
         #expect(diagnostic.code.rawValue == "heist.plan.runtime_safety")
         #expect(diagnostic.phase == .planValidation)
         #expect(diagnostic.path == testCase.path)

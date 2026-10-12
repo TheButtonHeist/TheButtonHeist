@@ -16,7 +16,7 @@ import Testing
         #expect(manifest.classification == scenario.classification)
         #expect(manifest.expectedOutcome == scenario.expectedOutcome)
         #expect(manifest.expectedEvidence == scenario.expectedEvidence)
-        #expect(try HeistSourceCompilation.compile(manifest.plan) == plan)
+        #expect(try HeistSourceParser.parse(manifest.plan) == plan)
 
         let diagnostics = scenario.expectedEvidence.filter { $0.kind == .diagnostic }
         switch scenario.expectedOutcome {

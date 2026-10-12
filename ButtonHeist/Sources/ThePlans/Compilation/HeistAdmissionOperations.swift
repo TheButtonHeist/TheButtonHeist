@@ -146,6 +146,6 @@ private extension HeistPlanLoading {
             )
         }
 
-        return try HeistSourceCompilation.compile(source, sourceName: "\(commandName)-inline.plan")
+        return try HeistSourceParser.parse(source, sourceName: "\(commandName)-inline.plan")
     }
 }

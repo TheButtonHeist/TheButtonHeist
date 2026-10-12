@@ -144,7 +144,7 @@ struct CanonicalHeistSourceRoundTripTests {
                 .expect(.exists(.within(container: .identifier(item), .label(item))), timeout: 1)
         }
         """)
-        #expect(try HeistSourceCompilation.compile(source) == plan)
+        #expect(try HeistSourceParser.parse(source) == plan)
     }
 
     @Test("durable spatial gesture actions round trip")
@@ -268,7 +268,7 @@ struct CanonicalHeistSourceRoundTripTests {
 
     private func assertRoundTrip(_ plan: HeistPlan) throws {
         let source = try plan.canonicalSwiftDSL()
-        let parsed = try HeistSourceCompilation.compile(source)
+        let parsed = try HeistSourceParser.parse(source)
         #expect(parsed == plan, "Canonical source failed round trip:\n\(source)")
     }
 }

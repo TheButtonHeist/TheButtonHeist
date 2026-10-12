@@ -245,7 +245,7 @@ struct CanonicalAccessibilityPredicateTests {
             WaitFor(.exists(.container(.identifier("Checkout"), ordinal: 1)))
         }
         """
-        let plan = try HeistSourceCompilation.compile(source)
+        let plan = try HeistSourceParser.parse(source)
         let expected = try HeistPlan(body: [
             .wait(WaitStep(predicate: .screenChanged, timeout: defaultWaitTimeout)),
             .wait(WaitStep(predicate: .screenChanged("Receipt"), timeout: defaultWaitTimeout)),

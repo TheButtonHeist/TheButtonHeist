@@ -42,7 +42,7 @@ HeistPlan("compiled") {
 SWIFT
 
 echo "Compiling Swift fixture with buttonheist plan"
-HEIST_SOURCE_COMPILER_TRACE=1 HEIST_THEPLANS_BUILD_DIR="$HEIST_THEPLANS_BUILD_DIR" \
+HEIST_SWIFT_COMPILATION_TRACE=1 HEIST_THEPLANS_BUILD_DIR="$HEIST_THEPLANS_BUILD_DIR" \
     "$BUTTONHEIST_TOOL" plan compile "$SOURCE" --entry makeHeist --output "$OUTPUT"
 [[ -d "$OUTPUT" ]] || {
     echo "Error: compile did not produce a .heist package directory" >&2
@@ -64,7 +64,7 @@ echo "Rendering compiled heist package as canonical Swift"
 diff -u "$EXPECTED" "$RENDERED"
 
 echo "Compiling checked-in public example with buttonheist plan"
-HEIST_SOURCE_COMPILER_TRACE=1 HEIST_THEPLANS_BUILD_DIR="$HEIST_THEPLANS_BUILD_DIR" \
+HEIST_SWIFT_COMPILATION_TRACE=1 HEIST_THEPLANS_BUILD_DIR="$HEIST_THEPLANS_BUILD_DIR" \
     "$BUTTONHEIST_TOOL" plan compile examples/heist-program.swift --output "$EXAMPLE_OUTPUT"
 "$BUTTONHEIST_TOOL" plan validate "$EXAMPLE_OUTPUT"
 
@@ -95,7 +95,7 @@ if [[ -f "$INSTALLED_PREFIX/lib/ThePlans/arm64-apple-macosx/release/Modules/TheP
 fi
 (
     unset HEIST_THEPLANS_BUILD_DIR
-    HEIST_SOURCE_COMPILER_TRACE=1 "$INSTALLED_TOOL" plan compile "$SOURCE" --entry makeHeist --output "$INSTALLED_OUTPUT"
+    HEIST_SWIFT_COMPILATION_TRACE=1 "$INSTALLED_TOOL" plan compile "$SOURCE" --entry makeHeist --output "$INSTALLED_OUTPUT"
 )
 "$INSTALLED_TOOL" plan validate "$INSTALLED_OUTPUT"
 

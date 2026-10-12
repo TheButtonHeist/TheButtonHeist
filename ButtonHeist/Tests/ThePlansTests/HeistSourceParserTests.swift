@@ -3,13 +3,13 @@ import Testing
 
 func assertCanonicalRoundTrip(_ plan: HeistPlan) throws {
     let source = try plan.canonicalSwiftDSL()
-    let compiled = try HeistSourceCompilation.compile(source)
-    #expect(compiled == plan, "Rendered source did not compile back to the same plan:\n\(source)")
+    let parsed = try HeistSourceParser.parse(source)
+    #expect(parsed == plan, "Rendered source did not parse back to the same plan:\n\(source)")
 }
 
-func compileError(_ source: String) -> String {
+func parseError(_ source: String) -> String {
     do {
-        _ = try HeistSourceCompilation.compile(source)
+        _ = try HeistSourceParser.parse(source)
         Issue.record("Expected source to fail: \(source)")
         return ""
     } catch {
@@ -17,9 +17,9 @@ func compileError(_ source: String) -> String {
     }
 }
 
-func compileDiagnostic(_ source: String) -> HeistBuildDiagnostic {
+func parseDiagnostic(_ source: String) -> HeistBuildDiagnostic {
     do {
-        _ = try HeistSourceCompilation.compile(source)
+        _ = try HeistSourceParser.parse(source)
         Issue.record("Expected source to fail: \(source)")
         return HeistBuildDiagnostic(
             externalBoundaryRawCode: "test.missing_diagnostic",
@@ -30,7 +30,7 @@ func compileDiagnostic(_ source: String) -> HeistBuildDiagnostic {
         return error.diagnostics.first ?? HeistBuildDiagnostic(
             externalBoundaryRawCode: "test.missing_diagnostic",
             phase: .sourceCompilation,
-            message: "Source compilation failed without diagnostics"
+            message: "Source parsing failed without diagnostics"
         )
     }
 }
@@ -51,7 +51,7 @@ func expect(_ string: String, contains substring: String) {
 }
 
 @Test func `inline plan source RunHeist syntax validates through normal runtime pipeline`() throws {
-    let diagnostic = compileDiagnostic(root("""
+    let diagnostic = parseDiagnostic(root("""
     RunHeist("CartScreen.checkout")
     """))
 
@@ -96,13 +96,13 @@ func expect(_ string: String, contains substring: String) {
         #"await Warn("x")"#,
     ] {
         #expect(throws: HeistPlanBuildError.self) {
-            _ = try HeistSourceCompilation.compile(source)
+            _ = try HeistSourceParser.parse(source)
         }
     }
 }
 
 @Test func `inline plan source syntax errors expose typed diagnostic fields`() throws {
-    let diagnostic = compileDiagnostic("""
+    let diagnostic = parseDiagnostic("""
     HeistPlan {
         let label = "Pay"
         Activate(.label(label))
@@ -133,8 +133,8 @@ private func assertCanonicalSourceRoundTripPreservesBranchSemantics() throws {
         }
     }
     """
-    let plan = try HeistSourceCompilation.compile(source)
-    let reparsed = try HeistSourceCompilation.compile(plan.canonicalSwiftDSL())
+    let plan = try HeistSourceParser.parse(source)
+    let reparsed = try HeistSourceParser.parse(plan.canonicalSwiftDSL())
 
     #expect(reparsed == plan)
     guard case .conditional(let branches) = plan.body.first else {
@@ -226,7 +226,7 @@ private func assertCanonicalSourceRoundTripPreservesBranchSemantics() throws {
 
     for (statement, message, offset) in removedSpellings {
         let invalidSource = "HeistPlan { \(statement) }"
-        let diagnostic = compileDiagnostic(invalidSource)
+        let diagnostic = parseDiagnostic(invalidSource)
         #expect(diagnostic.code == .sourceInvalidSyntax)
         #expect(diagnostic.message == message)
         #expect(diagnostic.sourceSpan == HeistBuildSourceSpan(
@@ -239,8 +239,8 @@ private func assertCanonicalSourceRoundTripPreservesBranchSemantics() throws {
     }
 }
 
-@Test func `canonical ForEach string compiles without body try`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `canonical ForEach string parses without body try`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     ForEach("a") { item in
         TypeText(item)
     }
@@ -260,7 +260,7 @@ private func assertCanonicalSourceRoundTripPreservesBranchSemantics() throws {
 
 @Test func `inline plan source import Foundation is rejected`() throws {
     #expect(throws: HeistPlanBuildError.self) {
-        _ = try HeistSourceCompilation.compile("""
+        _ = try HeistSourceParser.parse("""
         import Foundation
         Activate(.label("Pay"))
         """)
@@ -269,7 +269,7 @@ private func assertCanonicalSourceRoundTripPreservesBranchSemantics() throws {
 
 @Test func `inline plan source while true is rejected`() throws {
     #expect(throws: HeistPlanBuildError.self) {
-        _ = try HeistSourceCompilation.compile("""
+        _ = try HeistSourceParser.parse("""
         while true {
             Activate(.label("Pay"))
         }
@@ -279,7 +279,7 @@ private func assertCanonicalSourceRoundTripPreservesBranchSemantics() throws {
 
 @Test func `inline plan source arbitrary function declaration is rejected`() throws {
     #expect(throws: HeistPlanBuildError.self) {
-        _ = try HeistSourceCompilation.compile("""
+        _ = try HeistSourceParser.parse("""
         func pay() {
             Activate(.label("Pay"))
         }
@@ -291,7 +291,7 @@ private let nonDurableHeistActionRepairHint =
     "Use a direct client command for debug/session actions, or replace " +
     "this with a canonical durable DSL action."
 
-@Test func `runtime source compilation rejects standard definition cap`() throws {
+@Test func `runtime source parsing rejects standard definition cap`() throws {
     let definitions = (0...250).map { index in
         """
             HeistDef<String>("Definitions.definition\(index)", parameter: "value") { value in
@@ -307,12 +307,12 @@ private let nonDurableHeistActionRepairHint =
     }
     """
 
-    let diagnostic = compileError(source)
+    let diagnostic = parseError(source)
 
     expect(diagnostic, contains: "max total heist definitions")
     expect(diagnostic, contains: "252 definitions")
 
-    let typedDiagnostic = compileDiagnostic(source)
+    let typedDiagnostic = parseDiagnostic(source)
     #expect(typedDiagnostic.code.rawValue == "heist.plan.runtime_safety")
     #expect(typedDiagnostic.phase == .planValidation)
     #expect(typedDiagnostic.path == "$.definitions[0].definitions")

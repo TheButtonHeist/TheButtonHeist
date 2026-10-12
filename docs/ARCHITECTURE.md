@@ -253,7 +253,7 @@ Swift access control preserves four construction boundaries:
   constructs each event. `SafecrackerTouchInjection` owns the complete gesture
   from `began` through one terminal `ended` or `cancelled` event. Cancellation
   before `began` sends no touch event.
-- `HeistSwiftFileCompilation` has a private initializer. Its static `compile`
+- `HeistSwiftCompilation` has a private initializer. Its static `compile`
   operation owns construction. The compiler resolves `ThePlans` only from an
   absolute override, an explicit package root, or the exact installed prefix.
   An explicit package root asks SwiftPM for its active binary directory; the
@@ -616,7 +616,7 @@ pipelines are explicit:
 | Discovery lifecycle and callback delivery | `DeviceDiscovery.State` and its nested callback bridge in `DeviceDiscovery.swift` | `TheHandoff` starts, stops, and forwards events without retaining parallel discovery state |
 | Connection target admission and resolution | `DeviceResolutionTarget` and `DeviceResolver` | `EnvironmentConfig` admits one target; `TheHandoff` resolves and retains it through reconnect |
 | Public JSON admission | `PublicJSONInputDecoder` | CLI decodes into its request envelope; MCP converts its existing value tree into command arguments and applies the same limits |
-| Compiler process terminal outcome | `HeistCompilerProcess.Runner` in `HeistCompilerProcess.swift` | `HeistSwiftFileCompilation.swift` maps failures directly into `HeistPlanBuildError` through `HeistSwiftCompilationDiagnostics.swift` |
+| Compiler process terminal outcome | `HeistCompilerProcess.Runner` in `HeistCompilerProcess.swift` | `HeistSwiftCompilation.swift` maps failures directly into `HeistPlanBuildError` through `HeistSwiftCompilationDiagnostics.swift` |
 | Result construction and relationship validity | `HeistExecutionStepResult+Construction.swift` | Runtime step executors and result decoding |
 | Result aggregate admission | `HeistResult.admitStructure` in `HeistResult.swift` | Package initialization and decoding; one ordered-sequence reducer admits every root and recursively visited child sequence |
 | Terminal failure capture | `HeistFailureCapture` on `HeistResult` | The runtime records diagnostic capture separately from execution and encodes it directly as optional result evidence |
@@ -827,7 +827,7 @@ Compiler entry symbols reuse that parser as `HeistEntrySymbol`. Structural
 plan locations are component-backed `HeistPlanPath` values; only source,
 diagnostic, and response rendering turns them into strings.
 
-Swift DSL construction, JSON decoding, source compilation, and live command
+Swift DSL construction, JSON decoding, source parsing, and live command
 composition each return one root-admitted `HeistPlan`. `HeistPlan` owns the
 single internal structural constructor for recursive source fragments and root
 assembly; only root admission returns a public plan. One
@@ -835,6 +835,12 @@ assembly; only root admission returns a public plan. One
 and cycle safety before the root crosses its boundary. There is no candidate
 tree or node, graph projection, runtime-input wrapper, validation alias, or
 second admission route.
+
+The two authoring frontends differ by trust, not output. `HeistSourceParser`
+accepts the restricted declarative DSL used by MCP and JSON-lines clients
+without executing input. `HeistPlanCompiler` invokes `swiftc` and runs a
+generated wrapper, so it accepts only trusted local `.swift` files. Both admit
+the result into the same `HeistPlan` pipeline.
 
 After admission, `HeistPlanTraversal` owns the semantic walk and its `Event`
 currency. Its invocation stack detects cycles directly; no graph projection or

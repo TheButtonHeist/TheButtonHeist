@@ -1,8 +1,8 @@
 import Testing
 @testable import ThePlans
 
-@Test func `screen action namespace compiles regular actions`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `screen action namespace parses regular actions`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     ScreenActions.Dismiss()
         .expect(.screenChanged)
     ScreenActions.MagicTap()
@@ -22,14 +22,14 @@ import Testing
     #expect(plan == expected)
 }
 
-@Test func `inline plan source type text replacement and clear compile`() throws {
-    let replacement = try HeistSourceCompilation.compile(root(#"""
+@Test func `inline plan source type text replacement and clear parse`() throws {
+    let replacement = try HeistSourceParser.parse(root(#"""
     TypeText(.replacing("b"), into: .identifier("Field"))
     """#))
-    let clear = try HeistSourceCompilation.compile(root(#"""
+    let clear = try HeistSourceParser.parse(root(#"""
     ClearText(.identifier("Field"))
     """#))
-    let emptyReplacement = try HeistSourceCompilation.compile(root(#"""
+    let emptyReplacement = try HeistSourceParser.parse(root(#"""
     TypeText(.replacing(""), into: .identifier("Field"))
     """#))
 
@@ -54,7 +54,7 @@ import Testing
 }
 
 @Test func `runtime parser accepts repeated string predicate checks for one field`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+    let plan = try HeistSourceParser.parse(root("""
     Activate(.element(.label(.prefix("foo")), .label(.contains("bar")), .label(.suffix("baz")), .traits([.button])))
     """))
     let expected = try HeistPlan(body: [
@@ -70,8 +70,8 @@ import Testing
     try assertCanonicalRoundTrip(plan)
 }
 
-@Test func `inline plan source chained expectation compiles`() throws {
-    let plan = try HeistSourceCompilation.compile(root("""
+@Test func `inline plan source chained expectation parses`() throws {
+    let plan = try HeistSourceParser.parse(root("""
     Activate(.label("Pay")).expect(.screenChanged)
     """))
     let expected = try HeistPlan(body: [
@@ -85,8 +85,8 @@ import Testing
     #expect(plan == expected)
 }
 
-@Test func `inline plan source RunHeist expectation compiles`() throws {
-    let plan = try HeistSourceCompilation.compile("""
+@Test func `inline plan source RunHeist expectation parses`() throws {
+    let plan = try HeistSourceParser.parse("""
     HeistPlan("shop") {
         HeistDef<String>("Cart.addItem", parameter: "item") { item in
             Activate(.label(item))
@@ -167,7 +167,7 @@ import Testing
 
 @Test func `inline plan source rejects empty HeistDef path components`() throws {
     do {
-        _ = try HeistSourceCompilation.compile("""
+        _ = try HeistSourceParser.parse("""
         HeistPlan("cart") {
             HeistDef<Void>("Cart..checkout") {
                 Warn("checkout")
@@ -176,7 +176,7 @@ import Testing
             RunHeist("Cart.checkout")
         }
         """)
-        Issue.record("Expected source compilation to reject empty HeistDef path component")
+        Issue.record("Expected source parsing to reject empty HeistDef path component")
     } catch let error {
         let diagnostic = try #require(error.diagnostics.first)
         #expect(diagnostic.code == .dslInvalidDefinition)
@@ -188,23 +188,23 @@ import Testing
     }
 }
 
-@Test func `inline plan source property update expectations compile`() throws {
-    let scoped = try HeistSourceCompilation.compile(root(#"""
+@Test func `inline plan source property update expectations parse`() throws {
+    let scoped = try HeistSourceParser.parse(root(#"""
     TypeText("Bruschetta", into: .identifier("Search"))
         .expect(.elementsChanged([.updated(.identifier("Search"), .value("Bruschetta"))]))
     """#))
-    let unscoped = try HeistSourceCompilation.compile(root(#"""
+    let unscoped = try HeistSourceParser.parse(root(#"""
     Increment(.identifier("Quantity"))
         .expect(.elementsChanged([.updated(.identifier("Quantity"), .value("3"))]))
     """#))
-    let beforeAfter = try HeistSourceCompilation.compile(root(#"""
+    let beforeAfter = try HeistSourceParser.parse(root(#"""
     Increment(.identifier("Quantity"))
         .expect(.elementsChanged([.updated(
             .identifier("Quantity"),
             .value(before: "2", after: "3")
         )]))
     """#))
-    let broadBeforeAfter = try HeistSourceCompilation.compile(root(#"""
+    let broadBeforeAfter = try HeistSourceParser.parse(root(#"""
     Increment(.identifier("Quantity"))
         .expect(.elementsChanged([.updated(
             .identifier("Quantity"),
@@ -256,7 +256,7 @@ import Testing
 }
 
 @Test func `inline plan source custom content update queries label and value`() throws {
-    let plan = try HeistSourceCompilation.compile(root(#"""
+    let plan = try HeistSourceParser.parse(root(#"""
     WaitFor(.elementsChanged([.updated(.identifier("status"), .customContent(after: .init(
         label: "Status",
         value: .contains("Ready"),
@@ -281,19 +281,19 @@ import Testing
 }
 
 @Test func `inline plan source accepts canonical direct delta predicates`() throws {
-    let appeared = try HeistSourceCompilation.compile(root(#"""
+    let appeared = try HeistSourceParser.parse(root(#"""
     Activate(.label("Add"))
         .expect(.elementsChanged([.appeared(.label("Back"))]))
     """#))
-    let disappeared = try HeistSourceCompilation.compile(root(#"""
+    let disappeared = try HeistSourceParser.parse(root(#"""
     Activate(.label("Clear"))
         .expect(.elementsChanged([.disappeared(.identifier("row-1"))]))
     """#))
-    let updatedPropertyOnly = try HeistSourceCompilation.compile(root(#"""
+    let updatedPropertyOnly = try HeistSourceParser.parse(root(#"""
     TypeText("milk", into: .identifier("Search"))
         .expect(.elementsChanged([.updated(.identifier("Search"), .value())]))
     """#))
-    let updatedBeforeAfterOnly = try HeistSourceCompilation.compile(root(#"""
+    let updatedBeforeAfterOnly = try HeistSourceParser.parse(root(#"""
     TypeText("milk", into: .identifier("Search"))
         .expect(.elementsChanged([.updated(
             .identifier("Search"),
@@ -345,6 +345,6 @@ import Testing
     ]
 
     for source in cases {
-        expect(compileError(root(source)), contains: "unsupported accessibility predicate")
+        expect(parseError(root(source)), contains: "unsupported accessibility predicate")
     }
 }
