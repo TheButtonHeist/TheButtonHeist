@@ -15,11 +15,106 @@ extension HeistExecution {
         _ event: HeistExecution.Event
     ) -> HeistExecution.Decision {
         guard let activeLeaf = running.activeLeaf else { return wait() }
-        switch activeLeaf {
-        case .action(let leaf):
-            return advance(action: leaf, event: event)
-        case .wait(let leaf):
-            return advance(wait: leaf, event: event)
+        switch (activeLeaf, event) {
+        case (
+            .beginningAction(let leaf),
+            .observationBegan(let id, let baseline, _)
+        ) where id == leaf.id:
+            let expectation = Expectation(
+                leaf.expectation.authoredPredicates,
+                baseline: baseline,
+                requiringNoChange: true
+            )
+            return update(
+                .dispatching(leaf, expectation: expectation),
+                performing: .dispatch(leaf.id, leaf.command, deadline: activeDeadline)
+            )
+
+        case (
+            .beginningWait(let leaf),
+            .observationBegan(let id, let baseline, _)
+        ) where id == leaf.id:
+            if leaf.predicate.isNotification {
+                let observed = HeistExecution.ObservedLeaf(
+                    subject: .wait(leaf),
+                    expectation: Expectation(
+                        [leaf.predicate.resolved],
+                        requiringNoChange: true
+                    )
+                )
+                running.activeLeaf = .observing(observed)
+                return wait()
+            }
+            return begin(wait: leaf, baseline: baseline)
+
+        case (
+            .dispatching(let leaf, let expectation),
+            .observation(_, let observation, _)
+        ):
+            guard case .noChange = observation else {
+                running.activeLeaf = .dispatching(
+                    leaf,
+                    expectation: expectation
+                        .evaluating(observation)
+                        .requiringNoChange()
+                )
+                return wait()
+            }
+            return wait()
+
+        case (
+            .dispatching(let leaf, let expectation),
+            .dispatchCompleted(let id, let dispatch, _)
+        ) where id == leaf.id:
+            return completeDispatch(
+                action: leaf,
+                expectation: expectation,
+                dispatch: dispatch
+            )
+
+        case (.observing, .observation(_, let observation, _)),
+             (.exploring, .observation(_, let observation, _)),
+             (.finishing, .observation(_, let observation, _)):
+            return observe(activeLeaf, event: observation)
+
+        case (
+            .exploring(let leaf),
+            .viewportExited(let id, let outcome, _)
+        ) where id == leaf.id:
+            return admitViewportExit(leaf, outcome: outcome)
+
+        case (
+            .finishing(let leaf, let source, let didCaptureDeadlineStability),
+            .observationCloseSampled(_, _, _, let evidence, let close, let at)
+        ):
+            return admitObservationCloseSample(
+                leaf,
+                source: source,
+                didCaptureDeadlineStability: didCaptureDeadlineStability,
+                evidence: evidence,
+                close: close,
+                at: at
+            )
+
+        case (
+            .committing(let leaf, let evidence, let timing, let outcome),
+            .observationCloseCommitted
+        ):
+            return admitObservationCloseCommit(
+                leaf,
+                evidence: evidence,
+                timing: timing,
+                outcome: outcome
+            )
+
+        case (.beginningAction, _),
+             (.dispatching, _),
+             (.beginningWait, _),
+             (.observing, _),
+             (.exploring, _),
+             (.finishing, _),
+             (.committing, _):
+            return wait()
         }
     }
 
@@ -42,170 +137,205 @@ extension HeistExecution {
     }
 }
 
-extension HeistExecution {
-    mutating func advance(
-        action leaf: HeistExecution.ActionLeaf,
-        event: HeistExecution.Event
-    ) -> HeistExecution.Decision {
-        var leaf = leaf
-        switch event {
-        case .observationBegan(let id, let baseline, _):
-            guard id == leaf.id,
-                  case .beginningObservation = leaf.phase else {
-                return wait()
+private extension HeistExecution.ObservedLeaf {
+    var explorationPredicate: HeistExecution.Predicate? {
+        switch subject {
+        case .action(let leaf, _):
+            guard let predicate = leaf.expectation.authoredPredicate,
+                  !predicate.isNotification,
+                  predicate.resolved.watchTarget != nil else {
+                return nil
             }
-            let expectation = Expectation(
-                leaf.expectation.authoredPredicates,
+            return predicate
+        case .wait(let leaf):
+            return leaf.predicate
+        }
+    }
+}
+
+extension HeistExecution {
+    mutating func begin(
+        wait leaf: HeistExecution.WaitLeaf,
+        baseline: Observation.Snapshot?
+    ) -> HeistExecution.Decision {
+        let predicateExpectation = Expectation(
+            [leaf.predicate.resolved],
+            baseline: baseline
+        )
+        let observed = HeistExecution.ObservedLeaf(
+            subject: .wait(leaf),
+            expectation: Expectation(
+                [leaf.predicate.resolved],
                 baseline: baseline,
                 requiringNoChange: true
             )
-            leaf.phase = .dispatching(expectation)
+        )
+        var canPrepareTarget = false
+        if case .elementsChanged(let assertions) = leaf.predicate.resolved, assertions.count == 1 {
+            switch assertions[0] {
+            case .exists, .disappeared, .updated:
+                canPrepareTarget = true
+            case .missing, .appeared:
+                break
+            }
+        }
+        guard predicateExpectation.result != .satisfied,
+              !predicateExpectation.hasMatchedTemporalBaseline,
+              canPrepareTarget else {
+            running.activeLeaf = .observing(observed)
+            return wait()
+        }
+        return update(
+            .exploring(observed),
+            performing: .explore(leaf.id, leaf.predicate, deadline: activeDeadline)
+        )
+    }
+
+    mutating func completeDispatch(
+        action leaf: HeistExecution.ActionLeaf,
+        expectation: Expectation,
+        dispatch: TheSafecracker.ActionDispatchResult
+    ) -> HeistExecution.Decision {
+        let observed = HeistExecution.ObservedLeaf(
+            subject: .action(leaf, dispatch: dispatch),
+            expectation: expectation
+        )
+        guard dispatch.success else {
+            return finish(observed, exitPosition: .current)
+        }
+        guard let predicate = observed.explorationPredicate else {
+            running.activeLeaf = .observing(observed)
+            return wait()
+        }
+        return update(
+            .exploring(observed),
+            performing: .explore(leaf.id, predicate, deadline: activeDeadline)
+        )
+    }
+
+    mutating func admitViewportExit(
+        _ leaf: HeistExecution.ObservedLeaf,
+        outcome: Navigation.ViewportExit.Outcome
+    ) -> HeistExecution.Decision {
+        switch outcome {
+        case .failed:
+            return finish(leaf, exitPosition: .current)
+        case .superseded:
+            guard let predicate = leaf.explorationPredicate else {
+                preconditionFailure("A superseded discovery requires an observation predicate")
+            }
             return update(
-                .action(leaf),
-                performing: .dispatch(leaf.id, leaf.command, deadline: activeDeadline)
+                .exploring(leaf),
+                performing: .explore(leaf.id, predicate, deadline: activeDeadline)
             )
+        case .restored, .retained:
+            running.activeLeaf = .observing(leaf)
+            return wait()
+        }
+    }
+}
 
-        case .observation(_, let event, _):
-            return observe(action: leaf, event: event)
-
-        case .dispatchCompleted(let id, let dispatch, _):
-            guard id == leaf.id,
-                  case .dispatching(let expectation) = leaf.phase else {
-                return wait()
-            }
-            return completeDispatch(
-                action: leaf,
-                expectation: expectation,
-                dispatch: dispatch
-            )
-
-        case .viewportExited(let id, let outcome, _):
-            guard id == leaf.id,
-                  case .exploring(let expectation, let dispatch) = leaf.phase else {
-                return wait()
-            }
-            switch outcome {
-            case .failed:
-                return finish(action: leaf, exitPosition: .current)
-            case .superseded:
-                guard let predicate = leaf.expectation.authoredPredicate else {
-                    preconditionFailure("A superseded action discovery requires a predicate")
+extension HeistExecution {
+    mutating func observe(
+        _ activeLeaf: HeistExecution.ActiveLeaf,
+        event: Observation.Event
+    ) -> HeistExecution.Decision {
+        switch activeLeaf {
+        case .observing(var leaf):
+            leaf.expectation = expectation(leaf.expectation, evaluating: event)
+            guard leaf.expectation.result == .satisfied else {
+                if !leaf.expectation.isWaitingOnlyForNoChange,
+                   shouldExplore(after: event, for: leaf.explorationPredicate),
+                   let predicate = leaf.explorationPredicate {
+                    return update(
+                        .exploring(leaf),
+                        performing: .explore(leaf.id, predicate, deadline: activeDeadline)
+                    )
                 }
-                return update(
-                    .action(leaf),
-                    performing: .explore(leaf.id, predicate, deadline: activeDeadline)
-                )
-            case .restored, .retained:
-                leaf.phase = .observing(expectation, dispatch: dispatch)
-                running.activeLeaf = .action(leaf)
+                running.activeLeaf = .observing(leaf)
                 return wait()
             }
+            return finish(leaf, exitPosition: .current)
 
-        case .observationCloseSampled(
-            _,
-            _,
-            _,
-            let evidence,
-            let close,
-            let at
-        ):
-            return admitObservationCloseSample(
-                action: leaf,
-                evidence: evidence,
-                close: close,
-                at: at
-            )
+        case .exploring(var leaf):
+            leaf.expectation = expectation(leaf.expectation, evaluating: event)
+            guard leaf.expectation.result == .satisfied else {
+                running.activeLeaf = .exploring(leaf)
+                return wait()
+            }
+            return finish(leaf, exitPosition: .current)
 
-        case .observationCloseCommitted:
-            return admitObservationCloseCommit(action: leaf)
+        case .finishing(let leaf, _, _):
+            guard case .noChange = event else {
+                return observe(.observing(leaf), event: event)
+            }
+            return wait()
 
-        case .currentSnapshot, .failureScreenshotCaptured, .deadlineElapsed, .cancellationRequested, .cancellationCompleted:
+        case .beginningAction,
+             .dispatching,
+             .beginningWait,
+             .committing:
             return wait()
         }
     }
 
-    mutating func advance(
-        wait leaf: HeistExecution.WaitLeaf,
-        event: HeistExecution.Event
+    mutating func finish(
+        _ leaf: HeistExecution.ObservedLeaf,
+        exitPosition: Navigation.ViewportExitPosition
     ) -> HeistExecution.Decision {
-        var leaf = leaf
-        switch event {
-        case .observationBegan(let id, let baseline, _):
-            guard id == leaf.id,
-                  case .beginningObservation = leaf.phase else {
-                return wait()
-            }
-            if leaf.predicate.isNotification {
-                leaf.phase = .observing(Expectation(
-                    [leaf.predicate.resolved],
-                    requiringNoChange: true
-                ))
-                running.activeLeaf = .wait(leaf)
-                return wait()
-            }
-            return begin(wait: leaf, baseline: baseline)
+        beginObservationClose(
+            leaf,
+            source: .request,
+            capture: .coverage,
+            exitPosition: exitPosition
+        )
+    }
 
-        case .observation(_, let event, _):
-            return observe(wait: leaf, event: event)
+    mutating func sampleDeadlineClose(
+        _ leaf: HeistExecution.ObservedLeaf
+    ) -> HeistExecution.Decision {
+        beginObservationClose(
+            leaf,
+            source: .deadline,
+            capture: .nextCycle,
+            exitPosition: .current
+        )
+    }
 
-        case .viewportExited(let id, let outcome, _):
-            guard id == leaf.id,
-                  case .exploring(let expectation) = leaf.phase else {
-                return wait()
-            }
-            switch outcome {
-            case .failed:
-                return finish(wait: leaf, exitPosition: .current)
-            case .superseded:
-                return update(.wait(leaf), performing: .explore(leaf.id, leaf.predicate, deadline: activeDeadline))
-            case .restored, .retained:
-                leaf.phase = .observing(expectation)
-                running.activeLeaf = .wait(leaf)
-                return wait()
-            }
-
-        case .observationCloseSampled(
-            _,
-            _,
-            _,
-            let evidence,
-            let close,
-            let at
-        ):
-            return admitObservationCloseSample(
-                wait: leaf,
-                evidence: evidence,
-                close: close,
-                at: at
+    mutating func beginObservationClose(
+        _ leaf: HeistExecution.ObservedLeaf,
+        source: HeistExecution.ObservationCloseSource,
+        capture: HeistExecution.ObservationCloseCapture,
+        exitPosition: Navigation.ViewportExitPosition
+    ) -> HeistExecution.Decision {
+        let effectID = nextID()
+        return update(
+            .finishing(
+                leaf,
+                source: source,
+                didCaptureDeadlineStability: false
+            ),
+            performing: .sampleObservationClose(
+                effectID: effectID,
+                observationID: leaf.id,
+                exitPosition: exitPosition,
+                capture: capture,
+                source: source
             )
-
-        case .observationCloseCommitted:
-            return admitObservationCloseCommit(wait: leaf)
-
-        case .currentSnapshot, .dispatchCompleted, .failureScreenshotCaptured, .deadlineElapsed, .cancellationRequested, .cancellationCompleted:
-            return wait()
-        }
+        )
     }
 
     mutating func admitObservationCloseSample(
-        action leaf: HeistExecution.ActionLeaf,
+        _ leaf: HeistExecution.ObservedLeaf,
+        source: HeistExecution.ObservationCloseSource,
+        didCaptureDeadlineStability: Bool,
         evidence: Observation.Evidence,
         close: HeistExecution.ObservationClose,
         at: RuntimeElapsed.Instant
     ) -> HeistExecution.Decision {
-        var leaf = leaf
-        guard case .finishingObservation(
-            let expectation,
-            let dispatch,
-            let source,
-            let didCaptureDeadlineStability
-        ) = leaf.phase else {
-            return wait()
-        }
         let effectID = nextID()
-        let activeLeaf = HeistExecution.ActiveLeaf.action(leaf)
         let outcome = observationOutcome(
-            activeLeaf,
+            leaf,
             source: source,
             close: close,
             evidence: evidence,
@@ -213,19 +343,17 @@ extension HeistExecution {
         )
         let needsProofRefresh = source == .request
             && outcome == .completed
-            && !activeLeaf.expectationIsProven(by: evidence)
+            && !leaf.expectationIsProven(by: evidence)
         let needsDeadlineStability = source == .deadline
             && !didCaptureDeadlineStability
-            && activeLeaf.needsStabilityCapture(after: evidence)
+            && leaf.needsStabilityCapture(after: evidence)
         guard !needsProofRefresh && !needsDeadlineStability else {
-            leaf.phase = .finishingObservation(
-                expectation: expectation,
-                dispatch: dispatch,
-                source: source,
-                didCaptureDeadlineStability: didCaptureDeadlineStability || needsDeadlineStability
-            )
             return update(
-                .action(leaf),
+                .finishing(
+                    leaf,
+                    source: source,
+                    didCaptureDeadlineStability: didCaptureDeadlineStability || needsDeadlineStability
+                ),
                 performing: .sampleObservationClose(
                     effectID: effectID,
                     observationID: leaf.id,
@@ -235,127 +363,67 @@ extension HeistExecution {
                 )
             )
         }
-        leaf.phase = .committingObservation(
-            evidence: evidence,
-            timing: observationTiming(close: close, endedAt: at),
-            outcome: outcome,
-            dispatch: dispatch
-        )
         return update(
-            .action(leaf),
-            performing: .commitObservationClose(effectID, observationID: leaf.id)
-        )
-    }
-
-    mutating func admitObservationCloseCommit(
-        action leaf: HeistExecution.ActionLeaf,
-    ) -> HeistExecution.Decision {
-        guard case .committingObservation(
-            let evidence,
-            let timing,
-            let outcome,
-            _
-        ) = leaf.phase else {
-            return wait()
-        }
-        return resume(afterCompletedLeaf: HeistExecution.ResultProjector.project(
-            action: leaf,
-            evidence: evidence,
-            outcome: outcome,
-            timing: timing
-        ))
-    }
-
-    mutating func admitObservationCloseSample(
-        wait leaf: HeistExecution.WaitLeaf,
-        evidence: Observation.Evidence,
-        close: HeistExecution.ObservationClose,
-        at: RuntimeElapsed.Instant
-    ) -> HeistExecution.Decision {
-        var leaf = leaf
-        guard case .finishingObservation(
-            let expectation,
-            let source,
-            let didCaptureDeadlineStability
-        ) = leaf.phase else {
-            return wait()
-        }
-        let effectID = nextID()
-        let activeLeaf = HeistExecution.ActiveLeaf.wait(leaf)
-        let outcome = observationOutcome(
-            activeLeaf,
-            source: source,
-            close: close,
-            evidence: evidence,
-            at: at
-        )
-        let needsProofRefresh = source == .request
-            && outcome == .completed
-            && !activeLeaf.expectationIsProven(by: evidence)
-        let needsDeadlineStability = source == .deadline
-            && !didCaptureDeadlineStability
-            && activeLeaf.needsStabilityCapture(after: evidence)
-        guard !needsProofRefresh && !needsDeadlineStability else {
-            leaf.phase = .finishingObservation(
-                expectation: expectation,
-                source: source,
-                didCaptureDeadlineStability: didCaptureDeadlineStability || needsDeadlineStability
-            )
-            return update(
-                .wait(leaf),
-                performing: .sampleObservationClose(
-                    effectID: effectID,
-                    observationID: leaf.id,
-                    exitPosition: .current,
-                    capture: needsDeadlineStability ? .nextCycle : .refresh,
-                    source: source
-                )
-            )
-        }
-        leaf.phase = .committingObservation(
-            evidence: evidence,
-            timing: observationTiming(close: close, endedAt: at),
-            outcome: outcome
-        )
-        return update(
-            .wait(leaf),
-            performing: .commitObservationClose(effectID, observationID: leaf.id)
-        )
-    }
-
-    mutating func admitObservationCloseCommit(
-        wait leaf: HeistExecution.WaitLeaf,
-    ) -> HeistExecution.Decision {
-        guard case .committingObservation(
-            let evidence,
-            let timing,
-            let outcome
-        ) = leaf.phase else {
-            return wait()
-        }
-        let expectation = HeistExecution.ResultProjector.expectationEvidence(
-            leaf.predicate,
-            observation: evidence,
-            outcome: outcome,
-            timing: timing
-        )
-        switch leaf.purpose {
-        case .repeatCheck(let loop, let bodyChildren):
-            return resumeRepeatCheck(
-                loop,
-                bodyChildren: bodyChildren,
-                expectation: expectation
-            )
-        case .authored(let step, let context):
-            return resumeAuthoredWait(
-                step: step,
-                context: context,
-                expectation: expectation,
+            .committing(
+                leaf,
+                evidence: evidence,
+                timing: observationTiming(close: close, endedAt: at),
                 outcome: outcome
+            ),
+            performing: .commitObservationClose(effectID, observationID: leaf.id)
+        )
+    }
+
+    mutating func admitObservationCloseCommit(
+        _ leaf: HeistExecution.ObservedLeaf,
+        evidence: Observation.Evidence,
+        timing: HeistExpectationTiming,
+        outcome: HeistExecution.LeafOutcome
+    ) -> HeistExecution.Decision {
+        switch leaf.subject {
+        case .action(let action, let dispatch):
+            return resume(afterCompletedLeaf: HeistExecution.ResultProjector.project(
+                action: action,
+                dispatch: dispatch,
+                evidence: evidence,
+                outcome: outcome,
+                timing: timing
+            ))
+        case .wait(let wait):
+            let expectation = HeistExecution.ResultProjector.expectationEvidence(
+                wait.predicate,
+                observation: evidence,
+                outcome: outcome,
+                timing: timing
             )
+            switch wait.purpose {
+            case .repeatCheck(let loop, let bodyChildren):
+                return resumeRepeatCheck(
+                    loop,
+                    bodyChildren: bodyChildren,
+                    expectation: expectation
+                )
+            case .authored(let step, let context):
+                return resumeAuthoredWait(
+                    step: step,
+                    context: context,
+                    expectation: expectation,
+                    outcome: outcome
+                )
+            }
         }
     }
 
+    mutating func update(
+        _ leaf: HeistExecution.ActiveLeaf,
+        performing effect: HeistExecution.Effect
+    ) -> HeistExecution.Decision {
+        running.activeLeaf = leaf
+        return perform(effect)
+    }
+}
+
+extension HeistExecution {
     mutating func resumeAuthoredWait(
         step: WaitStep,
         context: HeistExecution.StepContext,
@@ -393,294 +461,9 @@ extension HeistExecution {
         )))
         return advanceExecution()
     }
+}
 
-    mutating func begin(
-        wait leaf: HeistExecution.WaitLeaf,
-        baseline: Observation.Snapshot?
-    ) -> HeistExecution.Decision {
-        var leaf = leaf
-        let predicateExpectation = Expectation(
-            [leaf.predicate.resolved],
-            baseline: baseline
-        )
-        let expectation = Expectation(
-            [leaf.predicate.resolved],
-            baseline: baseline,
-            requiringNoChange: true
-        )
-        var canPrepareTarget = false
-        if case .elementsChanged(let assertions) = leaf.predicate.resolved, assertions.count == 1 {
-            switch assertions[0] {
-            case .exists, .disappeared, .updated:
-                canPrepareTarget = true
-            case .missing, .appeared:
-                break
-            }
-        }
-        guard predicateExpectation.result != .satisfied,
-              !predicateExpectation.hasMatchedTemporalBaseline,
-              canPrepareTarget else {
-            leaf.phase = .observing(expectation)
-            running.activeLeaf = .wait(leaf)
-            return wait()
-        }
-        leaf.phase = .exploring(expectation)
-        return update(.wait(leaf), performing: .explore(leaf.id, leaf.predicate, deadline: activeDeadline))
-    }
-
-    mutating func finish(
-        action leaf: HeistExecution.ActionLeaf,
-        exitPosition: Navigation.ViewportExitPosition
-    ) -> HeistExecution.Decision {
-        beginObservationClose(
-            action: leaf,
-            source: .request,
-            capture: .coverage,
-            exitPosition: exitPosition
-        )
-    }
-
-    mutating func sampleDeadlineClose(
-        action leaf: HeistExecution.ActionLeaf
-    ) -> HeistExecution.Decision {
-        beginObservationClose(
-            action: leaf,
-            source: .deadline,
-            capture: .nextCycle,
-            exitPosition: .current
-        )
-    }
-
-    mutating func beginObservationClose(
-        action leaf: HeistExecution.ActionLeaf,
-        source: HeistExecution.ObservationCloseSource,
-        capture: HeistExecution.ObservationCloseCapture,
-        exitPosition: Navigation.ViewportExitPosition
-    ) -> HeistExecution.Decision {
-        var leaf = leaf
-        guard let expectation = leaf.phase.expectation else {
-            guard source == .deadline else {
-                preconditionFailure("An action expectation exists after observation begins")
-            }
-            return resume(afterCompletedLeaf: HeistExecution.ResultProjector.heistTimeout(action: leaf))
-        }
-        guard let dispatch = leaf.phase.dispatch else {
-            guard source == .deadline else { return wait() }
-            return resume(afterCompletedLeaf: HeistExecution.ResultProjector.heistTimeout(action: leaf))
-        }
-        let effectID = nextID()
-        leaf.phase = .finishingObservation(
-            expectation: expectation,
-            dispatch: dispatch,
-            source: source,
-            didCaptureDeadlineStability: false
-        )
-        return update(
-            .action(leaf),
-            performing: .sampleObservationClose(
-                effectID: effectID,
-                observationID: leaf.id,
-                exitPosition: exitPosition,
-                capture: capture,
-                source: source
-            )
-        )
-    }
-
-    mutating func observe(
-        action leaf: HeistExecution.ActionLeaf,
-        event: Observation.Event
-    ) -> HeistExecution.Decision {
-        var leaf = leaf
-        switch leaf.phase {
-        case .dispatching(let expectation):
-            guard case .noChange = event else {
-                leaf.phase = .dispatching(
-                    expectation
-                    .evaluating(event)
-                    .requiringNoChange()
-                )
-                running.activeLeaf = .action(leaf)
-                return wait()
-            }
-            return wait()
-        case .observing(let current, let dispatch):
-            let evaluated = expectation(
-                current,
-                evaluating: event
-            )
-            guard evaluated.result == .satisfied else {
-                if leaf.expectation.authoredPredicate?.resolved.watchTarget != nil,
-                   !evaluated.isWaitingOnlyForNoChange,
-                   shouldExplore(after: event, for: leaf.expectation.authoredPredicate) {
-                    guard let predicate = leaf.expectation.authoredPredicate else {
-                        preconditionFailure("An observing action without a predicate cannot request discovery")
-                    }
-                    leaf.phase = .exploring(evaluated, dispatch: dispatch)
-                    return update(
-                        .action(leaf),
-                        performing: .explore(leaf.id, predicate, deadline: activeDeadline)
-                    )
-                }
-                leaf.phase = .observing(evaluated, dispatch: dispatch)
-                running.activeLeaf = .action(leaf)
-                return wait()
-            }
-            leaf.phase = .observing(evaluated, dispatch: dispatch)
-            return finish(action: leaf, exitPosition: .current)
-        case .exploring(let current, let dispatch):
-            let evaluated = expectation(
-                current,
-                evaluating: event
-            )
-            leaf.phase = .exploring(evaluated, dispatch: dispatch)
-            guard evaluated.result == .satisfied else {
-                running.activeLeaf = .action(leaf)
-                return wait()
-            }
-            return finish(action: leaf, exitPosition: .current)
-        case .finishingObservation(let current, let dispatch, _, _):
-            guard case .noChange = event else {
-                leaf.phase = .observing(current, dispatch: dispatch)
-                return observe(action: leaf, event: event)
-            }
-            return wait()
-        case .committingObservation:
-            return wait()
-        case .beginningObservation:
-            return wait()
-        }
-    }
-
-    mutating func completeDispatch(
-        action leaf: HeistExecution.ActionLeaf,
-        expectation: Expectation,
-        dispatch: TheSafecracker.ActionDispatchResult
-    ) -> HeistExecution.Decision {
-        var leaf = leaf
-        leaf.phase = .observing(expectation, dispatch: dispatch)
-        guard dispatch.success else {
-            return finish(action: leaf, exitPosition: .current)
-        }
-        guard let predicate = leaf.expectation.authoredPredicate,
-              !predicate.isNotification,
-              predicate.resolved.watchTarget != nil else {
-            running.activeLeaf = .action(leaf)
-            return wait()
-        }
-        leaf.phase = .exploring(expectation, dispatch: dispatch)
-        return update(
-            .action(leaf),
-            performing: .explore(leaf.id, predicate, deadline: activeDeadline)
-        )
-    }
-
-    mutating func finish(
-        wait leaf: HeistExecution.WaitLeaf,
-        exitPosition: Navigation.ViewportExitPosition
-    ) -> HeistExecution.Decision {
-        beginObservationClose(
-            wait: leaf,
-            source: .request,
-            capture: .coverage,
-            exitPosition: exitPosition
-        )
-    }
-
-    mutating func sampleDeadlineClose(
-        wait leaf: HeistExecution.WaitLeaf
-    ) -> HeistExecution.Decision {
-        beginObservationClose(
-            wait: leaf,
-            source: .deadline,
-            capture: .nextCycle,
-            exitPosition: .current
-        )
-    }
-
-    mutating func beginObservationClose(
-        wait leaf: HeistExecution.WaitLeaf,
-        source: HeistExecution.ObservationCloseSource,
-        capture: HeistExecution.ObservationCloseCapture,
-        exitPosition: Navigation.ViewportExitPosition
-    ) -> HeistExecution.Decision {
-        var leaf = leaf
-        guard let expectation = leaf.phase.expectation else {
-            guard source == .deadline else {
-                preconditionFailure("A wait expectation exists after observation begins")
-            }
-            return wait()
-        }
-        let effectID = nextID()
-        leaf.phase = .finishingObservation(
-            expectation: expectation,
-            source: source,
-            didCaptureDeadlineStability: false
-        )
-        return update(
-            .wait(leaf),
-            performing: .sampleObservationClose(
-                effectID: effectID,
-                observationID: leaf.id,
-                exitPosition: exitPosition,
-                capture: capture,
-                source: source
-            )
-        )
-    }
-
-    mutating func observe(
-        wait leaf: HeistExecution.WaitLeaf,
-        event: Observation.Event
-    ) -> HeistExecution.Decision {
-        var leaf = leaf
-        switch leaf.phase {
-        case .finishingObservation(let current, _, _):
-            guard case .noChange = event else {
-                leaf.phase = .observing(current)
-                return observe(wait: leaf, event: event)
-            }
-            return wait()
-        case .committingObservation:
-            return wait()
-        case .observing(let current):
-            let evaluated = expectation(current, evaluating: event)
-            guard evaluated.result == .satisfied else {
-                if !evaluated.isWaitingOnlyForNoChange,
-                   shouldExplore(after: event, for: leaf.predicate) {
-                    leaf.phase = .exploring(evaluated)
-                    return update(
-                        .wait(leaf),
-                        performing: .explore(leaf.id, leaf.predicate, deadline: activeDeadline)
-                    )
-                }
-                leaf.phase = .observing(evaluated)
-                running.activeLeaf = .wait(leaf)
-                return wait()
-            }
-            leaf.phase = .observing(evaluated)
-            return finish(wait: leaf, exitPosition: .current)
-        case .exploring(let current):
-            let evaluated = expectation(current, evaluating: event)
-            leaf.phase = .exploring(evaluated)
-            guard evaluated.result == .satisfied else {
-                running.activeLeaf = .wait(leaf)
-                return wait()
-            }
-            return finish(wait: leaf, exitPosition: .current)
-        case .beginningObservation:
-            return wait()
-        }
-    }
-
-    mutating func update(
-        _ leaf: HeistExecution.ActiveLeaf,
-        performing effect: HeistExecution.Effect
-    ) -> HeistExecution.Decision {
-        running.activeLeaf = leaf
-        return perform(effect)
-    }
-
+private extension HeistExecution {
     func shouldExplore(
         after event: Observation.Event,
         for predicate: HeistExecution.Predicate?
@@ -705,7 +488,7 @@ extension HeistExecution {
     }
 
     func observationOutcome(
-        _ leaf: HeistExecution.ActiveLeaf,
+        _ leaf: HeistExecution.ObservedLeaf,
         source: HeistExecution.ObservationCloseSource,
         close: HeistExecution.ObservationClose,
         evidence: Observation.Evidence,

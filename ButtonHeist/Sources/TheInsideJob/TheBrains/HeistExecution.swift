@@ -285,12 +285,92 @@ extension HeistExecution {
 
 extension HeistExecution {
     internal enum ActiveLeaf: Sendable {
-        case action(ActionLeaf)
-        case wait(WaitLeaf)
+        case beginningAction(ActionLeaf)
+        case dispatching(ActionLeaf, expectation: Expectation)
+        case beginningWait(WaitLeaf)
+        case observing(ObservedLeaf)
+        case exploring(ObservedLeaf)
+        case finishing(
+            ObservedLeaf,
+            source: ObservationCloseSource,
+            didCaptureDeadlineStability: Bool
+        )
+        case committing(
+            ObservedLeaf,
+            evidence: Observation.Evidence,
+            timing: HeistExpectationTiming,
+            outcome: LeafOutcome
+        )
 
         internal var id: EffectID {
             switch self {
-            case .action(let leaf):
+            case .beginningAction(let leaf), .dispatching(let leaf, _):
+                leaf.id
+            case .beginningWait(let leaf):
+                leaf.id
+            case .observing(let leaf),
+                 .exploring(let leaf),
+                 .finishing(let leaf, _, _),
+                 .committing(let leaf, _, _, _):
+                leaf.id
+            }
+        }
+
+        internal var observed: ObservedLeaf? {
+            switch self {
+            case .observing(let leaf),
+                 .exploring(let leaf),
+                 .finishing(let leaf, _, _),
+                 .committing(let leaf, _, _, _):
+                leaf
+            case .beginningAction, .dispatching, .beginningWait:
+                nil
+            }
+        }
+
+        internal var action: ActionLeaf? {
+            switch self {
+            case .beginningAction(let leaf), .dispatching(let leaf, _):
+                return leaf
+            case .observing(let leaf),
+                 .exploring(let leaf),
+                 .finishing(let leaf, _, _),
+                 .committing(let leaf, _, _, _):
+                guard case .action(let action, _) = leaf.subject else { return nil }
+                return action
+            case .beginningWait:
+                return nil
+            }
+        }
+
+        internal var wait: WaitLeaf? {
+            switch self {
+            case .beginningWait(let leaf):
+                return leaf
+            case .observing(let leaf),
+                 .exploring(let leaf),
+                 .finishing(let leaf, _, _),
+                 .committing(let leaf, _, _, _):
+                guard case .wait(let wait) = leaf.subject else { return nil }
+                return wait
+            case .beginningAction, .dispatching:
+                return nil
+            }
+        }
+    }
+
+    internal struct ObservedLeaf: Sendable {
+        internal enum Subject: Sendable {
+            case action(ActionLeaf, dispatch: TheSafecracker.ActionDispatchResult)
+            case wait(WaitLeaf)
+        }
+
+        internal let subject: Subject
+        internal var expectation: Expectation
+
+        internal var id: EffectID {
+            switch subject {
+            case .action(let leaf, _):
                 leaf.id
             case .wait(let leaf):
                 leaf.id
@@ -323,14 +403,13 @@ extension HeistExecution {
         }
 
         private var authoredPredicates: [ObservationPredicate] {
-            switch self {
-            case .action(let leaf):
+            switch subject {
+            case .action(let leaf, _):
                 leaf.expectation.authoredPredicates
             case .wait(let leaf):
                 [leaf.predicate.resolved]
             }
         }
-
     }
 
     internal struct ActionLeaf: Sendable {
@@ -339,98 +418,17 @@ extension HeistExecution {
         internal let command: ResolvedHeistActionCommand
         internal let expectation: ActionObservationExpectation
         internal let path: HeistExecutionPath
-        internal var phase: ActionLeafPhase
-
     }
 
     internal struct WaitLeaf: Sendable {
         internal let id: EffectID
         internal let predicate: Predicate
         internal let purpose: WaitPurpose
-        internal var phase: WaitLeafPhase
-
     }
 
     internal enum WaitPurpose: Sendable {
         case authored(step: WaitStep, context: StepContext)
         case repeatCheck(loop: RepeatUntilContinuation, bodyChildren: HeistPassingChildren)
-    }
-
-    internal enum ActionLeafPhase: Sendable {
-        case beginningObservation
-        case dispatching(Expectation)
-        case observing(Expectation, dispatch: TheSafecracker.ActionDispatchResult)
-        case exploring(Expectation, dispatch: TheSafecracker.ActionDispatchResult)
-        case finishingObservation(
-            expectation: Expectation,
-            dispatch: TheSafecracker.ActionDispatchResult,
-            source: ObservationCloseSource,
-            didCaptureDeadlineStability: Bool
-        )
-        case committingObservation(
-            evidence: Observation.Evidence,
-            timing: HeistExpectationTiming,
-            outcome: LeafOutcome,
-            dispatch: TheSafecracker.ActionDispatchResult
-        )
-
-        internal var expectation: Expectation? {
-            switch self {
-            case .beginningObservation:
-                nil
-            case .dispatching(let expectation),
-                 .observing(let expectation, _),
-                 .exploring(let expectation, _),
-                 .finishingObservation(let expectation, _, _, _):
-                expectation
-            case .committingObservation:
-                nil
-            }
-        }
-
-        internal var dispatch: TheSafecracker.ActionDispatchResult? {
-            switch self {
-            case .beginningObservation, .dispatching:
-                nil
-            case .observing(_, let dispatch),
-                 .exploring(_, let dispatch),
-                 .finishingObservation(_, let dispatch, _, _):
-                dispatch
-            case .committingObservation(_, _, _, let dispatch):
-                dispatch
-            }
-        }
-
-    }
-
-    internal enum WaitLeafPhase: Sendable {
-        case beginningObservation
-        case observing(Expectation)
-        case exploring(Expectation)
-        case finishingObservation(
-            expectation: Expectation,
-            source: ObservationCloseSource,
-            didCaptureDeadlineStability: Bool
-        )
-        case committingObservation(
-            evidence: Observation.Evidence,
-            timing: HeistExpectationTiming,
-            outcome: LeafOutcome
-        )
-
-        internal var expectation: Expectation? {
-            switch self {
-            case .beginningObservation:
-                nil
-            case .observing(let expectation),
-                 .exploring(let expectation),
-                 .finishingObservation(let expectation, _, _):
-                expectation
-            case .committingObservation:
-                nil
-            }
-        }
-
     }
 }
 

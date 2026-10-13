@@ -48,13 +48,12 @@ extension HeistExecution {
         let id = nextID()
         let deadline = observationDeadline(observationTimeout)
         running.observationDeadline = deadline
-        running.activeLeaf = .action(HeistExecution.ActionLeaf(
+        running.activeLeaf = .beginningAction(HeistExecution.ActionLeaf(
             id: id,
             step: step,
             command: command,
             expectation: expectation,
-            path: path,
-            phase: .beginningObservation
+            path: path
         ))
         return perform(.beginObservation(
             id,

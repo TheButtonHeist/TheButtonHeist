@@ -129,12 +129,14 @@ extension HeistExecution {
 
         internal static func project(
             action leaf: ActionLeaf,
+            dispatch: TheSafecracker.ActionDispatchResult,
             evidence: Observation.Evidence,
             outcome: LeafOutcome,
             timing: HeistExpectationTiming
         ) -> HeistExecutionStepResult {
             let actionResult = actionResult(
                 leaf: leaf,
+                dispatch: dispatch,
                 evidence: evidence,
                 outcome: outcome
             )
@@ -154,7 +156,7 @@ extension HeistExecution {
                     command: leaf.step.command,
                     evidence: .init(admitted: evidence)
                 )
-            } else if leaf.phase.dispatch?.success == true {
+            } else if dispatch.success {
                 execution = .failed(
                     command: leaf.step.command,
                     evidence: .init(admitted: evidence),
@@ -261,6 +263,7 @@ extension HeistExecution.ResultProjector {
 
     static func actionResult(
         leaf: HeistExecution.ActionLeaf,
+        dispatch: TheSafecracker.ActionDispatchResult,
         evidence: Observation.Evidence,
         outcome: HeistExecution.LeafOutcome
     ) -> ActionResult {
@@ -269,23 +272,12 @@ extension HeistExecution.ResultProjector {
             return .failure(
                 payload: .empty(for: leaf.command.type),
                 failureKind: .timeout,
-                message: leaf.phase.expectation?.result.outstandingDescription.map {
-                    "timed out while waiting for \($0)"
-                } ?? "timed out",
+                message: "timed out",
                 observation: .observed(evidence)
             )
         case .completed, .cancelled, .unavailable, .viewportExitFailed:
             break
         }
-        guard let dispatch = leaf.phase.dispatch else {
-            return .failure(
-                payload: .empty(for: leaf.command.type),
-                failureKind: .actionFailed,
-                message: "action dispatch did not complete",
-                observation: .observed(evidence)
-            )
-        }
-
         let resultOutcome: ActionResultOutcome
         let message: String?
         switch outcome {

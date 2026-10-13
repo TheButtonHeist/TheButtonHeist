@@ -28,6 +28,28 @@ flowchart LR
     Stream -->|"acknowledge after commit"| Notice
 ```
 
+Inside the reducer, action dispatch and wait admission converge on one observed
+leaf before any shared observation work begins:
+
+```mermaid
+stateDiagram-v2
+    [*] --> BeginningAction
+    [*] --> BeginningWait
+    BeginningAction --> Dispatching
+    Dispatching --> Observing: dispatch completed
+    BeginningWait --> Observing: predicate admitted
+    Observing --> Exploring: viewport work required
+    Exploring --> Observing: viewport event admitted
+    Observing --> Finishing: outcome reached
+    Finishing --> Observing: more proof required
+    Finishing --> Committing: terminal evidence complete
+    Committing --> [*]
+```
+
+`ObservedLeaf` carries either an action with its completed dispatch evidence or
+a wait with its predicate. The `observing`, `exploring`, `finishing`, and
+`committing` phases therefore have one owner and cannot drift by leaf kind.
+
 One typed pulse starts at most one claim, capture, parse, commit, publication,
 and evaluation cycle. Production obtains it from the display-link adapter;
 deterministic execution authors it directly and never starts a display link.
