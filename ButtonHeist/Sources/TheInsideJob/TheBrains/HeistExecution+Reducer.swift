@@ -210,13 +210,11 @@ extension HeistExecution {
         private mutating func reduceDeadline() -> Decision {
             guard case .running = state else { return unchangedDecision() }
             if let activeLeaf = running.activeLeaf {
-                switch activeLeaf {
-                case .action(let leaf) where leaf.phase.dispatch != nil:
-                    return sampleDeadlineClose(action: leaf)
-                case .wait(let leaf):
-                    return sampleDeadlineClose(wait: leaf)
-                case .action(let leaf):
-                    return resume(afterCompletedLeaf: HeistExecution.ResultProjector.heistTimeout(action: leaf))
+                if let observed = activeLeaf.observed {
+                    return sampleDeadlineClose(observed)
+                }
+                if let action = activeLeaf.action {
+                    return resume(afterCompletedLeaf: HeistExecution.ResultProjector.heistTimeout(action: action))
                 }
             }
             if !running.executionDeadline.hasTimeRemaining(at: running.now) {

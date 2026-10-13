@@ -38,11 +38,10 @@ extension HeistExecution {
         let id = nextID()
         let deadline = observationDeadline(HeistExecution.duration(timeout))
         running.observationDeadline = deadline
-        running.activeLeaf = .wait(HeistExecution.WaitLeaf(
+        running.activeLeaf = .beginningWait(HeistExecution.WaitLeaf(
             id: id,
             predicate: predicate,
-            purpose: purpose,
-            phase: .beginningObservation
+            purpose: purpose
         ))
         return perform(.beginObservation(
             id,

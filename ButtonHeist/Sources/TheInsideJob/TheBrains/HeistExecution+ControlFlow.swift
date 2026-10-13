@@ -44,12 +44,12 @@ extension HeistExecution {
 
     mutating func finishAfterHeistTimeout() -> HeistExecution.Decision {
         if let activeLeaf = running.activeLeaf {
-            let result: HeistExecutionStepResult
-            switch activeLeaf {
-            case .action(let leaf):
-                result = HeistExecution.ResultProjector.heistTimeout(action: leaf)
-            case .wait(let leaf):
-                switch leaf.purpose {
+            if let action = activeLeaf.action {
+                return resume(afterCompletedLeaf: HeistExecution.ResultProjector.heistTimeout(action: action))
+            }
+            if let wait = activeLeaf.wait {
+                let result: HeistExecutionStepResult
+                switch wait.purpose {
                 case .authored(let step, let context):
                     result = HeistExecution.ResultProjector.heistTimeout(
                         wait: step,
@@ -62,8 +62,9 @@ extension HeistExecution {
                         snapshot: nil
                     )
                 }
+                return resume(afterCompletedLeaf: result)
             }
-            return resume(afterCompletedLeaf: result)
+            preconditionFailure("An active leaf must retain its action or wait payload")
         }
 
         guard let continuation = running.continuations.popLast() else {

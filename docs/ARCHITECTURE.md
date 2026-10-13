@@ -210,6 +210,14 @@ the same decisions. There is no second command API, operation result,
 caller-provided baseline, history-start argument, or execution owner. Actions
 and waits are private reducer progress, not separate executors.
 
+Action and wait admission differ only before observation: an action must
+dispatch and retain its typed dispatch result, while a wait begins from its
+resolved predicate. Both then become one `ObservedLeaf` and advance through
+the same `observing -> exploring -> finishing -> committing` state machine.
+The observed subject carries either the action plus dispatch evidence or the
+wait payload, so cross-kind states remain unconstructible without duplicating
+the observation lifecycle.
+
 `HeistExecution` owns the original leaf and whole-heist deadlines. It gives each
 boundary operation the earlier absolute deadline, but keeps both original
 values so it can classify leaf and heist timeouts correctly.

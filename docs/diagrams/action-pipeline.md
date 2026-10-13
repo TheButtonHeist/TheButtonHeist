@@ -69,9 +69,10 @@ sequenceDiagram
     Execution-->>Host: next Decision
 ```
 
-The action leaf owns predicate progress but performs no effects. The host owns
-dispatch, viewport work, live resources, clock reads, and waits. The reducer
-owns deadline and cancellation meaning. The
+The action retains only its authored command and dispatch evidence. After
+dispatch, its `ObservedLeaf` owns the same predicate and proof progress as a
+wait. The host owns dispatch, viewport work, live resources, clock reads, and
+waits. The reducer owns deadline and cancellation meaning. The
 stream owns pulse-driven capture and notification admission. The Vault owns
 current truth and history. Successful steps release history before the next
 leaf; their immutable evidence stays in the result. `ActionResult` is projected
