@@ -118,15 +118,10 @@ package typealias HeistWaitCompletion = HeistExecutionCompletion<
 package typealias HeistCaseSelectionCompletion = HeistExecutionCompletion<
     HeistCaseSelectionEvidence, HeistCaseSelectionEvidence?, HeistCaseSelectionEvidence
 >
-package typealias HeistForEachElementCompletion = HeistExecutionCompletion<
-    HeistPassedForEachElementEvidence,
-    HeistFailedForEachElementEvidence?,
-    HeistFailedForEachElementEvidence
->
-package typealias HeistForEachStringCompletion = HeistExecutionCompletion<
-    HeistPassedForEachStringEvidence,
-    HeistFailedForEachStringEvidence?,
-    HeistFailedForEachStringEvidence
+package typealias HeistForEachCompletion = HeistExecutionCompletion<
+    HeistPassedForEachEvidence,
+    HeistFailedForEachEvidence?,
+    HeistFailedForEachEvidence
 >
 package typealias HeistRepeatUntilCompletion = HeistExecutionCompletion<
     HeistPassedRepeatUntilEvidence,
@@ -182,6 +177,31 @@ package struct HeistForEachElementDeclaration: Sendable, Equatable {
     }
 }
 
+package enum HeistForEachDeclaration: Sendable, Equatable {
+    package enum Source: Sendable, Equatable {
+        case strings
+        case elements
+    }
+
+    case strings(HeistForEachStringDeclaration)
+    case elements(HeistForEachElementDeclaration)
+
+    package init(_ step: ForEachStringStep) {
+        self = .strings(.init(step))
+    }
+
+    package init(_ step: ForEachElementStep) {
+        self = .elements(.init(step))
+    }
+
+    package var source: Source {
+        switch self {
+        case .strings: .strings
+        case .elements: .elements
+        }
+    }
+}
+
 package struct HeistRepeatUntilDeclaration: Sendable, Equatable {
     package let predicate: AccessibilityPredicate
     package let timeout: WaitTimeout
@@ -207,9 +227,12 @@ public struct HeistExecutionStepResult: Codable, Sendable, Equatable {
         case .action: .action
         case .wait: .wait
         case .conditional: .conditional
-        case .forEachElement: .forEachElement
-        case .forEachString: .forEachString
-        case .forEachElementIteration, .forEachStringIteration: .forEachIteration
+        case .forEach(let declaration, _):
+            switch declaration {
+            case .strings: .forEachString
+            case .elements: .forEachElement
+            }
+        case .forEachIteration: .forEachIteration
         case .repeatUntil: .repeatUntil
         case .repeatUntilIteration: .repeatUntilIteration
         case .warning: .warn
@@ -224,14 +247,9 @@ public struct HeistExecutionStepResult: Codable, Sendable, Equatable {
     public var children: [HeistExecutionStepResult] { node.facts.children }
     public var abortedAtChildPath: HeistExecutionPath? { node.facts.abortedAtChildPath }
 
-    package var isForEachElementIteration: Bool {
-        guard case .forEachElementIteration = node else { return false }
-        return true
-    }
-
-    package var isForEachStringIteration: Bool {
-        guard case .forEachStringIteration = node else { return false }
-        return true
+    package var forEachIterationSource: HeistForEachDeclaration.Source? {
+        guard case .forEachIteration(let declaration, _) = node else { return nil }
+        return declaration.source
     }
 
     private enum CodingKeys: String, CodingKey, CaseIterable {
@@ -333,10 +351,8 @@ public extension HeistExecutionStepResult {
         case .wait:
             try waitEvidence?.replay()
         case .conditional,
-             .forEachElement,
-             .forEachString,
-             .forEachElementIteration,
-             .forEachStringIteration,
+             .forEach,
+             .forEachIteration,
              .repeatUntil,
              .repeatUntilIteration,
              .warning,
@@ -356,24 +372,10 @@ public extension HeistExecutionStepResult {
         }
     }
 
-    var forEachStringEvidence: HeistForEachStringEvidence? {
-        let completion: HeistForEachStringCompletion
+    var forEachEvidence: HeistForEachEvidence? {
+        let completion: HeistForEachCompletion
         switch node {
-        case .forEachString(_, let value), .forEachStringIteration(_, let value): completion = value
-        default: return nil
-        }
-        switch completion {
-        case .passed(let evidence, _): return evidence.value
-        case .failed(let evidence, _, _): return evidence?.value
-        case .childAborted(let evidence, _, _): return evidence.value
-        case .skipped: return nil
-        }
-    }
-
-    var forEachElementEvidence: HeistForEachElementEvidence? {
-        let completion: HeistForEachElementCompletion
-        switch node {
-        case .forEachElement(_, let value), .forEachElementIteration(_, let value): completion = value
+        case .forEach(_, let value), .forEachIteration(_, let value): completion = value
         default: return nil
         }
         switch completion {

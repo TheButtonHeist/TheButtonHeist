@@ -200,14 +200,14 @@ public struct HeistResult: Codable, Sendable, Equatable {
             try admitLoopIterationCount(
                 step,
                 observed: childEdges.count { $0.edge.branch == .forEachElementIterations },
-                expected: step.forEachElementEvidence?.iterationCount,
+                expected: step.forEachEvidence?.iterationCount,
                 loopName: "for_each_element"
             )
         case .forEachString:
             try admitLoopIterationCount(
                 step,
                 observed: childEdges.count { $0.edge.branch == .forEachStringIterations },
-                expected: step.forEachStringEvidence?.iterationCount,
+                expected: step.forEachEvidence?.iterationCount,
                 loopName: "for_each_string"
             )
         case .repeatUntil:

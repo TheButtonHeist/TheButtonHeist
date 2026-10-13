@@ -12,16 +12,8 @@ enum HeistExecutionStepNode: Codable, Sendable, Equatable {
     case action(command: HeistActionCommand, completion: HeistActionCompletion)
     case wait(predicate: AccessibilityPredicate, timeout: WaitTimeout, completion: HeistWaitCompletion)
     case conditional(completion: HeistCaseSelectionCompletion)
-    case forEachElement(declaration: HeistForEachElementDeclaration, completion: HeistForEachElementCompletion)
-    case forEachElementIteration(
-        declaration: HeistForEachElementDeclaration,
-        completion: HeistForEachElementCompletion
-    )
-    case forEachString(declaration: HeistForEachStringDeclaration, completion: HeistForEachStringCompletion)
-    case forEachStringIteration(
-        declaration: HeistForEachStringDeclaration,
-        completion: HeistForEachStringCompletion
-    )
+    case forEach(declaration: HeistForEachDeclaration, completion: HeistForEachCompletion)
+    case forEachIteration(declaration: HeistForEachDeclaration, completion: HeistForEachCompletion)
     case repeatUntil(declaration: HeistRepeatUntilDeclaration, completion: HeistRepeatUntilCompletion)
     case repeatUntilIteration(
         declaration: HeistRepeatUntilDeclaration,
@@ -37,10 +29,8 @@ enum HeistExecutionStepNode: Codable, Sendable, Equatable {
         case .action(_, let completion): completion.facts
         case .wait(_, _, let completion): completion.facts
         case .conditional(let completion): completion.facts
-        case .forEachElement(_, let completion),
-             .forEachElementIteration(_, let completion): completion.facts
-        case .forEachString(_, let completion),
-             .forEachStringIteration(_, let completion): completion.facts
+        case .forEach(_, let completion),
+             .forEachIteration(_, let completion): completion.facts
         case .repeatUntil(_, let completion): completion.facts
         case .repeatUntilIteration(_, let completion): completion.facts
         case .invocation(_, _, let completion): completion.facts

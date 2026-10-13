@@ -679,6 +679,11 @@ Decoding immediately routes the private decoded node through the same factories
 and rejects incompatible external fields. There is no `Result` repair path or
 synthetic fallback result. Status and abort paths derive from the private node,
 and the wire decoder accepts only fields legal for its `type` and `outcome`.
+String and element collection loops converge on one `HeistForEachEvidence`,
+completion, summary node, iteration node, and report evidence case. Its typed
+source and iteration subject retain the authored loop semantics; the wire codec
+projects those semantics back to the distinct `for_each_string` and
+`for_each_element` spellings.
 
 `ActionDispatchResult` is the one aggregate of app-side action dispatch. It
 retains the action payload and evidence beside one standard-library

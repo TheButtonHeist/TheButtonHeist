@@ -92,7 +92,7 @@ final class MenuOrderDogfoodHeistTests: XCTestCase {
         let items = try XCTUnwrap(root.children.dropFirst().first)
         XCTAssertEqual(reportRoot.children.first?.invocationDisplayName, #"RunHeist("DemoNavigation.openMenu")"#)
         XCTAssertEqual(reportRoot.children.last?.invocationDisplayName, #"RunHeist("MenuScreen.checkout")"#)
-        XCTAssertEqual(items.forEachStringEvidence?.iterationCount, DemoOrder.itemLabels.count)
+        XCTAssertEqual(items.forEachEvidence?.iterationCount, DemoOrder.itemLabels.count)
     }
 }
 

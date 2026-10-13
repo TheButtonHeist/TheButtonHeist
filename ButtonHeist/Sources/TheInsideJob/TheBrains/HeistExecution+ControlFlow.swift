@@ -84,7 +84,7 @@ extension HeistExecution {
                 )
             )
         case .forEachElement(let loop):
-            result = .forEachElement(
+            result = .forEach(
                 path: loop.context.path,
                 declaration: .init(loop.step),
                 completion: .failed(
@@ -610,7 +610,7 @@ private extension HeistExecution {
         }
 
         let previousOrdinal = loop.iterations.values.last?
-            .forEachElementEvidence?.targetOrdinal ?? -1
+            .forEachEvidence?.targetOrdinal ?? -1
         let ordinal = initialSelection || matchHash != previousMatchHash
             ? 0
             : previousOrdinal + 1
@@ -762,18 +762,20 @@ private extension HeistExecution {
             preconditionFailure("For-each iteration evidence requires a selected target")
         }
         let failureReason = children.abortedAtPath.map { "child failed at \($0)" }
-        let evidence = HeistForEachElementEvidence.executedIteration(
-            matchedCount: loop.matchedCount,
+        let evidence = HeistForEachEvidence.executed(
+            source: .elements(matchedCount: loop.matchedCount),
             iterationCount: loop.iterationIndex + 1,
-            iterationOrdinal: loop.iterationIndex,
-            targetOrdinal: targetOrdinal,
-            targetSummary: ResolvedAccessibilityTarget.predicate(
-                loop.resolvedMatching,
-                ordinal: targetOrdinal
-            ).description,
+            iteration: .element(
+                ordinal: loop.iterationIndex,
+                targetOrdinal: targetOrdinal,
+                targetSummary: ResolvedAccessibilityTarget.predicate(
+                    loop.resolvedMatching,
+                    ordinal: targetOrdinal
+                ).description
+            ),
             failureReason: failureReason
         )
-        let completion: HeistForEachElementCompletion = children.fold(
+        let completion: HeistForEachCompletion = children.fold(
             passed: { .passed(evidence: .init(admitted: evidence), children: $0) },
             aborted: {
                 .childAborted(
@@ -783,7 +785,7 @@ private extension HeistExecution {
                 )
             }
         )
-        return .forEachElementIteration(
+        return .forEachIteration(
             path: loop.context.path.forEachElementIteration(at: loop.iterationIndex),
             declaration: .init(loop.step),
             completion: completion
@@ -797,12 +799,12 @@ private extension HeistExecution {
         iterations: HeistExecutedChildren,
         failureReason: String?
     ) -> HeistExecutionStepResult {
-        let evidence = HeistForEachElementEvidence.executedSummary(
-            matchedCount: matchedCount,
+        let evidence = HeistForEachEvidence.executed(
+            source: .elements(matchedCount: matchedCount),
             iterationCount: iterations.values.count,
             failureReason: failureReason
         )
-        let completion: HeistForEachElementCompletion = iterations.fold(
+        let completion: HeistForEachCompletion = iterations.fold(
             passed: { .passed(evidence: .init(admitted: evidence), children: $0) },
             aborted: {
                 .childAborted(
@@ -817,7 +819,7 @@ private extension HeistExecution {
                 )
             }
         )
-        return .forEachElement(
+        return .forEach(
             path: context.path,
             declaration: .init(step),
             completion: completion
@@ -830,13 +832,13 @@ private extension HeistExecution {
     ) -> HeistExecutionStepResult {
         let value = loop.step.values[loop.iterationIndex]
         let failureReason = children.abortedAtPath.map { "child failed at \($0)" }
-        let evidence = HeistForEachStringEvidence.executedIteration(
+        let evidence = HeistForEachEvidence.executed(
+            source: .strings,
             iterationCount: loop.iterationIndex + 1,
-            iterationOrdinal: loop.iterationIndex,
-            value: value,
+            iteration: .string(ordinal: loop.iterationIndex, value: value),
             failureReason: failureReason
         )
-        let completion: HeistForEachStringCompletion = children.fold(
+        let completion: HeistForEachCompletion = children.fold(
             passed: { .passed(evidence: .init(admitted: evidence), children: $0) },
             aborted: {
                 .childAborted(
@@ -846,7 +848,7 @@ private extension HeistExecution {
                 )
             }
         )
-        return .forEachStringIteration(
+        return .forEachIteration(
             path: loop.context.path.forEachStringIteration(at: loop.iterationIndex),
             declaration: .init(loop.step),
             completion: completion
@@ -857,11 +859,12 @@ private extension HeistExecution {
         _ loop: HeistExecution.ForEachStringContinuation,
         failureReason: String?
     ) -> HeistExecutionStepResult {
-        let evidence = HeistForEachStringEvidence.executedSummary(
+        let evidence = HeistForEachEvidence.executed(
+            source: .strings,
             iterationCount: loop.iterations.values.count,
             failureReason: failureReason
         )
-        let completion: HeistForEachStringCompletion = loop.iterations.fold(
+        let completion: HeistForEachCompletion = loop.iterations.fold(
             passed: { .passed(evidence: .init(admitted: evidence), children: $0) },
             aborted: {
                 .childAborted(
@@ -876,7 +879,7 @@ private extension HeistExecution {
                 )
             }
         )
-        return .forEachString(
+        return .forEach(
             path: loop.context.path,
             declaration: .init(loop.step),
             completion: completion
@@ -890,12 +893,12 @@ private extension HeistExecution {
         let observed = loop.previousMatchHash == nil
             ? "could not observe the current semantic snapshot before evaluating for_each_element"
             : "iteration \(failedIterationIndex) post-observation unavailable"
-        let evidence = HeistFailedForEachElementEvidence(admitted: .executedSummary(
-            matchedCount: loop.matchedCount,
+        let evidence = HeistFailedForEachEvidence(admitted: .executed(
+            source: .elements(matchedCount: loop.matchedCount),
             iterationCount: loop.iterations.values.count,
             failureReason: observed
         ))
-        return .forEachElement(
+        return .forEach(
             path: loop.context.path,
             declaration: .init(loop.step),
             completion: .failed(
@@ -916,12 +919,12 @@ private extension HeistExecution {
         error: Error
     ) -> HeistExecutionStepResult {
         let observed = "could not resolve for_each_element matcher: \(error)"
-        let evidence = HeistFailedForEachElementEvidence(admitted: .executedSummary(
-            matchedCount: 0,
+        let evidence = HeistFailedForEachEvidence(admitted: .executed(
+            source: .elements(matchedCount: 0),
             iterationCount: 0,
             failureReason: observed
         ))
-        return .forEachElement(
+        return .forEach(
             path: context.path,
             declaration: .init(step),
             completion: .failed(evidence: evidence, failure: .init(
@@ -939,12 +942,12 @@ private extension HeistExecution {
         matchedCount: Int
     ) -> HeistExecutionStepResult {
         let observed = "matched \(matchedCount) element(s), exceeding for_each_element limit \(step.limit)"
-        let evidence = HeistFailedForEachElementEvidence(admitted: .executedSummary(
-            matchedCount: matchedCount,
+        let evidence = HeistFailedForEachEvidence(admitted: .executed(
+            source: .elements(matchedCount: matchedCount),
             iterationCount: 0,
             failureReason: observed
         ))
-        return .forEachElement(
+        return .forEach(
             path: context.path,
             declaration: .init(step),
             completion: .failed(evidence: evidence, failure: .init(

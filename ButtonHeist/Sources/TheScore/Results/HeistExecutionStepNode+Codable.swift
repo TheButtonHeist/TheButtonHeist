@@ -67,10 +67,11 @@ extension HeistExecutionStepNode {
                 semanticKeys: [.type],
                 typeName: type.rawValue
             ))
-        case .forEachElement, .forEachElementIteration:
-            self = try Self.decodeForEachElement(type, from: container)
-        case .forEachString, .forEachStringIteration:
-            self = try Self.decodeForEachString(type, from: container)
+        case .forEachElement,
+             .forEachElementIteration,
+             .forEachString,
+             .forEachStringIteration:
+            self = try Self.decodeForEach(type, from: container)
         case .repeatUntil:
             self = try Self.decodeRepeatUntil(from: container)
         case .repeatUntilIteration:
@@ -115,47 +116,54 @@ extension HeistExecutionStepNode {
         return .action(command: command, completion: completion)
     }
 
-    private static func decodeForEachElement(
+    private static func decodeForEach(
         _ type: NodeType,
         from container: KeyedDecodingContainer<CodingKeys>
     ) throws -> Self {
-        guard let declaration = HeistForEachElementDeclaration(
-            parameter: try container.decode(HeistReferenceName.self, forKey: .parameter),
-            matching: try container.decode(ElementPredicate.self, forKey: .matching),
-            limit: try container.decode(Int.self, forKey: .limit)
-        ) else {
-            throw invalidNode(forKey: .limit, in: container, "for_each_element limit must be positive")
+        let declaration: HeistForEachDeclaration
+        let semanticKeys: Set<CodingKeys>
+        let isIteration: Bool
+        switch type {
+        case .forEachElement, .forEachElementIteration:
+            guard let element = HeistForEachElementDeclaration(
+                parameter: try container.decode(HeistReferenceName.self, forKey: .parameter),
+                matching: try container.decode(ElementPredicate.self, forKey: .matching),
+                limit: try container.decode(Int.self, forKey: .limit)
+            ) else {
+                throw invalidNode(forKey: .limit, in: container, "for_each_element limit must be positive")
+            }
+            declaration = .elements(element)
+            semanticKeys = [.type, .parameter, .matching, .limit]
+            isIteration = type == .forEachElementIteration
+        case .forEachString, .forEachStringIteration:
+            guard let strings = HeistForEachStringDeclaration(
+                parameter: try container.decode(HeistReferenceName.self, forKey: .parameter),
+                count: try container.decode(Int.self, forKey: .count)
+            ) else {
+                throw invalidNode(forKey: .count, in: container, "for_each_string count must be nonnegative")
+            }
+            declaration = .strings(strings)
+            semanticKeys = [.type, .parameter, .count]
+            isIteration = type == .forEachStringIteration
+        case .action,
+             .wait,
+             .conditional,
+             .repeatUntil,
+             .repeatUntilIteration,
+             .warning,
+             .failure,
+             .heist,
+             .invocation:
+            preconditionFailure("Only for_each node types reach for_each decoding")
         }
-        let completion: HeistForEachElementCompletion = try decodeCompletion(
+        let completion: HeistForEachCompletion = try decodeCompletion(
             from: container,
-            semanticKeys: [.type, .parameter, .matching, .limit],
+            semanticKeys: semanticKeys,
             typeName: type.rawValue
         )
-        let node: Self = type == .forEachElementIteration
-            ? .forEachElementIteration(declaration: declaration, completion: completion)
-            : .forEachElement(declaration: declaration, completion: completion)
-        return node
-    }
-
-    private static func decodeForEachString(
-        _ type: NodeType,
-        from container: KeyedDecodingContainer<CodingKeys>
-    ) throws -> Self {
-        guard let declaration = HeistForEachStringDeclaration(
-            parameter: try container.decode(HeistReferenceName.self, forKey: .parameter),
-            count: try container.decode(Int.self, forKey: .count)
-        ) else {
-            throw invalidNode(forKey: .count, in: container, "for_each_string count must be nonnegative")
-        }
-        let completion: HeistForEachStringCompletion = try decodeCompletion(
-            from: container,
-            semanticKeys: [.type, .parameter, .count],
-            typeName: type.rawValue
-        )
-        let node: Self = type == .forEachStringIteration
-            ? .forEachStringIteration(declaration: declaration, completion: completion)
-            : .forEachString(declaration: declaration, completion: completion)
-        return node
+        return isIteration
+            ? .forEachIteration(declaration: declaration, completion: completion)
+            : .forEach(declaration: declaration, completion: completion)
     }
 
     private static func decodeRepeatUntil(
@@ -211,18 +219,10 @@ extension HeistExecutionStepNode {
         case .conditional(let completion):
             try container.encode(NodeType.conditional, forKey: .type)
             try Self.encode(completion, to: &container)
-        case .forEachElement(let declaration, let completion):
-            try container.encode(NodeType.forEachElement, forKey: .type)
-            try Self.encodeLoop(declaration, completion, to: &container)
-        case .forEachElementIteration(let declaration, let completion):
-            try container.encode(NodeType.forEachElementIteration, forKey: .type)
-            try Self.encodeLoop(declaration, completion, to: &container)
-        case .forEachString(let declaration, let completion):
-            try container.encode(NodeType.forEachString, forKey: .type)
-            try Self.encodeLoop(declaration, completion, to: &container)
-        case .forEachStringIteration(let declaration, let completion):
-            try container.encode(NodeType.forEachStringIteration, forKey: .type)
-            try Self.encodeLoop(declaration, completion, to: &container)
+        case .forEach(let declaration, let completion):
+            try Self.encodeLoop(declaration, completion, iteration: false, to: &container)
+        case .forEachIteration(let declaration, let completion):
+            try Self.encodeLoop(declaration, completion, iteration: true, to: &container)
         case .repeatUntil(let declaration, let completion):
             try container.encode(NodeType.repeatUntil, forKey: .type)
             try container.encode(declaration.predicate, forKey: .predicate)
@@ -467,23 +467,28 @@ extension HeistExecutionStepNode {
     }
 
     private static func encodeLoop(
-        _ declaration: HeistForEachElementDeclaration,
-        _ completion: HeistForEachElementCompletion,
+        _ declaration: HeistForEachDeclaration,
+        _ completion: HeistForEachCompletion,
+        iteration: Bool,
         to container: inout KeyedEncodingContainer<CodingKeys>
     ) throws {
-        try container.encode(declaration.parameter, forKey: .parameter)
-        try container.encode(declaration.matching, forKey: .matching)
-        try container.encode(declaration.limit, forKey: .limit)
-        try encode(completion, to: &container)
-    }
-
-    private static func encodeLoop(
-        _ declaration: HeistForEachStringDeclaration,
-        _ completion: HeistForEachStringCompletion,
-        to container: inout KeyedEncodingContainer<CodingKeys>
-    ) throws {
-        try container.encode(declaration.parameter, forKey: .parameter)
-        try container.encode(declaration.count, forKey: .count)
+        switch declaration {
+        case .strings(let strings):
+            try container.encode(
+                iteration ? NodeType.forEachStringIteration : .forEachString,
+                forKey: .type
+            )
+            try container.encode(strings.parameter, forKey: .parameter)
+            try container.encode(strings.count, forKey: .count)
+        case .elements(let elements):
+            try container.encode(
+                iteration ? NodeType.forEachElementIteration : .forEachElement,
+                forKey: .type
+            )
+            try container.encode(elements.parameter, forKey: .parameter)
+            try container.encode(elements.matching, forKey: .matching)
+            try container.encode(elements.limit, forKey: .limit)
+        }
         try encode(completion, to: &container)
     }
 

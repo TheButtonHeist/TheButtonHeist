@@ -180,10 +180,10 @@ enum PublicHeistExecutionJSONContractFixture {
 
     static func forEachString() throws -> HeistExecutionStepResult {
         let declaration = try XCTUnwrap(HeistForEachStringDeclaration(parameter: "item", count: 2))
-        let evidence = try XCTUnwrap(HeistForEachStringEvidence(
+        let evidence = try XCTUnwrap(HeistForEachEvidence(
+            source: .strings,
             iterationCount: 1,
-            iterationOrdinal: 0,
-            value: "Milk"
+            iteration: .string(ordinal: 0, value: "Milk")
         ))
         let iteration = HeistResultFixture.forEachStringIteration(
             path: "$.body[0].for_each_string.iterations[0]",
@@ -195,11 +195,11 @@ enum PublicHeistExecutionJSONContractFixture {
             status: .passed,
             children: []
         )
-        return .forEachString(
+        return .forEach(
             path: "$.body[0]",
-            declaration: declaration,
+            declaration: .strings(declaration),
             completion: .passed(
-                evidence: try XCTUnwrap(HeistPassedForEachStringEvidence(evidence)),
+                evidence: try XCTUnwrap(HeistPassedForEachEvidence(evidence)),
                 children: try XCTUnwrap(HeistPassingChildren([iteration]))
             )
         )
@@ -211,23 +211,21 @@ enum PublicHeistExecutionJSONContractFixture {
             matching: ElementPredicate(label: "Row"),
             limit: 3
         ))
-        let evidence = try XCTUnwrap(HeistForEachElementEvidence(
-            matchedCount: 2,
+        let evidence = try XCTUnwrap(HeistForEachEvidence(
+            source: .elements(matchedCount: 2),
             iterationCount: 1,
-            iterationOrdinal: 0,
-            targetOrdinal: 1,
-            targetSummary: "Row 2"
+            iteration: .element(ordinal: 0, targetOrdinal: 1, targetSummary: "Row 2")
         ))
-        let iteration = HeistExecutionStepResult.forEachElementIteration(
+        let iteration = HeistExecutionStepResult.forEachIteration(
             path: "$.body[0].for_each_element.iterations[0]",
-            declaration: declaration,
-            completion: .passed(evidence: try XCTUnwrap(HeistPassedForEachElementEvidence(evidence)))
+            declaration: .elements(declaration),
+            completion: .passed(evidence: try XCTUnwrap(HeistPassedForEachEvidence(evidence)))
         )
-        return .forEachElement(
+        return .forEach(
             path: "$.body[0]",
-            declaration: declaration,
+            declaration: .elements(declaration),
             completion: .passed(
-                evidence: try XCTUnwrap(HeistPassedForEachElementEvidence(evidence)),
+                evidence: try XCTUnwrap(HeistPassedForEachEvidence(evidence)),
                 children: try XCTUnwrap(HeistPassingChildren([iteration]))
             )
         )

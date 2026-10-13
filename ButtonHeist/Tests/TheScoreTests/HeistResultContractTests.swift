@@ -84,6 +84,19 @@ import TheScore
         }
     }
 
+    @Test func `for each evidence admits only source matching iterations`() {
+        #expect(HeistForEachEvidence(
+            source: .strings,
+            iterationCount: 1,
+            iteration: .element(ordinal: 0, targetOrdinal: 0, targetSummary: "Row")
+        ) == nil)
+        #expect(HeistForEachEvidence(
+            source: .elements(matchedCount: 1),
+            iterationCount: 1,
+            iteration: .string(ordinal: 0, value: "Row")
+        ) == nil)
+    }
+
     @Test func `execution result derives terminal outcome without duplicating steps`() throws {
         let result = HeistResultFixture.result(
             steps: [HeistResultFixture.explicitFailure(message: "stop")],
@@ -109,19 +122,20 @@ import TheScore
 
     private func relationshipSteps() throws -> [HeistExecutionStepResult] {
         let stringDeclaration = try #require(HeistForEachStringDeclaration(parameter: "item", count: 2))
-        let stringSummary = try #require(HeistForEachStringEvidence(iterationCount: 2))
+        let stringSummary = try #require(HeistForEachEvidence(source: .strings, iterationCount: 2))
         let elementDeclaration = try #require(HeistForEachElementDeclaration(
             parameter: "item",
             matching: ElementPredicate(label: "Row"),
             limit: 2
         ))
-        let elementSummary = try #require(HeistForEachElementEvidence(matchedCount: 1, iterationCount: 1))
-        let elementIteration = try #require(HeistForEachElementEvidence(
-            matchedCount: 1,
+        let elementSummary = try #require(HeistForEachEvidence(
+            source: .elements(matchedCount: 1),
+            iterationCount: 1
+        ))
+        let elementIteration = try #require(HeistForEachEvidence(
+            source: .elements(matchedCount: 1),
             iterationCount: 1,
-            iterationOrdinal: 0,
-            targetOrdinal: 0,
-            targetSummary: "Row"
+            iteration: .element(ordinal: 0, targetOrdinal: 0, targetSummary: "Row")
         ))
         let predicate = AccessibilityPredicate.exists(.label("Done"))
         let repeatDeclaration = HeistRepeatUntilDeclaration(predicate: predicate, timeout: 1)
@@ -132,17 +146,17 @@ import TheScore
             iterationCount: 1,
             iterationOrdinal: 0
         ))
-        let passedStringSummary = try #require(HeistPassedForEachStringEvidence(stringSummary))
-        let passedElementSummary = try #require(HeistPassedForEachElementEvidence(elementSummary))
-        let passedElementIteration = try #require(HeistPassedForEachElementEvidence(elementIteration))
+        let passedStringSummary = try #require(HeistPassedForEachEvidence(stringSummary))
+        let passedElementSummary = try #require(HeistPassedForEachEvidence(elementSummary))
+        let passedElementIteration = try #require(HeistPassedForEachEvidence(elementIteration))
         let passedRepeatSummary = try #require(HeistPassedRepeatUntilEvidence(repeatSummary))
         let passedRepeatIteration = try #require(HeistPassedRepeatUntilIterationEvidence(repeatIteration))
 
         return [
             HeistResultFixture.action(command: .dismiss, result: .success(payload: .dismiss)),
-            HeistExecutionStepResult.forEachString(
+            HeistExecutionStepResult.forEach(
                 path: "$.body[1]",
-                declaration: stringDeclaration,
+                declaration: .strings(stringDeclaration),
                 completion: .passed(evidence: passedStringSummary)
             ),
             HeistResultFixture.forEachStringIteration(
@@ -154,14 +168,14 @@ import TheScore
                 status: .passed,
                 children: []
             ),
-            HeistExecutionStepResult.forEachElement(
+            HeistExecutionStepResult.forEach(
                 path: "$.body[3]",
-                declaration: elementDeclaration,
+                declaration: .elements(elementDeclaration),
                 completion: .passed(evidence: passedElementSummary)
             ),
-            HeistExecutionStepResult.forEachElementIteration(
+            HeistExecutionStepResult.forEachIteration(
                 path: "$.body[4].for_each_element.iterations[0]",
-                declaration: elementDeclaration,
+                declaration: .elements(elementDeclaration),
                 completion: .passed(evidence: passedElementIteration)
             ),
             HeistExecutionStepResult.repeatUntil(

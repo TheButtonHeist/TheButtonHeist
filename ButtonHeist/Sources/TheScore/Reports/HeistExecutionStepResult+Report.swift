@@ -61,20 +61,23 @@ private extension HeistExecutionStepResult {
             case .timedOut: return "timed out"
             case .noMatch: return "no case matched"
             }
-        case .forEachString(let declaration, _), .forEachStringIteration(let declaration, _):
-            guard let evidence = forEachStringEvidence else { return nil }
+        case .forEach(let declaration, _), .forEachIteration(let declaration, _):
+            guard let evidence = forEachEvidence else { return nil }
             if let failureReason = evidence.failureReason { return failureReason }
-            if let ordinal = evidence.iterationOrdinal, let value = evidence.value {
-                return "iteration \(ordinal) value \"\(value)\""
+            if let iteration = evidence.iteration {
+                switch iteration {
+                case .string(let ordinal, let value):
+                    return "iteration \(ordinal) value \"\(value)\""
+                case .element(let ordinal, let targetOrdinal, _):
+                    return "iteration \(ordinal) target ordinal \(targetOrdinal)"
+                }
             }
-            return "completed \(evidence.iterationCount) of \(declaration.count) value(s)"
-        case .forEachElement, .forEachElementIteration:
-            guard let evidence = forEachElementEvidence else { return nil }
-            if let failureReason = evidence.failureReason { return failureReason }
-            if let ordinal = evidence.iterationOrdinal, let targetOrdinal = evidence.targetOrdinal {
-                return "iteration \(ordinal) target ordinal \(targetOrdinal)"
+            switch declaration {
+            case .strings(let strings):
+                return "completed \(evidence.iterationCount) of \(strings.count) value(s)"
+            case .elements:
+                return "completed \(evidence.iterationCount) of \(evidence.matchedCount ?? 0) matched element(s)"
             }
-            return "completed \(evidence.iterationCount) of \(evidence.matchedCount) matched element(s)"
         case .repeatUntil, .repeatUntilIteration:
             guard let evidence = repeatUntilEvidence else { return nil }
             if let failureReason = evidence.failureReason { return failureReason }

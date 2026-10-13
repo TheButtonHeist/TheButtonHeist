@@ -518,17 +518,18 @@ extension TheFenceCompactFormattingContractTests {
             failureReason: "iteration 1 failed for value \"Eggs\"",
             children: [failedAction]
         )
-        let failedLoopEvidence = try XCTUnwrap(HeistFailedForEachStringEvidence(try XCTUnwrap(
-            HeistForEachStringEvidence(
+        let failedLoopEvidence = try XCTUnwrap(HeistFailedForEachEvidence(try XCTUnwrap(
+            HeistForEachEvidence(
+                source: .strings,
                 iterationCount: 2,
                 failureReason: "iteration 1 failed for value \"Eggs\""
             )
         )))
         let abortedChildren = try XCTUnwrap(HeistAbortedChildren([firstIteration, secondIteration]))
         let declaration = try XCTUnwrap(HeistForEachStringDeclaration(parameter: "item", count: 2))
-        let loopResult = HeistExecutionStepResult.forEachString(
+        let loopResult = HeistExecutionStepResult.forEach(
             path: try HeistExecutionPath(validating: "$.body[0]"),
-            declaration: declaration,
+            declaration: .strings(declaration),
             completion: .childAborted(
                 evidence: failedLoopEvidence,
                 failure: HeistFailureDetail(
