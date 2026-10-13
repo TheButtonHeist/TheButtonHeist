@@ -21,8 +21,8 @@ final class HeistExecutionForEachTests: XCTestCase {
         let loop = try XCTUnwrap(completion.steps.first)
 
         XCTAssertEqual(loop.status, .passed)
-        XCTAssertEqual(loop.forEachElementEvidence?.matchedCount, 0)
-        XCTAssertEqual(loop.forEachElementEvidence?.iterationCount, 0)
+        XCTAssertEqual(loop.forEachEvidence?.matchedCount, 0)
+        XCTAssertEqual(loop.forEachEvidence?.iterationCount, 0)
         XCTAssertTrue(loop.children.isEmpty)
         XCTAssertEqual(driver.requests.compactMap(\.snapshotScope), [.discovery])
     }
@@ -59,7 +59,7 @@ final class HeistExecutionForEachTests: XCTestCase {
         }
         let loop = try XCTUnwrap(completion.steps.first)
         XCTAssertEqual(
-            loop.children.compactMap(\.forEachElementEvidence?.targetOrdinal),
+            loop.children.compactMap(\.forEachEvidence?.targetOrdinal),
             [0, 1]
         )
     }
@@ -85,8 +85,8 @@ final class HeistExecutionForEachTests: XCTestCase {
         let loop = try XCTUnwrap(completion.steps.first)
 
         XCTAssertEqual(loop.status, .failed)
-        XCTAssertEqual(loop.forEachElementEvidence?.matchedCount, 2)
-        XCTAssertEqual(loop.forEachElementEvidence?.iterationCount, 0)
+        XCTAssertEqual(loop.forEachEvidence?.matchedCount, 2)
+        XCTAssertEqual(loop.forEachEvidence?.iterationCount, 0)
         XCTAssertTrue(loop.children.isEmpty)
         XCTAssertEqual(completion.steps.last?.status, .skipped)
     }
@@ -105,9 +105,9 @@ final class HeistExecutionForEachTests: XCTestCase {
         let loop = try XCTUnwrap(completion.steps.first)
 
         XCTAssertEqual(loop.status, .passed)
-        XCTAssertEqual(loop.forEachStringEvidence?.iterationCount, 3)
+        XCTAssertEqual(loop.forEachEvidence?.iterationCount, 3)
         XCTAssertEqual(
-            loop.children.compactMap(\.forEachStringEvidence?.value),
+            loop.children.compactMap(\.forEachEvidence?.value),
             ["milk", "eggs", "bread"]
         )
         XCTAssertEqual(loop.children.flatMap(\.children).map(\.kind), [

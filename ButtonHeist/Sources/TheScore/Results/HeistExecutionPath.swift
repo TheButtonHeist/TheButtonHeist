@@ -168,9 +168,9 @@ public struct HeistExecutionPath: Sendable, Equatable, Hashable, Codable,
         case .conditional:
             edge.isConditionalExecutionBranch
         case .forEachElement:
-            child.isForEachElementIteration && edge.branch == .forEachElementIterations
+            child.forEachIterationSource == .elements && edge.branch == .forEachElementIterations
         case .forEachString:
-            child.isForEachStringIteration && edge.branch == .forEachStringIterations
+            child.forEachIterationSource == .strings && edge.branch == .forEachStringIterations
         case .forEachIteration, .repeatUntilIteration:
             edge.branch == .body
         case .repeatUntil:

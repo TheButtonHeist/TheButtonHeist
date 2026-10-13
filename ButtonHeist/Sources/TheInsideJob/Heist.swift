@@ -300,13 +300,13 @@ public extension Heist {
                 }
                 return "Otherwise, after waiting for \(predicate)"
             case .forEachElementIterations:
-                guard case .forEachElement(_, let evidence) = child.evidence else {
+                guard case .forEach(_, let evidence) = child.evidence else {
                     return "For each element, item \(edge.ordinal + 1)"
                 }
                 let summary = evidence.targetSummary.map { " “\($0)”" } ?? ""
                 return "For each element, item \((evidence.iterationOrdinal ?? edge.ordinal) + 1)\(summary)"
             case .forEachStringIterations:
-                guard case .forEachString(_, let evidence) = child.evidence else {
+                guard case .forEach(_, let evidence) = child.evidence else {
                     return "For each string, item \(edge.ordinal + 1)"
                 }
                 let value = evidence.value.map { " “\($0)”" } ?? ""

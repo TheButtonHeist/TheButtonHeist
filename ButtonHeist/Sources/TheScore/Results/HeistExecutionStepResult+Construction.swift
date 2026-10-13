@@ -83,30 +83,16 @@ extension HeistExecutionStepResult {
         Self(path: path, node: .conditional(completion: completion))
     }
 
-    package static func forEachElement(path: HeistExecutionPath, declaration: HeistForEachElementDeclaration,
-                                       completion: HeistForEachElementCompletion) -> Self {
+    package static func forEach(path: HeistExecutionPath, declaration: HeistForEachDeclaration,
+                                completion: HeistForEachCompletion) -> Self {
         Self(path: path,
-             node: .forEachElement(declaration: declaration, completion: completion))
+             node: .forEach(declaration: declaration, completion: completion))
     }
 
-    package static func forEachElementIteration(path: HeistExecutionPath,
-                                                declaration: HeistForEachElementDeclaration,
-                                                completion: HeistForEachElementCompletion) -> Self {
+    package static func forEachIteration(path: HeistExecutionPath, declaration: HeistForEachDeclaration,
+                                         completion: HeistForEachCompletion) -> Self {
         Self(path: path,
-             node: .forEachElementIteration(declaration: declaration, completion: completion))
-    }
-
-    package static func forEachString(path: HeistExecutionPath, declaration: HeistForEachStringDeclaration,
-                                      completion: HeistForEachStringCompletion) -> Self {
-        Self(path: path,
-             node: .forEachString(declaration: declaration, completion: completion))
-    }
-
-    package static func forEachStringIteration(path: HeistExecutionPath,
-                                               declaration: HeistForEachStringDeclaration,
-                                               completion: HeistForEachStringCompletion) -> Self {
-        Self(path: path,
-             node: .forEachStringIteration(declaration: declaration, completion: completion))
+             node: .forEachIteration(declaration: declaration, completion: completion))
     }
 
     package static func repeatUntil(path: HeistExecutionPath, declaration: HeistRepeatUntilDeclaration,
@@ -141,9 +127,9 @@ extension HeistExecutionStepResult {
         case .conditional:
             node = .conditional(completion: .skipped(children: children))
         case .forEachElement(let loop):
-            node = .forEachElement(declaration: .init(loop), completion: .skipped(children: children))
+            node = .forEach(declaration: .init(loop), completion: .skipped(children: children))
         case .forEachString(let loop):
-            node = .forEachString(declaration: .init(loop), completion: .skipped(children: children))
+            node = .forEach(declaration: .init(loop), completion: .skipped(children: children))
         case .repeatUntil(let loop):
             node = .repeatUntil(declaration: .init(loop), completion: .skipped(children: children))
         case .warn(let warning):
@@ -194,14 +180,10 @@ extension HeistExecutionStepResult {
             case .skipped: evidence = nil
             }
             return evidence?.matches(command: command) != false
-        case .forEachElement(let declaration, let completion):
-            return elementRelationshipMatches(declaration, completion: completion, iteration: false)
-        case .forEachElementIteration(let declaration, let completion):
-            return elementRelationshipMatches(declaration, completion: completion, iteration: true)
-        case .forEachString(let declaration, let completion):
-            return stringRelationshipMatches(declaration, completion: completion, iteration: false)
-        case .forEachStringIteration(let declaration, let completion):
-            return stringRelationshipMatches(declaration, completion: completion, iteration: true)
+        case .forEach(let declaration, let completion):
+            return forEachRelationshipMatches(declaration, completion: completion, iteration: false)
+        case .forEachIteration(let declaration, let completion):
+            return forEachRelationshipMatches(declaration, completion: completion, iteration: true)
         case .repeatUntil(_, let completion):
             return repeatRelationshipMatches(
                 completion: completion, iteration: false, passedEvidence: { $0.value }
@@ -228,12 +210,12 @@ extension HeistExecutionStepResult {
         }
     }
 
-    private static func elementRelationshipMatches(
-        _ declaration: HeistForEachElementDeclaration,
-        completion: HeistForEachElementCompletion,
+    private static func forEachRelationshipMatches(
+        _ declaration: HeistForEachDeclaration,
+        completion: HeistForEachCompletion,
         iteration: Bool
     ) -> Bool {
-        let relationship: (evidence: HeistForEachElementEvidence?, passed: Bool, requiresBoundedCount: Bool)
+        let relationship: (evidence: HeistForEachEvidence?, passed: Bool, requiresBoundedCount: Bool)
         switch completion {
         case .passed(let value, _):
             relationship = (value.value, true, true)
@@ -245,33 +227,22 @@ extension HeistExecutionStepResult {
             relationship = (nil, false, false)
         }
         guard let evidence = relationship.evidence else { return true }
-        guard !relationship.requiresBoundedCount || evidence.matchedCount <= declaration.limit else { return false }
+        let declarationMatches: Bool
+        switch (declaration, evidence.source) {
+        case (.strings(let strings), .strings):
+            declarationMatches = evidence.iterationCount <= strings.count
+                && (iteration || !relationship.passed || evidence.iterationCount == strings.count)
+        case (.elements(let elements), .elements(let matchedCount)):
+            declarationMatches = (!relationship.requiresBoundedCount || matchedCount <= elements.limit)
+                && (iteration || !relationship.passed || evidence.iterationCount == matchedCount)
+        case (.strings, .elements), (.elements, .strings):
+            declarationMatches = false
+        }
+        guard declarationMatches else { return false }
         if iteration {
             return evidence.iterationOrdinal == evidence.iterationCount - 1
         }
         return evidence.iterationOrdinal == nil
-            && (!relationship.passed || evidence.iterationCount == evidence.matchedCount)
-    }
-
-    private static func stringRelationshipMatches(
-        _ declaration: HeistForEachStringDeclaration,
-        completion: HeistForEachStringCompletion,
-        iteration: Bool
-    ) -> Bool {
-        let relationship: (evidence: HeistForEachStringEvidence?, passed: Bool)
-        switch completion {
-        case .passed(let value, _): relationship = (value.value, true)
-        case .failed(let value, _, _): relationship = (value?.value, false)
-        case .childAborted(let value, _, _): relationship = (value.value, false)
-        case .skipped: relationship = (nil, false)
-        }
-        guard let evidence = relationship.evidence else { return true }
-        guard evidence.iterationCount <= declaration.count else { return false }
-        if iteration {
-            return evidence.iterationOrdinal == evidence.iterationCount - 1
-        }
-        return evidence.iterationOrdinal == nil
-            && (!relationship.passed || evidence.iterationCount == declaration.count)
     }
 
     private static func repeatRelationshipMatches<Passed>(

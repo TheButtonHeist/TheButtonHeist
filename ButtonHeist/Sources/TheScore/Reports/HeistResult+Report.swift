@@ -111,8 +111,7 @@ public struct HeistReport: Sendable, Equatable {
             outcome: HeistPredicateEvidenceOutcome
         )
         case caseSelection(HeistCaseSelectionEvidence)
-        case forEachString(declaration: HeistForEachStringDeclaration, evidence: HeistForEachStringEvidence)
-        case forEachElement(declaration: HeistForEachElementDeclaration, evidence: HeistForEachElementEvidence)
+        case forEach(declaration: HeistForEachDeclaration, evidence: HeistForEachEvidence)
         case repeatUntil(declaration: HeistRepeatUntilDeclaration, evidence: HeistRepeatUntilEvidence)
         case invocation(invocation: HeistInvocationStep, evidence: HeistInvocationEvidence)
         case warning(HeistExecutionWarning)
@@ -147,12 +146,9 @@ public struct HeistReport: Sendable, Equatable {
             case .conditional:
                 guard let evidence = step.caseSelectionEvidence else { return nil }
                 self = .caseSelection(evidence)
-            case .forEachString(let declaration, _), .forEachStringIteration(let declaration, _):
-                guard let evidence = step.forEachStringEvidence else { return nil }
-                self = .forEachString(declaration: declaration, evidence: evidence)
-            case .forEachElement(let declaration, _), .forEachElementIteration(let declaration, _):
-                guard let evidence = step.forEachElementEvidence else { return nil }
-                self = .forEachElement(declaration: declaration, evidence: evidence)
+            case .forEach(let declaration, _), .forEachIteration(let declaration, _):
+                guard let evidence = step.forEachEvidence else { return nil }
+                self = .forEach(declaration: declaration, evidence: evidence)
             case .repeatUntil(let declaration, _), .repeatUntilIteration(let declaration, _):
                 guard let evidence = step.repeatUntilEvidence else { return nil }
                 self = .repeatUntil(declaration: declaration, evidence: evidence)
@@ -177,8 +173,7 @@ public struct HeistReport: Sendable, Equatable {
             case .wait(let evidence, _, _):
                 evidence.observation
             case .caseSelection,
-                 .forEachString,
-                 .forEachElement,
+                 .forEach,
                  .repeatUntil,
                  .invocation,
                  .warning:
@@ -193,8 +188,7 @@ public struct HeistReport: Sendable, Equatable {
             case .wait(let evidence, _, _):
                 evidence
             case .caseSelection,
-                 .forEachString,
-                 .forEachElement,
+                 .forEach,
                  .repeatUntil,
                  .invocation,
                  .warning:
@@ -215,8 +209,7 @@ public struct HeistReport: Sendable, Equatable {
             case .action(_, _, let replay): replay
             case .wait(_, let replay, _): replay
             case .caseSelection,
-                 .forEachString,
-                 .forEachElement,
+                 .forEach,
                  .repeatUntil,
                  .invocation,
                  .warning:
@@ -478,10 +471,8 @@ private struct MetricAccumulator {
                 elapsedMs: evidence.selection.elapsedMs,
                 step: step
             )
-        case .forEachElement,
-             .forEachString,
-             .forEachElementIteration,
-             .forEachStringIteration,
+        case .forEach,
+             .forEachIteration,
              .repeatUntil,
              .repeatUntilIteration,
              .warning,

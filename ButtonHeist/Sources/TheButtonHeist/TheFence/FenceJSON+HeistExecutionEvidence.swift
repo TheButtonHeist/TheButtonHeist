@@ -27,10 +27,12 @@ extension HeistReport.Evidence {
             )
         case .caseSelection(let evidence):
             try encode(evidence, to: container.superEncoder(forKey: .caseSelection), profile: profile)
-        case .forEachString(let declaration, let evidence):
-            try encode(declaration, evidence: evidence, to: container.superEncoder(forKey: .forEachString))
-        case .forEachElement(let declaration, let evidence):
-            try encode(declaration, evidence: evidence, to: container.superEncoder(forKey: .forEachElement))
+        case .forEach(let declaration, let evidence):
+            let encoder = switch declaration {
+            case .strings: container.superEncoder(forKey: .forEachString)
+            case .elements: container.superEncoder(forKey: .forEachElement)
+            }
+            try encode(declaration, evidence: evidence, to: encoder)
         case .repeatUntil(let declaration, let evidence):
             try encode(
                 declaration,
@@ -163,41 +165,32 @@ extension HeistReport.Evidence {
         try container.encodeIfPresent(evidence.failureReason, forKey: .failureReason)
     }
 
-    private enum ForEachStringCodingKeys: String, CodingKey {
-        case parameter, count, iterationCount, iterationOrdinal, value, failureReason
+    private enum ForEachCodingKeys: String, CodingKey {
+        case parameter, count, matching, limit, matchedCount, iterationCount, iterationOrdinal
+        case value, targetOrdinal, targetSummary, failureReason
     }
 
     private func encode(
-        _ declaration: HeistForEachStringDeclaration,
-        evidence: HeistForEachStringEvidence,
+        _ declaration: HeistForEachDeclaration,
+        evidence: HeistForEachEvidence,
         to encoder: Encoder
     ) throws {
-        var container = encoder.container(keyedBy: ForEachStringCodingKeys.self)
-        try container.encode(declaration.parameter, forKey: .parameter)
-        try container.encode(declaration.count, forKey: .count)
+        var container = encoder.container(keyedBy: ForEachCodingKeys.self)
+        switch (declaration, evidence.source) {
+        case (.strings(let strings), .strings):
+            try container.encode(strings.parameter, forKey: .parameter)
+            try container.encode(strings.count, forKey: .count)
+        case (.elements(let elements), .elements(let matchedCount)):
+            try container.encode(elements.parameter, forKey: .parameter)
+            try container.encode(elements.matching, forKey: .matching)
+            try container.encode(elements.limit, forKey: .limit)
+            try container.encode(matchedCount, forKey: .matchedCount)
+        case (.strings, .elements), (.elements, .strings):
+            preconditionFailure("Admitted for_each report evidence must match its declaration")
+        }
         try container.encode(evidence.iterationCount, forKey: .iterationCount)
         try container.encodeIfPresent(evidence.iterationOrdinal, forKey: .iterationOrdinal)
         try container.encodeIfPresent(evidence.value, forKey: .value)
-        try container.encodeIfPresent(evidence.failureReason, forKey: .failureReason)
-    }
-
-    private enum ForEachElementCodingKeys: String, CodingKey {
-        case parameter, matching, limit, matchedCount, iterationCount, iterationOrdinal
-        case targetOrdinal, targetSummary, failureReason
-    }
-
-    private func encode(
-        _ declaration: HeistForEachElementDeclaration,
-        evidence: HeistForEachElementEvidence,
-        to encoder: Encoder
-    ) throws {
-        var container = encoder.container(keyedBy: ForEachElementCodingKeys.self)
-        try container.encode(declaration.parameter, forKey: .parameter)
-        try container.encode(declaration.matching, forKey: .matching)
-        try container.encode(declaration.limit, forKey: .limit)
-        try container.encode(evidence.matchedCount, forKey: .matchedCount)
-        try container.encode(evidence.iterationCount, forKey: .iterationCount)
-        try container.encodeIfPresent(evidence.iterationOrdinal, forKey: .iterationOrdinal)
         try container.encodeIfPresent(evidence.targetOrdinal, forKey: .targetOrdinal)
         try container.encodeIfPresent(evidence.targetSummary, forKey: .targetSummary)
         try container.encodeIfPresent(evidence.failureReason, forKey: .failureReason)

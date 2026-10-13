@@ -239,24 +239,14 @@ package enum HeistFailedActionRule: HeistResultEvidenceRule {
     }
 }
 
-package enum HeistPassedForEachElementRule: HeistResultEvidenceRule {
-    package static let rejection = "passed for_each_element evidence cannot include a failure reason"
-    package static func admits(_ evidence: HeistForEachElementEvidence) -> Bool { evidence.failureReason == nil }
+package enum HeistPassedForEachRule: HeistResultEvidenceRule {
+    package static let rejection = "passed for_each evidence cannot include a failure reason"
+    package static func admits(_ evidence: HeistForEachEvidence) -> Bool { evidence.failureReason == nil }
 }
 
-package enum HeistFailedForEachElementRule: HeistResultEvidenceRule {
-    package static let rejection = "failed for_each_element evidence requires a failure reason"
-    package static func admits(_ evidence: HeistForEachElementEvidence) -> Bool { evidence.failureReason != nil }
-}
-
-package enum HeistPassedForEachStringRule: HeistResultEvidenceRule {
-    package static let rejection = "passed for_each_string evidence cannot include a failure reason"
-    package static func admits(_ evidence: HeistForEachStringEvidence) -> Bool { evidence.failureReason == nil }
-}
-
-package enum HeistFailedForEachStringRule: HeistResultEvidenceRule {
-    package static let rejection = "failed for_each_string evidence requires a failure reason"
-    package static func admits(_ evidence: HeistForEachStringEvidence) -> Bool { evidence.failureReason != nil }
+package enum HeistFailedForEachRule: HeistResultEvidenceRule {
+    package static let rejection = "failed for_each evidence requires a failure reason"
+    package static func admits(_ evidence: HeistForEachEvidence) -> Bool { evidence.failureReason != nil }
 }
 
 package enum HeistPassedRepeatUntilRule: HeistResultEvidenceRule {
@@ -290,10 +280,8 @@ package enum HeistFailedInvocationRule: HeistResultEvidenceRule {
 
 package typealias HeistPassedActionEvidence = HeistResultEvidence<HeistPassedActionRule>
 package typealias HeistFailedActionEvidence = HeistResultEvidence<HeistFailedActionRule>
-package typealias HeistPassedForEachElementEvidence = HeistResultEvidence<HeistPassedForEachElementRule>
-package typealias HeistFailedForEachElementEvidence = HeistResultEvidence<HeistFailedForEachElementRule>
-package typealias HeistPassedForEachStringEvidence = HeistResultEvidence<HeistPassedForEachStringRule>
-package typealias HeistFailedForEachStringEvidence = HeistResultEvidence<HeistFailedForEachStringRule>
+package typealias HeistPassedForEachEvidence = HeistResultEvidence<HeistPassedForEachRule>
+package typealias HeistFailedForEachEvidence = HeistResultEvidence<HeistFailedForEachRule>
 package typealias HeistPassedRepeatUntilEvidence = HeistResultEvidence<HeistPassedRepeatUntilRule>
 package typealias HeistPassedRepeatUntilIterationEvidence = HeistResultEvidence<HeistPassedRepeatUntilIterationRule>
 package typealias HeistFailedRepeatUntilEvidence = HeistResultEvidence<HeistFailedRepeatUntilRule>

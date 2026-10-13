@@ -534,6 +534,11 @@ enforce those combinations before encoding; `kind`, `intent`, `status`, and a
 top-level result outcome are not part of the contract. Run status and the abort
 path are derived from the semantic node tree.
 
+`for_each_string` and `for_each_element` retain their authored node types and
+fields on the wire. They share one typed execution-evidence family internally;
+string evidence carries `value`, while element evidence carries `matchedCount`,
+`targetOrdinal`, and `targetSummary`.
+
 A `HeistResult` contains `steps`, `durationMs`, and optional terminal
 `failureCapture` evidence. Failure capture is not a step and never extends an
 execution path:

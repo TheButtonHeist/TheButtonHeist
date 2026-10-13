@@ -201,7 +201,7 @@ extension WireTypeRoundTripTests {
         XCTAssertEqual(result.outcome, .matchedCase(index: 1))
     }
 
-    func testForEachStringEvidenceRejectsPartialIterationShape() throws {
+    func testForEachEvidenceRejectsPartialStringIterationShape() throws {
         let missingValue = """
         {
           "iterationCount": 1,
@@ -210,13 +210,13 @@ extension WireTypeRoundTripTests {
         """
 
         XCTAssertThrowsError(
-            try decoder.decode(HeistForEachStringEvidence.self, from: Data(missingValue.utf8))
+            try decoder.decode(HeistForEachEvidence.self, from: Data(missingValue.utf8))
         ) { error in
-            assertDecodingError(error, contains: ["requires iterationOrdinal and value together"])
+            assertDecodingError(error, contains: ["do not form one string or element iteration"])
         }
     }
 
-    func testForEachElementEvidenceRejectsPartialIterationShape() throws {
+    func testForEachEvidenceRejectsPartialElementIterationShape() throws {
         let missingTargetSummary = """
         {
           "matchedCount": 2,
@@ -227,11 +227,11 @@ extension WireTypeRoundTripTests {
         """
 
         XCTAssertThrowsError(
-            try decoder.decode(HeistForEachElementEvidence.self, from: Data(missingTargetSummary.utf8))
+            try decoder.decode(HeistForEachEvidence.self, from: Data(missingTargetSummary.utf8))
         ) { error in
             assertDecodingError(
                 error,
-                contains: ["requires iterationOrdinal, targetOrdinal, and targetSummary together"]
+                contains: ["do not form one string or element iteration"]
             )
         }
     }

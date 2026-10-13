@@ -335,13 +335,13 @@ import ThePlans
             path: "$.body[0].for_each_string.iterations[0]",
             message: "not an iteration"
         )
-        let evidence = try #require(HeistForEachStringEvidence(iterationCount: 1))
+        let evidence = try #require(HeistForEachEvidence(source: .strings, iterationCount: 1))
         let children = try #require(HeistPassingChildren([child]))
-        let root = HeistExecutionStepResult.forEachString(
+        let root = HeistExecutionStepResult.forEach(
             path: "$.body[0]",
-            declaration: declaration,
+            declaration: .strings(declaration),
             completion: .passed(
-                evidence: try #require(HeistPassedForEachStringEvidence(evidence)),
+                evidence: try #require(HeistPassedForEachEvidence(evidence)),
                 children: children
             )
         )
@@ -402,7 +402,7 @@ import ThePlans
 
     @Test func `aggregate admission rejects loop evidence count that disagrees with iteration children`() throws {
         let declaration = try #require(HeistForEachStringDeclaration(parameter: "item", count: 2))
-        let evidence = try #require(HeistForEachStringEvidence(iterationCount: 2))
+        let evidence = try #require(HeistForEachEvidence(source: .strings, iterationCount: 2))
         let iteration = HeistResultFixture.forEachStringIteration(
             path: "$.body[0].for_each_string.iterations[0]",
             count: 2,
@@ -412,11 +412,11 @@ import ThePlans
             status: .passed,
             children: []
         )
-        let root = HeistExecutionStepResult.forEachString(
+        let root = HeistExecutionStepResult.forEach(
             path: "$.body[0]",
-            declaration: declaration,
+            declaration: .strings(declaration),
             completion: .passed(
-                evidence: try #require(HeistPassedForEachStringEvidence(evidence)),
+                evidence: try #require(HeistPassedForEachEvidence(evidence)),
                 children: try #require(HeistPassingChildren([iteration]))
             )
         )

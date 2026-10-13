@@ -238,10 +238,10 @@ package enum HeistResultFixture {
         children: [HeistExecutionStepResult]
     ) -> HeistExecutionStepResult {
         let resolvedPath = path ?? "$.body[0].for_each_string.iterations[\(ordinal)]"
-        guard let evidence = HeistForEachStringEvidence(
+        guard let evidence = HeistForEachEvidence(
+            source: .strings,
             iterationCount: iterationCount ?? ordinal + 1,
-            iterationOrdinal: ordinal,
-            value: value,
+            iteration: .string(ordinal: ordinal, value: value),
             failureReason: failureReason
         ) else {
             preconditionFailure("invalid string loop fixture progress")
@@ -257,13 +257,13 @@ package enum HeistResultFixture {
             )
         }
         if let abortedAtChildPath = children.firstFailedStep?.path {
-            guard let admittedEvidence = HeistFailedForEachStringEvidence(evidence),
+            guard let admittedEvidence = HeistFailedForEachEvidence(evidence),
                   let admittedChildren = HeistAbortedChildren(children) else {
                 preconditionFailure("aborted loop fixture requires failed evidence and children")
             }
-            return HeistExecutionStepResult.forEachStringIteration(
+            return HeistExecutionStepResult.forEachIteration(
                 path: executionPath(resolvedPath),
-                declaration: declaration,
+                declaration: .strings(declaration),
                 completion: .childAborted(
                     evidence: admittedEvidence,
                     failure: failure ?? HeistFailureDetail(
@@ -276,12 +276,12 @@ package enum HeistResultFixture {
             )
         }
         if status == .failed, let failure {
-            guard let evidence = HeistFailedForEachStringEvidence(evidence) else {
+            guard let evidence = HeistFailedForEachEvidence(evidence) else {
                 preconditionFailure("failed loop fixture requires a failure reason")
             }
-            return HeistExecutionStepResult.forEachStringIteration(
+            return HeistExecutionStepResult.forEachIteration(
                 path: executionPath(resolvedPath),
-                declaration: declaration,
+                declaration: .strings(declaration),
                 completion: .failed(
                     evidence: evidence,
                     failure: failure,
@@ -289,12 +289,12 @@ package enum HeistResultFixture {
                 )
             )
         }
-        guard let evidence = HeistPassedForEachStringEvidence(evidence) else {
+        guard let evidence = HeistPassedForEachEvidence(evidence) else {
             preconditionFailure("passed loop fixture cannot carry a failure reason")
         }
-        return HeistExecutionStepResult.forEachStringIteration(
+        return HeistExecutionStepResult.forEachIteration(
             path: executionPath(resolvedPath),
-            declaration: declaration,
+            declaration: .strings(declaration),
             completion: .passed(evidence: evidence, children: passingChildren(children))
         )
     }
