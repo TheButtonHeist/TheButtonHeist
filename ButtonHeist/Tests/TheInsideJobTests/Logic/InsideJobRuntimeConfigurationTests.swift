@@ -236,6 +236,58 @@ final class InsideJobRuntimeConfigurationTests: XCTestCase {
         ])
     }
 
+    func testInvalidEnvironmentValuesFallThroughToInfoPlist() {
+        let configuration = InsideJobRuntimeConfiguration.resolve(
+            env: environment([
+                .disableAutoStart: "yes",
+                .fingerprintsEnabled: "no",
+                .port: "99999",
+                .scope: "bogus",
+                .sessionTimeout: "soon",
+                .failureEvidence: "everything"
+            ]),
+            infoPlist: makeInfoPlist([
+                .disableAutoStart: true,
+                .fingerprintsEnabled: false,
+                .port: 5151,
+                .scope: ["usb"],
+                .sessionTimeout: 120.0,
+                .failureEvidence: "hierarchy"
+            ])
+        )
+
+        XCTAssertEqual(configuration.disableAutoStart, ResolvedConfigurationValue(value: true, source: .infoPlist))
+        XCTAssertEqual(configuration.fingerprintsEnabled, ResolvedConfigurationValue(value: false, source: .infoPlist))
+        XCTAssertEqual(configuration.preferredPort, ResolvedConfigurationValue(value: 5151, source: .infoPlist))
+        XCTAssertEqual(configuration.allowedScopes, ResolvedConfigurationValue(value: [.usb], source: .infoPlist))
+        XCTAssertEqual(configuration.sessionReleaseTimeout, ResolvedConfigurationValue(value: 120, source: .infoPlist))
+        XCTAssertEqual(configuration.failureEvidencePolicy, ResolvedConfigurationValue(value: .hierarchy, source: .infoPlist))
+        XCTAssertEqual(configuration.warnings, [
+            .invalidValueIgnored(
+                key: StartupEnvironmentKey.disableAutoStart.rawValue,
+                source: .environment,
+                value: "yes"
+            ),
+            .invalidValueIgnored(
+                key: StartupEnvironmentKey.fingerprintsEnabled.rawValue,
+                source: .environment,
+                value: "no"
+            ),
+            .invalidValueIgnored(key: StartupEnvironmentKey.port.rawValue, source: .environment, value: "99999"),
+            .invalidValueIgnored(key: StartupEnvironmentKey.scope.rawValue, source: .environment, value: "bogus"),
+            .invalidValueIgnored(
+                key: StartupEnvironmentKey.sessionTimeout.rawValue,
+                source: .environment,
+                value: "soon"
+            ),
+            .invalidValueIgnored(
+                key: StartupEnvironmentKey.failureEvidence.rawValue,
+                source: .environment,
+                value: "everything"
+            )
+        ])
+    }
+
     func testRuntimeConfigurationAppliesAPIOverridesDuringResolution() throws {
         let runtimeConfiguration = try InsideJobRuntimeConfiguration.resolve(
             env: environment([

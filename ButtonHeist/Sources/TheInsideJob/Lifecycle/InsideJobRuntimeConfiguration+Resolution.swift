@@ -255,6 +255,67 @@ struct StartupEnvironment: Equatable, Sendable {
     }
 }
 
+private struct StartupConfigurationResolver {
+    let environment: StartupEnvironment
+    let infoPlist: StartupInfoPlist
+    private(set) var warnings: [InsideJobConfigurationWarning] = []
+
+    mutating func resolve<Value: Equatable & Sendable>(
+        environmentKey: StartupEnvironmentKey,
+        infoPlistKey: StartupInfoPlistKey,
+        defaultValue: Value,
+        parseEnvironment: (String) -> Value?,
+        parseInfoPlist: (InfoPlistValue) -> Value?
+    ) -> ResolvedConfigurationValue<Value> {
+        if let rawValue = environment[environmentKey] {
+            if let value = parseEnvironment(rawValue) {
+                return ResolvedConfigurationValue(value: value, source: .environment)
+            }
+            warnings.append(.invalidValueIgnored(
+                key: environmentKey.rawValue,
+                source: .environment,
+                value: rawValue
+            ))
+        }
+
+        if let rawValue = infoPlist[infoPlistKey] {
+            if let value = parseInfoPlist(rawValue) {
+                return ResolvedConfigurationValue(value: value, source: .infoPlist)
+            }
+            warnings.append(.invalidValueIgnored(
+                key: infoPlistKey.rawValue,
+                source: .infoPlist,
+                value: String(describing: rawValue)
+            ))
+        }
+
+        return ResolvedConfigurationValue(value: defaultValue, source: .defaultValue)
+    }
+
+    mutating func resolveString<Value: NonBlankStringValue>(
+        environmentKey: StartupEnvironmentKey,
+        infoPlistKey: StartupInfoPlistKey,
+        as _: Value.Type,
+        absentSource: InsideJobConfigurationSource
+    ) -> ResolvedConfigurationValue<Value?> {
+        if let rawValue = environment[environmentKey] {
+            if let value = try? Value(validating: rawValue) {
+                return ResolvedConfigurationValue(value: value, source: .environment)
+            }
+            warnings.append(.emptyValueIgnored(key: environmentKey.rawValue, source: .environment))
+        }
+
+        if let rawValue = infoPlist[infoPlistKey]?.string {
+            if let value = try? Value(validating: rawValue) {
+                return ResolvedConfigurationValue(value: value, source: .infoPlist)
+            }
+            warnings.append(.emptyValueIgnored(key: infoPlistKey.rawValue, source: .infoPlist))
+        }
+
+        return ResolvedConfigurationValue(value: nil, source: absentSource)
+    }
+}
+
 struct InsideJobRuntimeConfiguration: Equatable, Sendable {
     private struct ResolutionInput {
         let token: SessionAuthToken?
@@ -335,57 +396,68 @@ struct InsideJobRuntimeConfiguration: Equatable, Sendable {
         infoPlist: StartupInfoPlist,
         input: ResolutionInput
     ) -> InsideJobRuntimeConfiguration {
-        var warnings: [InsideJobConfigurationWarning] = []
-        let plist = infoPlist
-        let disableAutoStart = resolveBool(
-            envKey: .disableAutoStart,
-            plistKey: .disableAutoStart,
+        var resolver = StartupConfigurationResolver(environment: env, infoPlist: infoPlist)
+        let disableAutoStart = resolver.resolve(
+            environmentKey: .disableAutoStart,
+            infoPlistKey: .disableAutoStart,
             defaultValue: false,
-            env: env,
-            plist: plist,
-            warnings: &warnings
+            parseEnvironment: parseBool,
+            parseInfoPlist: parseBool
         )
-        let fingerprintsEnabled = resolveBool(
-            envKey: .fingerprintsEnabled,
-            plistKey: .fingerprintsEnabled,
+        let fingerprintsEnabled = resolver.resolve(
+            environmentKey: .fingerprintsEnabled,
+            infoPlistKey: .fingerprintsEnabled,
             defaultValue: true,
-            env: env,
-            plist: plist,
-            warnings: &warnings
+            parseEnvironment: parseBool,
+            parseInfoPlist: parseBool
         )
-        let configuredToken = resolveString(
-            envKey: .token,
-            plistKey: .token,
+        let configuredToken = resolver.resolveString(
+            environmentKey: .token,
+            infoPlistKey: .token,
             as: SessionAuthToken.self,
-            env: env,
-            plist: plist,
-            absentSource: .generated,
-            warnings: &warnings
+            absentSource: .generated
         )
-        let configuredInstanceId = resolveString(
-            envKey: .instanceId,
-            plistKey: .instanceId,
+        let configuredInstanceId = resolver.resolveString(
+            environmentKey: .instanceId,
+            infoPlistKey: .instanceId,
             as: InsideJobInstanceID.self,
-            env: env,
-            plist: plist,
-            absentSource: .generated,
-            warnings: &warnings
+            absentSource: .generated
         )
-        let configuredPort = resolvePort(env: env, plist: plist, warnings: &warnings)
-        let configuredAllowedScopes = resolveAllowedScopes(env: env, plist: plist, warnings: &warnings)
-        let sessionTimeout = resolveTimeInterval(
-            envKey: .sessionTimeout,
-            plistKey: .sessionTimeout,
+        let configuredPort = resolver.resolve(
+            environmentKey: .port,
+            infoPlistKey: .port,
+            defaultValue: 0,
+            parseEnvironment: parsePort,
+            parseInfoPlist: parsePort
+        )
+        let configuredAllowedScopes = resolver.resolve(
+            environmentKey: .scope,
+            infoPlistKey: .scope,
+            defaultValue: ConnectionScope.default,
+            parseEnvironment: ConnectionScope.parse,
+            parseInfoPlist: parseScopes
+        )
+        let sessionTimeout = resolver.resolve(
+            environmentKey: .sessionTimeout,
+            infoPlistKey: .sessionTimeout,
             defaultValue: defaultSessionTimeout,
-            clamp: { min(max(minimumSessionTimeout, $0), maximumSessionTimeout) },
-            env: env,
-            plist: plist,
-            warnings: &warnings
+            parseEnvironment: {
+                parseTimeInterval($0).map {
+                    min(max(minimumSessionTimeout, $0), maximumSessionTimeout)
+                }
+            },
+            parseInfoPlist: {
+                parseTimeInterval($0).map {
+                    min(max(minimumSessionTimeout, $0), maximumSessionTimeout)
+                }
+            }
         )
-        let failureEvidencePolicy = resolveFailureEvidencePolicy(
-            env: env,
-            plist: plist,
-            warnings: &warnings
+        let failureEvidencePolicy = resolver.resolve(
+            environmentKey: .failureEvidence,
+            infoPlistKey: .failureEvidence,
+            defaultValue: FailureEvidencePolicy.screenshot,
+            parseEnvironment: FailureEvidencePolicy.init(rawValue:),
+            parseInfoPlist: { $0.string.flatMap(FailureEvidencePolicy.init(rawValue:)) }
         )
 
         let token = input.token.map {
@@ -416,7 +488,7 @@ struct InsideJobRuntimeConfiguration: Equatable, Sendable {
             failureEvidencePolicy: failureEvidencePolicy,
             authenticationPolicy: input.authenticationPolicy,
             sessionIdentity: InsideJobSessionIdentity.resolve(instanceId: instanceId),
-            warnings: warnings
+            warnings: resolver.warnings
         )
     }
 
@@ -447,62 +519,6 @@ struct InsideJobRuntimeConfiguration: Equatable, Sendable {
         }
     }
 
-    private static func resolveString<Value: NonBlankStringValue>(
-        envKey: StartupEnvironmentKey,
-        plistKey: StartupInfoPlistKey,
-        as _: Value.Type,
-        env: StartupEnvironment,
-        plist: StartupInfoPlist,
-        absentSource: InsideJobConfigurationSource,
-        warnings: inout [InsideJobConfigurationWarning]
-    ) -> ResolvedConfigurationValue<Value?> {
-        if let envValue = env[envKey] {
-            if let value = try? Value(validating: envValue) {
-                return ResolvedConfigurationValue(value: value, source: .environment)
-            }
-            warnings.append(.emptyValueIgnored(key: envKey.rawValue, source: .environment))
-        }
-
-        if let plistValue = plist[plistKey]?.string {
-            if let value = try? Value(validating: plistValue) {
-                return ResolvedConfigurationValue(value: value, source: .infoPlist)
-            }
-            warnings.append(.emptyValueIgnored(key: plistKey.rawValue, source: .infoPlist))
-        }
-
-        return ResolvedConfigurationValue(value: nil, source: absentSource)
-    }
-
-    private static func resolvePort(
-        env: StartupEnvironment,
-        plist: StartupInfoPlist,
-        warnings: inout [InsideJobConfigurationWarning]
-    ) -> ResolvedConfigurationValue<UInt16> {
-        if let envValue = env[.port] {
-            if let parsed = parsePort(envValue) {
-                return ResolvedConfigurationValue(value: parsed, source: .environment)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: StartupEnvironmentKey.port.rawValue,
-                source: .environment,
-                value: envValue
-            ))
-        }
-
-        if let plistValue = plist[.port],
-           let parsed = parsePort(plistValue) {
-            return ResolvedConfigurationValue(value: parsed, source: .infoPlist)
-        } else if let plistValue = plist[.port] {
-            warnings.append(.invalidValueIgnored(
-                key: StartupInfoPlistKey.port.rawValue,
-                source: .infoPlist,
-                value: String(describing: plistValue)
-            ))
-        }
-
-        return ResolvedConfigurationValue(value: 0, source: .defaultValue)
-    }
-
     private static func parsePort(_ value: String) -> UInt16? {
         UInt16(value.trimmingCharacters(in: .whitespacesAndNewlines))
     }
@@ -517,36 +533,6 @@ struct InsideJobRuntimeConfiguration: Equatable, Sendable {
         return nil
     }
 
-    private static func resolveTimeInterval(
-        envKey: StartupEnvironmentKey,
-        plistKey: StartupInfoPlistKey,
-        defaultValue: TimeInterval,
-        clamp: (TimeInterval) -> TimeInterval,
-        env: StartupEnvironment,
-        plist: StartupInfoPlist,
-        warnings: inout [InsideJobConfigurationWarning]
-    ) -> ResolvedConfigurationValue<TimeInterval> {
-        if let envValue = env[envKey] {
-            if let parsed = parseTimeInterval(envValue) {
-                return ResolvedConfigurationValue(value: clamp(parsed), source: .environment)
-            }
-            warnings.append(.invalidValueIgnored(key: envKey.rawValue, source: .environment, value: envValue))
-        }
-
-        if let plistValue = plist[plistKey] {
-            if let parsed = parseTimeInterval(plistValue) {
-                return ResolvedConfigurationValue(value: clamp(parsed), source: .infoPlist)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: plistKey.rawValue,
-                source: .infoPlist,
-                value: String(describing: plistValue)
-            ))
-        }
-
-        return ResolvedConfigurationValue(value: defaultValue, source: .defaultValue)
-    }
-
     private static func parseTimeInterval(_ value: String) -> TimeInterval? {
         TimeInterval(value.trimmingCharacters(in: .whitespacesAndNewlines))
     }
@@ -555,70 +541,11 @@ struct InsideJobRuntimeConfiguration: Equatable, Sendable {
         value.number
     }
 
-    private static func resolveAllowedScopes(
-        env: StartupEnvironment,
-        plist: StartupInfoPlist,
-        warnings: inout [InsideJobConfigurationWarning]
-    ) -> ResolvedConfigurationValue<Set<ConnectionScope>> {
-        if let envValue = env[.scope] {
-            if let parsed = ConnectionScope.parse(envValue) {
-                return ResolvedConfigurationValue(value: parsed, source: .environment)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: StartupEnvironmentKey.scope.rawValue,
-                source: .environment,
-                value: envValue
-            ))
-        }
-
-        if let plistValue = plist[.scope] {
-            if let parsed = parseScopes(plistValue) {
-                return ResolvedConfigurationValue(value: parsed, source: .infoPlist)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: StartupInfoPlistKey.scope.rawValue,
-                source: .infoPlist,
-                value: String(describing: plistValue)
-            ))
-        }
-
-        return ResolvedConfigurationValue(value: ConnectionScope.default, source: .defaultValue)
-    }
-
     private static func parseScopes(_ value: InfoPlistValue) -> Set<ConnectionScope>? {
         if let strings = value.stringArray {
             return ConnectionScope.parse(strings.joined(separator: ","))
         }
         return nil
-    }
-
-    private static func resolveBool(
-        envKey: StartupEnvironmentKey,
-        plistKey: StartupInfoPlistKey,
-        defaultValue: Bool,
-        env: StartupEnvironment,
-        plist: StartupInfoPlist,
-        warnings: inout [InsideJobConfigurationWarning]
-    ) -> ResolvedConfigurationValue<Bool> {
-        if let envValue = env[envKey] {
-            if let parsed = parseBool(envValue) {
-                return ResolvedConfigurationValue(value: parsed, source: .environment)
-            }
-            warnings.append(.invalidValueIgnored(key: envKey.rawValue, source: .environment, value: envValue))
-        }
-
-        if let plistValue = plist[plistKey] {
-            if let parsed = parseBool(plistValue) {
-                return ResolvedConfigurationValue(value: parsed, source: .infoPlist)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: plistKey.rawValue,
-                source: .infoPlist,
-                value: String(describing: plistValue)
-            ))
-        }
-
-        return ResolvedConfigurationValue(value: defaultValue, source: .defaultValue)
     }
 
     private static func parseBool(_ value: String) -> Bool? {
@@ -634,37 +561,6 @@ struct InsideJobRuntimeConfiguration: Equatable, Sendable {
 
     private static func parseBool(_ value: InfoPlistValue) -> Bool? {
         value.bool
-    }
-
-    private static func resolveFailureEvidencePolicy(
-        env: StartupEnvironment,
-        plist: StartupInfoPlist,
-        warnings: inout [InsideJobConfigurationWarning]
-    ) -> ResolvedConfigurationValue<FailureEvidencePolicy> {
-        if let envValue = env[.failureEvidence] {
-            if let parsed = FailureEvidencePolicy(rawValue: envValue) {
-                return ResolvedConfigurationValue(value: parsed, source: .environment)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: StartupEnvironmentKey.failureEvidence.rawValue,
-                source: .environment,
-                value: envValue
-            ))
-        }
-
-        if let plistValue = plist[.failureEvidence] {
-            if let string = plistValue.string,
-               let parsed = FailureEvidencePolicy(rawValue: string) {
-                return ResolvedConfigurationValue(value: parsed, source: .infoPlist)
-            }
-            warnings.append(.invalidValueIgnored(
-                key: StartupInfoPlistKey.failureEvidence.rawValue,
-                source: .infoPlist,
-                value: String(describing: plistValue)
-            ))
-        }
-
-        return ResolvedConfigurationValue(value: .screenshot, source: .defaultValue)
     }
 }
 
