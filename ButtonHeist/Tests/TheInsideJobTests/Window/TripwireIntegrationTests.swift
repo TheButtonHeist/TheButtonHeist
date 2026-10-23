@@ -45,6 +45,63 @@ final class TripwireIntegrationTests: XCTestCase {
         XCTAssertEqual(range.preferred, 30)
     }
 
+    func testSlowAmbientCapturesDoNotSkipCaptureOpportunities() {
+        tripwire.setObservationPulseDemand(.ambient)
+        let reading = TheTripwire.PulseReading(
+            frameDuration: .milliseconds(16), tripwireSignal: .empty
+        )
+
+        for _ in 0..<4 {
+            XCTAssertTrue(tripwire.admitObservationPulse(reading))
+            tripwire.recordObservationDuration(.milliseconds(50), frameDuration: reading.frameDuration)
+        }
+    }
+
+    func testReturningToAmbientCancelsActiveRecovery() {
+        tripwire.setObservationPulseDemand(.immediate)
+        let reading = TheTripwire.PulseReading(
+            frameDuration: .milliseconds(16), tripwireSignal: .empty
+        )
+        XCTAssertTrue(tripwire.admitObservationPulse(reading))
+        tripwire.recordObservationDuration(.milliseconds(50), frameDuration: reading.frameDuration)
+        XCTAssertFalse(tripwire.admitObservationPulse(reading))
+
+        tripwire.setObservationPulseDemand(.ambient)
+
+        XCTAssertTrue(tripwire.admitObservationPulse(reading))
+        XCTAssertTrue(tripwire.admitObservationPulse(reading))
+    }
+
+    func testPausingDemandCancelsRecoveryBeforeNextActiveScope() {
+        tripwire.setObservationPulseDemand(.immediate)
+        let reading = TheTripwire.PulseReading(
+            frameDuration: .milliseconds(16), tripwireSignal: .empty
+        )
+        XCTAssertTrue(tripwire.admitObservationPulse(reading))
+        tripwire.recordObservationDuration(.milliseconds(50), frameDuration: reading.frameDuration)
+
+        tripwire.setObservationPulseDemand(nil)
+        tripwire.setObservationPulseDemand(.immediate)
+
+        XCTAssertTrue(tripwire.admitObservationPulse(reading))
+    }
+
+    func testStoppingPulseObservationCancelsRecovery() {
+        tripwire.observePulses { _ in }
+        tripwire.setObservationPulseDemand(.immediate)
+        let reading = TheTripwire.PulseReading(
+            frameDuration: .milliseconds(16), tripwireSignal: .empty
+        )
+        XCTAssertTrue(tripwire.admitObservationPulse(reading))
+        tripwire.recordObservationDuration(.milliseconds(50), frameDuration: reading.frameDuration)
+
+        tripwire.stopObservingPulses()
+        tripwire.observePulses { _ in }
+        tripwire.setObservationPulseDemand(.ambient)
+
+        XCTAssertTrue(tripwire.admitObservationPulse(reading))
+    }
+
     // MARK: - Pulse produces readings
 
     func testPulseProducesReadingAfterStart() async throws {

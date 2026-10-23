@@ -28,7 +28,7 @@ flowchart LR
     Result --> Report["report projection"]
     Report --> Render["JSON / compact / human / JUnit"]
     Stream -->|"record live cycle duration"| Budget["Display-frame budget"]
-    Budget -->|"over budget: skip one or two"| Admission
+    Budget -->|"active and over budget: skip one or two"| Admission
     Stream -->|"acknowledge after commit"| Notice
 ```
 
@@ -60,10 +60,12 @@ without forcing a Core Animation transaction flush. Active demand caps the
 display link at 30 Hz or the screen maximum, whichever is lower. Immediately
 before capture, pulse admission skips one pulse after a successful touch-up or
 hierarchy change. The next pulse is admitted even during continued hierarchy
-changes. A live visible observation cycle longer than one display frame skips
-one subsequent capture opportunity. A cycle longer than two frames skips two.
-Recovery coalesces with render grace and cannot be extended by further touch
-or hierarchy changes. Skipped pulses leave notification claims and capture waiters pending
+changes. Under active demand, a live visible observation cycle longer than one
+display frame skips one subsequent capture opportunity. A cycle longer than two
+frames skips two. Ambient captures do not schedule recovery. Ending active demand
+cancels recovery while preserving render grace. Recovery coalesces with render
+grace and cannot be extended by further touch or hierarchy changes. Skipped
+pulses leave notification claims and capture waiters pending
 and publish no event. Periodic captures of the visible accessibility tree continue without notifications.
 Deterministic execution authors each pulse directly and never starts a display link.
 Pulses arriving during an active synchronous cycle are dropped; a later pulse

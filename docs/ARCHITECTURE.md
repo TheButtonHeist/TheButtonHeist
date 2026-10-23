@@ -188,7 +188,7 @@ notification ownership, capture validation, and the frame-budget feedback loop.
 TheTripwire samples top view-controller identity, navigation state, and window
 ordering. Its live pulse admission gives UIKit a render opportunity after
 touch-up or a hierarchy change, and bounds recovery after an over-budget
-visible capture. It never classifies the accessibility tree.
+visible capture under active demand. It never classifies the accessibility tree.
 
 ```swift
 enum HeistExecution.Decision {
@@ -358,11 +358,13 @@ transaction flush. A successful synthetic touch-up requests render grace.
 Immediately before a live capture, `TheTripwire.PulseAdmission` skips one pulse
 after that request or a changed hierarchy. The next pulse is admitted even if
 the hierarchy changes again. The stream measures each live visible observation
-cycle against the display frame duration supplied by that pulse. A cycle longer
-than one frame skips one subsequent capture opportunity. A cycle longer than
-two frames skips two opportunities. Recovery and render grace share the same admission state and
-coalesce rather than stacking. Further touch or hierarchy changes cannot extend
-that bounded recovery. A skipped pulse does not claim notifications, complete
+cycle against the display frame duration supplied by that pulse. Under active
+demand, a cycle longer than one frame skips one subsequent capture opportunity.
+A cycle longer than two frames skips two opportunities. Ambient captures do not
+schedule recovery. Returning to ambient or pausing demand cancels pending
+recovery while preserving render grace. Both causes share one admission policy
+and coalesce rather than stacking. Further touch or hierarchy changes cannot
+extend that bounded recovery. A skipped pulse does not claim notifications, complete
 capture waiters, or publish
 `noChange`. Periodic sampling continues even when no UIKit signal changes.
 Injected ingress authors admitted pulses for deterministic execution and never

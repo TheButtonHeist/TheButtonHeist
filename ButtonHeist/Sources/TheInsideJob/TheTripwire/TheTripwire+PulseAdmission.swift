@@ -9,43 +9,50 @@ extension TheTripwire {
             case twoPulses
         }
 
-        private enum State {
+        private enum RenderGrace {
             case initial
             case ready(HierarchySignal)
-            case pending(Recovery)
+            case pending
             case yielding
         }
 
-        private var state = State.initial
+        private var renderGrace = RenderGrace.initial
+        private var recovery: Recovery?
 
         mutating func recordCapture(duration: Duration, frameDuration: Duration) {
             precondition(frameDuration > .zero, "Display frame duration must be positive")
             guard duration > frameDuration else { return }
-            state = .pending(duration > frameDuration * 2 ? .twoPulses : .onePulse)
+            recovery = duration > frameDuration * 2 ? .twoPulses : .onePulse
+        }
+
+        mutating func cancelRecovery() {
+            recovery = nil
         }
 
         mutating func deferForRendering() {
-            switch state {
+            switch renderGrace {
             case .initial, .ready:
-                state = .pending(.onePulse)
+                renderGrace = .pending
             case .pending, .yielding:
                 break
             }
         }
 
         mutating func admit(_ hierarchy: HierarchySignal) -> Bool {
-            switch state {
-            case .pending(.twoPulses):
-                state = .pending(.onePulse)
+            if let recovery {
+                self.recovery = recovery == .twoPulses ? .onePulse : nil
+                renderGrace = .yielding
                 return false
-            case .pending(.onePulse):
-                state = .yielding
+            }
+            switch renderGrace {
+            case .pending:
+                renderGrace = .yielding
                 return false
             case .ready(let previous) where previous != hierarchy:
-                state = .yielding
+                renderGrace = .yielding
                 return false
             case .initial, .ready, .yielding:
-                state = .ready(hierarchy)
+                renderGrace = .ready(hierarchy)
                 return true
             }
         }

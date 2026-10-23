@@ -61,6 +61,62 @@ final class TheTripwirePolicyTests: XCTestCase {
         XCTAssertTrue(admission.admit(changed))
     }
 
+    func testCancellingRecoveryAdmitsNextUnchangedPulse() {
+        for duration in [Duration.milliseconds(26), .milliseconds(50)] {
+            var admission = TheTripwire.PulseAdmission()
+            let hierarchy = TheTripwire.TripwireSignal.empty.hierarchy
+            XCTAssertTrue(admission.admit(hierarchy))
+
+            admission.recordCapture(duration: duration, frameDuration: .milliseconds(16))
+            admission.cancelRecovery()
+
+            XCTAssertTrue(admission.admit(hierarchy))
+        }
+    }
+
+    func testCancellingRecoveryPreservesHierarchyRenderGrace() {
+        var admission = TheTripwire.PulseAdmission()
+        let window = UIWindow()
+        XCTAssertTrue(admission.admit(TheTripwire.TripwireSignal.empty.hierarchy))
+        admission.recordCapture(duration: .milliseconds(50), frameDuration: .milliseconds(16))
+
+        admission.cancelRecovery()
+
+        XCTAssertFalse(admission.admit(hierarchy(window: window)))
+        XCTAssertTrue(admission.admit(hierarchy(window: window)))
+    }
+
+    func testCancellingRecoveryPreservesPendingTouchRenderGrace() {
+        for touchBeforeCapture in [true, false] {
+            var admission = TheTripwire.PulseAdmission()
+            let hierarchy = TheTripwire.TripwireSignal.empty.hierarchy
+            XCTAssertTrue(admission.admit(hierarchy))
+            if touchBeforeCapture { admission.deferForRendering() }
+            admission.recordCapture(duration: .milliseconds(50), frameDuration: .milliseconds(16))
+            if !touchBeforeCapture { admission.deferForRendering() }
+
+            admission.cancelRecovery()
+
+            XCTAssertFalse(admission.admit(hierarchy))
+            admission.deferForRendering()
+            XCTAssertTrue(admission.admit(hierarchy))
+        }
+    }
+
+    func testCancellingPartiallyConsumedRecoveryDoesNotRestartRenderGrace() {
+        var admission = TheTripwire.PulseAdmission()
+        let hierarchy = TheTripwire.TripwireSignal.empty.hierarchy
+        XCTAssertTrue(admission.admit(hierarchy))
+        admission.recordCapture(duration: .milliseconds(50), frameDuration: .milliseconds(16))
+        admission.deferForRendering()
+        XCTAssertFalse(admission.admit(hierarchy))
+
+        admission.cancelRecovery()
+        admission.deferForRendering()
+
+        XCTAssertTrue(admission.admit(hierarchy))
+    }
+
     func testRepeatedHierarchyChangesCannotExtendRenderGrace() {
         var admission = TheTripwire.PulseAdmission()
         let first = UIWindow()

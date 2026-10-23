@@ -14,6 +14,7 @@ flowchart TD
     Demand["Heist scopes and waiters"] --> Pressure["Scope pressure"]
     Pressure -->|"scope"| Cycle
     Pressure -->|"pause, ambient, or active"| Link["Tripwire display link<br>active at most 30 Hz"]
+    Pressure -->|"ambient or paused: cancel recovery"| Admission
     Link --> Signal["Sample UIKit hierarchy"]
     Signal --> Cycle{"Capture already active?"}
     Cycle -->|"yes"| Drop["Drop pulse"]
@@ -41,7 +42,7 @@ flowchart TD
     Publish --> Reducer["HeistExecution reducer"]
     Publish --> Waiters["Resolve observation waiters"]
     Waiters --> Budget["Record live cycle duration"]
-    Budget -.->|"over budget: skip one or two"| Admission
+    Budget -.->|"active and over budget: skip one or two"| Admission
     Budget --> Completion{"Observation committed?"}
     Completion -->|"no"| Retry["Retain claim; resolve cycle waiters"]
     Retry --> Rearm
@@ -51,10 +52,12 @@ flowchart TD
 ```
 
 The capture cycle drops pulses while a task is active. Rendering grace skips
-one capture opportunity after touch-up or a hierarchy change. A cycle longer
-than one display frame skips one later opportunity. A cycle longer than two
-frames skips two opportunities. These causes share one admission policy. Repeated render requests
-cannot extend an active delay.
+one capture opportunity after touch-up or a hierarchy change. Under active
+demand, a cycle longer than one display frame skips one later opportunity.
+A cycle longer than two frames skips two opportunities. Ambient captures do not
+schedule recovery. Ending active demand cancels recovery while preserving render
+grace. These causes share one admission policy. Repeated render requests cannot
+extend an active delay.
 
 Skipped opportunities leave notifications and capture waiters pending. Failed
 captures retain their exact notification claim for retry. A successful commit

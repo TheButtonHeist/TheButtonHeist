@@ -92,14 +92,16 @@ extension TheTripwire {
     func stopObservingPulses() {
         guard let context = runningContext else { return }
         context.receiveObservationPulse = nil
-        context.observationDemand = nil
-        updateDisplayLinkRate(context)
+        setObservationPulseDemand(nil)
     }
 
     func setObservationPulseDemand(_ demand: TickDemand?) {
         guard let context = runningContext,
               context.observationDemand != demand else { return }
         context.observationDemand = demand
+        if demand != .immediate {
+            context.admission.cancelRecovery()
+        }
         updateDisplayLinkRate(context)
     }
 
@@ -114,7 +116,9 @@ extension TheTripwire {
     }
 
     func recordObservationDuration(_ duration: Duration, frameDuration: Duration) {
-        runningContext?.admission.recordCapture(duration: duration, frameDuration: frameDuration)
+        guard let context = runningContext,
+              context.observationDemand == .immediate else { return }
+        context.admission.recordCapture(duration: duration, frameDuration: frameDuration)
     }
 
     // MARK: - Tick Handler
