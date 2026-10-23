@@ -185,15 +185,8 @@ extension Navigation {
         if let target,
            target.isElementTarget,
            case .resolved(.element) = vault.resolveTarget(target) {
-            let transaction = ElementInflation.RevealTransaction(vault: vault)
-            transaction.captureScrollableHierarchy()
-            _ = await elementInflation.inflate(
+            let viewportExit = await elementInflation.inflateForObservation(
                 for: target,
-                method: .scrollToVisible,
-                deadline: deadline
-            )
-            let viewportExit = await transaction.rollBack(
-                using: elementInflation.exploration.moveViewport,
                 deadline: deadline
             )
             guard viewportExit == .restored else { return viewportExit }

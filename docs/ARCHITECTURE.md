@@ -490,10 +490,12 @@ comparison, so stretchy overdrag cannot masquerade as another page.
 
 Command discovery and wait discovery use `ViewportExitPosition.origin`: every
 touched scroll view is restored and the restored viewport is committed before
-the operation returns. Target inflation uses `ViewportExitPosition.current`, so
-the requested element remains visible for dispatch. The caller selects this
-exit policy before traversal; finalization applies it whether traversal matched,
-depleted its rays, hit a budget, or was interrupted after dispatch.
+the operation returns. For actions, inflation retains the revealed viewport on
+success so the requested element remains visible for dispatch. For observation,
+element inflation restores its origin before returning. `ElementInflation` owns
+both completions. Wait orchestration adds no outer viewport transaction. The
+operation selects the exit policy before traversal. Finalization applies it
+after a match, exhausted search, budget limit, or interruption after dispatch.
 `Navigation.InterfaceExplorationResult` is the finished event and progress for that
 traversal; it derives from canonical vault truth and owns no second graph or
 commit path. There is no compatibility traversal or commit path.
@@ -529,6 +531,14 @@ Element inflation is the boundary between a durable semantic target and a fresh
 live target that can be acted on now. Callers provide semantic identity. The
 runtime owns the bounded viewport and live-geometry work required to execute
 that intent.
+
+Actions, committed-target refresh, and known-element observation use one
+inflation state machine. It owns the reveal transaction through completion.
+Action success retains the target; failure attempts restoration. Inflation for
+observation attempts restoration after either outcome and returns the typed
+viewport outcome. It does not return a live action target after restoration.
+All cleanup uses the same absolute leaf deadline. Container inflation and
+exhaustive wait search remain separate consolidation work.
 
 The pipeline is:
 

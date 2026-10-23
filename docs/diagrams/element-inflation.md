@@ -44,8 +44,11 @@ flowchart TD
     MORE -- "yes" --> GRAPH
     MORE -- "no" --> STABLE["stabilize frame + activationPoint<br/>under the same deadline"]
     STABLE -- "fresh committed capture" --> RERESOLVE
-    STABLE -- "stable and onscreen" --> ACT["LiveActionTarget<br/>for current-capture HeistId"]
+    STABLE -- "stable and onscreen" --> COMPLETION{"inflation completion"}
+    COMPLETION -- "action" --> ACT["retain viewport and hand off LiveActionTarget<br/>for current-capture HeistId"]
+    COMPLETION -- "observation" --> RESTORE["restore origin through viewport transition<br/>under the same deadline"]
     STABLE -- "deadline / offscreen" --> MISS
+    MISS --> RESTORE
 ```
 
 Notes:
@@ -53,6 +56,12 @@ Notes:
 - Resolution reads the **interface tree only** (`TheVault.interfaceTree`). Live capture proves current actionability and geometry for an interface element; it is not a second search space.
 - Container-only targets are valid for predicates and subtree queries. Element-
   only actions reject a resolved container with a typed target-kind error.
+- `ElementInflation` owns its reveal transaction through completion. Actions
+  retain the revealed viewport on success and attempt restoration on failure.
+  Element inflation for observation attempts restoration after either outcome and
+  returns the typed restoration outcome. Wait orchestration adds no outer
+  viewport transaction. Container inflation and exhaustive wait search
+  orchestration remain follow-up work.
 - Matching is **exact or miss**: string checks are case-insensitive with typography folding (smart quotes, dashes, ellipsis fold to ASCII), traits compare as sets. On a miss the resolver returns structured facts — the interface elements in scope — through the diagnostic path; substring matching is not part of resolution.
 - A capture-local action can join the selected element's current `HeistId`
   directly to live UIKit evidence. Before any cross-capture reveal, inflation

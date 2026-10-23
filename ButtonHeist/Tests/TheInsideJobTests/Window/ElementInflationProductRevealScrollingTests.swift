@@ -11,6 +11,73 @@ extension ElementInflationProductTests {
 
     // MARK: - Reveal and Nested Scrolling
 
+    func testObservationInflationRestoresOriginAfterRevealingKnownElement() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "observation_inflation_target",
+            label: "Observation Inflation Target"
+        )
+        try await seedOffViewportTarget(fixture)
+
+        let outcome = await brains.navigation.elementInflation.inflateForObservation(
+            for: try AccessibilityTarget.identifier(fixture.identifier).resolve(in: .empty),
+            deadline: SemanticObservationDeadline(start: RuntimeElapsed.now, timeoutSeconds: 10)
+        )
+
+        XCTAssertEqual(outcome, .restored)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, 0)
+    }
+
+    func testObservationInflationReportsFailedOriginRestoration() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "observation_restore_failure",
+            label: "Observation Restore Failure"
+        )
+        try await seedOffViewportTarget(fixture)
+        let moveViewport = brains.navigation.elementInflation.exploration.moveViewport
+        var restorationAttempts = 0
+        brains.navigation.elementInflation.exploration.moveViewport = { intent, deadline in
+            if case .restoreVisualOrigin = intent {
+                restorationAttempts += 1
+                return .unavailable()
+            }
+            return await moveViewport(intent, deadline)
+        }
+
+        let outcome = await brains.navigation.elementInflation.inflateForObservation(
+            for: try AccessibilityTarget.identifier(fixture.identifier).resolve(in: .empty),
+            deadline: SemanticObservationDeadline(start: RuntimeElapsed.now, timeoutSeconds: 10)
+        )
+
+        XCTAssertEqual(outcome, .failed(.originUnavailable))
+        XCTAssertEqual(restorationAttempts, 1)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, 0)
+    }
+
+    func testCancelledObservationInflationRestoresOrigin() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "cancelled_observation_inflation",
+            label: "Cancelled Observation Inflation"
+        )
+        try await seedOffViewportTarget(fixture)
+        let target = try AccessibilityTarget.identifier(fixture.identifier).resolve(in: .empty)
+        var inflationTask: Task<Navigation.ViewportExit.Outcome, Never>?
+        fixture.scrollView.onFirstRevealRequest = { inflationTask?.cancel() }
+        let task = Task { @MainActor in
+            await self.brains.navigation.elementInflation.inflateForObservation(
+                for: target,
+                deadline: SemanticObservationDeadline(start: RuntimeElapsed.now, timeoutSeconds: 10)
+            )
+        }
+        inflationTask = task
+
+        let outcome = await task.value
+
+        XCTAssertEqual(outcome, .restored)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, 0)
+    }
+
     func testWaitFastPathStopsBeforeCachedTargetInflation() async throws {
         let fixture = try installOffscreenActivationFixture(
             identifier: "wait_fast_path_target",

@@ -141,55 +141,84 @@ internal final class ElementInflation {
         self.exploration = exploration
     }
 
+    // MARK: - Target Inflation
+
     internal func inflate(
         for target: ResolvedAccessibilityTarget,
         method: ActionMethod,
         activationPointPolicy: ActivationPointPolicy = .requireOnscreen,
         deadline: SemanticObservationDeadline
     ) async -> ElementInflationResult {
+        await runInflation(
+            for: target,
+            method: method,
+            activationPointPolicy: activationPointPolicy,
+            deadline: deadline,
+            finish: finishActionInflation
+        )
+    }
+
+    /// Inflate an element for observation and restore the viewport before returning.
+    internal func inflateForObservation(
+        for target: ResolvedAccessibilityTarget,
+        deadline: SemanticObservationDeadline
+    ) async -> Navigation.ViewportExit.Outcome {
+        guard deadline.hasTimeRemaining(at: RuntimeElapsed.now) else { return .restored }
+        return await runInflation(
+            for: target,
+            method: .scrollToVisible,
+            activationPointPolicy: .requireOnscreen,
+            deadline: deadline,
+            finish: { _, transaction, deadline in
+                await transaction.rollBack(using: self.exploration.moveViewport, deadline: deadline)
+            }
+        )
+    }
+
+    private func runInflation<Output>(
+        for target: ResolvedAccessibilityTarget,
+        method: ActionMethod,
+        activationPointPolicy: ActivationPointPolicy,
+        deadline: SemanticObservationDeadline,
+        initialState: State = .resolving,
+        finish: @MainActor (
+            ElementInflationResult,
+            RevealTransaction,
+            SemanticObservationDeadline
+        ) async -> Output
+    ) async -> Output {
+        var state = initialState
+        let revealTransaction = RevealTransaction(vault: vault)
         guard !Task.isCancelled else {
-            return .failed(.cancelled("element inflation was cancelled before resolution"))
+            return await finish(
+                .failed(.cancelled("element inflation was cancelled before resolution")),
+                revealTransaction,
+                deadline
+            )
         }
         let validatedTarget: ResolvedAccessibilityTarget
         do {
             validatedTarget = try target.validatedForElementAction()
         } catch {
-            return .failed(.targetResolution(error))
+            return await finish(.failed(.targetResolution(error)), revealTransaction, deadline)
         }
-        return await runInflation(
-            for: validatedTarget,
-            method: method,
-            activationPointPolicy: activationPointPolicy,
-            deadline: deadline
-        )
-    }
-
-    private func runInflation(
-        for target: ResolvedAccessibilityTarget,
-        method: ActionMethod,
-        activationPointPolicy: ActivationPointPolicy,
-        deadline: SemanticObservationDeadline,
-        initialState: State = .resolving
-    ) async -> ElementInflationResult {
-        var state = initialState
-        let revealTransaction = RevealTransaction(vault: vault)
         revealTransaction.captureScrollableHierarchy()
 
         while true {
             switch state {
             case .resolving:
                 let nextState: State
-                switch await findTargetInTree(target, deadline: deadline) {
+                switch await findTargetInTree(validatedTarget, deadline: deadline) {
                 case .success(.visible(let treeElement, let resolution)):
                     nextState = .refreshing(
-                        target: .captureLocal(target),
+                        target: .captureLocal(validatedTarget),
                         treeElement: treeElement,
                         deadline: deadline,
                         resolution: resolution
                     )
                 case .success(.known(let treeElement, let resolution)):
                     nextState = .revealing(
-                        target: .captureLocal(target),
+                        target: .captureLocal(validatedTarget),
                         treeElement: treeElement,
                         deadline: deadline,
                         resolution: resolution
@@ -229,18 +258,15 @@ internal final class ElementInflation {
                 state = transition(from: state, to: nextState)
 
             case .inflated(let result):
-                revealTransaction.commit()
-                return .inflated(result)
+                return await finish(.inflated(result), revealTransaction, deadline)
 
             case .failed(let failure):
-                await revealTransaction.rollBack(
-                    using: exploration.moveViewport,
-                    deadline: deadline
-                )
-                return .failed(failure)
+                return await finish(.failed(failure), revealTransaction, deadline)
             }
         }
     }
+
+    // MARK: - Committed Target Refresh
 
     internal func refreshCommittedTarget(
         _ target: CommittedElementTarget,
@@ -287,8 +313,25 @@ internal final class ElementInflation {
             method: method,
             activationPointPolicy: activationPointPolicy,
             deadline: deadline,
-            initialState: initialState
+            initialState: initialState,
+            finish: finishActionInflation
         )
+    }
+
+    // MARK: - Private Helpers
+
+    private func finishActionInflation(
+        _ result: ElementInflationResult,
+        transaction: RevealTransaction,
+        deadline: SemanticObservationDeadline
+    ) async -> ElementInflationResult {
+        switch result {
+        case .inflated:
+            transaction.commit()
+        case .failed:
+            await transaction.rollBack(using: exploration.moveViewport, deadline: deadline)
+        }
+        return result
     }
 
     private func transition(
