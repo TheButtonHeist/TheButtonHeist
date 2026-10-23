@@ -15,6 +15,41 @@ final class TheTripwirePolicyTests: XCTestCase {
         ))
     }
 
+    func testCaptureWithinFrameBudgetDoesNotSkipNextPulse() {
+        var admission = TheTripwire.PulseAdmission()
+        let hierarchy = TheTripwire.TripwireSignal.empty.hierarchy
+        XCTAssertTrue(admission.admit(hierarchy))
+
+        admission.recordCapture(duration: .milliseconds(16), frameDuration: .milliseconds(16))
+
+        XCTAssertTrue(admission.admit(hierarchy))
+    }
+
+    func testOverBudgetCaptureSkipsOnePulse() {
+        var admission = TheTripwire.PulseAdmission()
+        let hierarchy = TheTripwire.TripwireSignal.empty.hierarchy
+        XCTAssertTrue(admission.admit(hierarchy))
+
+        admission.recordCapture(duration: .milliseconds(26), frameDuration: .milliseconds(16))
+
+        XCTAssertFalse(admission.admit(hierarchy))
+        XCTAssertTrue(admission.admit(hierarchy))
+    }
+
+    func testLongCaptureSkipsAtMostTwoPulsesAndCoalescesRenderRequests() {
+        var admission = TheTripwire.PulseAdmission()
+        let window = UIWindow()
+        XCTAssertTrue(admission.admit(TheTripwire.TripwireSignal.empty.hierarchy))
+
+        admission.recordCapture(duration: .seconds(1), frameDuration: .milliseconds(16))
+        admission.deferForRendering()
+        XCTAssertFalse(admission.admit(hierarchy(window: window)))
+        admission.deferForRendering()
+        XCTAssertFalse(admission.admit(hierarchy(window: window)))
+        admission.deferForRendering()
+        XCTAssertTrue(admission.admit(hierarchy(window: window)))
+    }
+
     func testWindowChangeSkipsExactlyOneCapturePulse() {
         var admission = TheTripwire.PulseAdmission()
         let window = UIWindow()
@@ -86,30 +121,6 @@ final class TheTripwirePolicyTests: XCTestCase {
         XCTAssertEqual(range.minimum, 24)
         XCTAssertEqual(range.maximum, 24)
         XCTAssertEqual(range.preferred, 24)
-    }
-
-    func testSemanticSignalProjectsOnlyDurableWindowFacts() {
-        let viewController = UIViewController()
-        let window = UIWindow()
-        let signal = TheTripwire.TripwireSignal(
-            topmostVC: ObjectIdentifier(viewController),
-            navigation: .empty,
-            windowStack: TheTripwire.WindowStackSignal(windows: [
-                TheTripwire.WindowSignal(
-                    id: ObjectIdentifier(window),
-                    level: 7,
-                    isKeyWindow: true
-                ),
-            ]),
-            accessibilityNotificationSequence: 42
-        )
-
-        XCTAssertEqual(
-            signal.semanticValue,
-            TheTripwire.SemanticSignal(windows: [
-                TheTripwire.SemanticWindowSignal(level: 7, isKeyWindow: true),
-            ])
-        )
     }
 
     private func hierarchy(window: UIWindow) -> TheTripwire.HierarchySignal {

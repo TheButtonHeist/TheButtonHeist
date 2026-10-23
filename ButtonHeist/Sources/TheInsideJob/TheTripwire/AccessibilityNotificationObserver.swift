@@ -45,6 +45,19 @@ private final class PendingAccessibilityNotificationCallback: @unchecked Sendabl
 /// the main-actor observer. Dispatch's serial FIFO ordering is the observer's
 /// callback order.
 enum AccessibilityNotificationCallbackIngress {
+    static func callback(
+        deliveringTo handler: @escaping AccessibilityNotificationCallback
+    ) -> ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock {
+        { code, notificationData, associatedElement in
+            enqueue(
+                code: code,
+                notificationData: notificationData,
+                associatedElement: associatedElement,
+                handler: handler
+            )
+        }
+    }
+
     static func enqueue(
         code: UInt32,
         notificationData: AnyObject?,
@@ -135,15 +148,9 @@ final class AccessibilityNotificationObserver {
         ) -> Void
     ) {
         self.init { handler in
-            let callback: ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock = { code, notificationData, associatedElement in
-                AccessibilityNotificationCallbackIngress.enqueue(
-                    code: code,
-                    notificationData: notificationData,
-                    associatedElement: associatedElement,
-                    handler: handler
-                )
-            }
-            installPrivateCallbackForTesting(callback)
+            installPrivateCallbackForTesting(
+                AccessibilityNotificationCallbackIngress.callback(deliveringTo: handler)
+            )
             return CallbackInstallation(retainedCallback: nil)
         }
     }
@@ -190,22 +197,18 @@ final class AccessibilityNotificationObserver {
         guard let destination else { return }
 
         let timestamp = Date()
-        let capturedNotificationData = CapturedAccessibilityNotificationPayload(notificationData)
-        let capturedAssociatedElement = CapturedAccessibilityNotificationPayload(associatedElement)
         if let description = AccessibilityNotificationProbe.description(
             rawCode: code,
-            notificationData: capturedNotificationData,
-            associatedElement: capturedAssociatedElement
+            notificationData: notificationData,
+            associatedElement: associatedElement
         ) {
             accessibilityNotificationLogger.info("\(description, privacy: .public)")
         }
-        let notificationPayload = capturedNotificationData.pendingPayload
-        let associatedElementPayload = capturedAssociatedElement.pendingPayload
         destination.record(
             rawCode: code,
             timestamp: timestamp,
-            notificationData: notificationPayload,
-            associatedElement: associatedElementPayload
+            notificationData: PendingAccessibilityNotificationPayload(notificationData),
+            associatedElement: PendingAccessibilityNotificationPayload(associatedElement)
         )
     }
 }
@@ -294,14 +297,7 @@ private enum AccessibilityNotificationPrivateSPI {
             throw InstallError.callbackSymbolUnavailable(source: source)
         }
         let observerKey = "com.buttonheist.accessibility-notification-observer" as NSString
-        let callback: ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock = { code, notificationData, associatedElement in
-            AccessibilityNotificationCallbackIngress.enqueue(
-                code: code,
-                notificationData: notificationData,
-                associatedElement: associatedElement,
-                handler: handler
-            )
-        }
+        let callback = AccessibilityNotificationCallbackIngress.callback(deliveringTo: handler)
 
         addCallback(callback, observerKey)
         return InstalledCallback(

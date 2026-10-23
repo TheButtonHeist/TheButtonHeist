@@ -74,7 +74,7 @@ final class SemanticObservationCycleTests: XCTestCase {
 
         let firstIdentity = try XCTUnwrap(
             cycle.receive(pulse(tick: 1)) { request in
-                startedTicks.append(request.pulse.tick)
+                startedTicks.append(request.pulse.tripwireSignal.accessibilityNotificationSequence)
                 return Task {}
             }
         )
@@ -84,7 +84,7 @@ final class SemanticObservationCycleTests: XCTestCase {
 
         XCTAssertNotNil(cycle.complete(firstIdentity))
         XCTAssertNotNil(cycle.receive(pulse(tick: 4)) { request in
-            startedTicks.append(request.pulse.tick)
+            startedTicks.append(request.pulse.tripwireSignal.accessibilityNotificationSequence)
             return Task {}
         })
         XCTAssertEqual(startedTicks, [1, 4])
@@ -117,9 +117,8 @@ final class SemanticObservationCycleTests: XCTestCase {
 
     private func pulse(tick: UInt64) -> TheTripwire.PulseReading {
         TheTripwire.PulseReading(
-            tick: tick,
-            elapsed: .milliseconds(Int64(tick)),
-            tripwireSignal: .empty
+            frameDuration: .milliseconds(16),
+            tripwireSignal: .empty.recordingAccessibilityNotifications(through: tick)
         )
     }
 }

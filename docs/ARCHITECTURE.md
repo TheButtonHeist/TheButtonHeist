@@ -180,11 +180,15 @@ targets from the new interface evidence. See the
 the [observation pipeline diagram](diagrams/observation-pipeline.md) for the
 capture, event, predicate, and public-fold boundaries.
 
+The [Tripwire admission diagram](diagrams/tripwire.md) shows live pacing,
+notification ownership, capture validation, and the frame-budget feedback loop.
+
 ### One Heist Reducer
 
 TheTripwire samples top view-controller identity, navigation state, and window
 ordering. Its live pulse admission gives UIKit a render opportunity after
-touch-up or a hierarchy change. It never classifies the accessibility tree.
+touch-up or a hierarchy change, and bounds recovery after an over-budget
+visible capture. It never classifies the accessibility tree.
 
 ```swift
 enum HeistExecution.Decision {
@@ -351,18 +355,30 @@ configured rate. The callback samples UIKit without forcing a Core Animation
 transaction flush. A successful synthetic touch-up requests render grace.
 Immediately before a live capture, `TheTripwire.PulseAdmission` skips one pulse
 after that request or a changed hierarchy. The next pulse is admitted even if
-the hierarchy changes again, so grace cannot starve observation. A skipped
-pulse does not claim notifications, complete capture waiters, or publish
+the hierarchy changes again. The stream measures each live visible observation
+cycle against the display frame duration supplied by that pulse. A cycle longer
+than one frame skips one subsequent capture opportunity. A cycle longer than
+two frames skips two opportunities. Recovery and render grace share the same admission state and
+coalesce rather than stacking. Further touch or hierarchy changes cannot extend
+that bounded recovery. A skipped pulse does not claim notifications, complete
+capture waiters, or publish
 `noChange`. Periodic sampling continues even when no UIKit signal changes.
 Injected ingress authors admitted pulses for deterministic execution and never
 starts that live clock. A pulse starts at most
 one capture cycle, and pulses received while that synchronous cycle is active
 are dropped. A later display pulse starts the next demanded cycle. The cycle
-claims notifications, captures and parses live UIKit state, commits snapshot and
-history, then publishes ordered events to `HeistExecution`. A fresh capture
+claims notifications, captures and parses the visible accessibility tree, commits
+snapshot and history, then publishes ordered events to `HeistExecution`. A fresh capture
 that proves complete observed equality produces `noChange`. That case has no
 payload, but it means neither semantic state nor geometry changed within the
 admitted comparison tolerance.
+The display pulse carries only its UIKit signal and display-frame budget. Cycle
+identity owns task lifetime; business deadlines use their own elapsed-time
+boundary. Window facts project directly into snapshot context. Notification
+payloads normalize once into text or weak live objects. Diagnostic summaries
+are formatted only for the probe's admitted notification kinds. Server and
+in-app entry points share observation-resource activation and release.
+
 Motion with no accessibility representation is not execution evidence. Business
 deadlines may cancel work, but no timer, sleep, caller loop, or discovery path
 acts as a second observation clock.

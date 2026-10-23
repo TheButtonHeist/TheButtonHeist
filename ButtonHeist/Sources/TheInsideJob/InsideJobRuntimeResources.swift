@@ -10,9 +10,7 @@ extension TheInsideJob {
         installLifecycleObservationIfNeeded()
         engageIdleTimerProtection()
 
-        tripwire.startPulse()
-        brains.vault.semanticObservationStream.start()
-        brains.safecracker.startKeyboardObservation()
+        activateObservation()
     }
 
     func releaseRuntimeOwnedResources(policy: RuntimeReleasePolicy, idleTimerBaseline: Bool) {
@@ -24,6 +22,16 @@ extension TheInsideJob {
             restoreIdleTimerProtection(to: idleTimerBaseline)
         }
 
+        releaseObservation()
+    }
+
+    func activateObservation() {
+        tripwire.startPulse()
+        brains.vault.semanticObservationStream.start()
+        brains.safecracker.startKeyboardObservation()
+    }
+
+    func releaseObservation() {
         brains.vault.semanticObservationStream.stop()
         tripwire.stopPulse()
         brains.safecracker.stopKeyboardObservation()

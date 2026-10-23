@@ -33,8 +33,8 @@ final class SemanticObservationStreamTests: XCTestCase {
         }
         idleVault.semanticObservationStream.start()
 
-        idleVault.semanticObservationStream.deliver(pulse(tick: 1))
-        idleVault.semanticObservationStream.deliver(pulse(tick: 2))
+        idleVault.semanticObservationStream.deliver(pulse())
+        idleVault.semanticObservationStream.deliver(pulse())
 
         XCTAssertEqual(source.captureCount, 0)
     }
@@ -62,8 +62,6 @@ final class SemanticObservationStreamTests: XCTestCase {
         defer { subscription.cancel() }
 
         let reading = pulse(
-            tick: 7,
-            elapsed: .milliseconds(250),
             signal: tripwireSignal(sequence: 0)
         )
         stream.deliver(reading)
@@ -81,19 +79,6 @@ final class SemanticObservationStreamTests: XCTestCase {
         XCTAssertEqual(
             current.snapshot.context.windowStack,
             [Observation.WindowContext(index: 0, level: 3, isKeyWindow: true)]
-        )
-        XCTAssertEqual(reading, pulse(
-            tick: 7,
-            elapsed: .milliseconds(250),
-            signal: tripwireSignal(sequence: 0)
-        ))
-        XCTAssertNotEqual(
-            reading,
-            pulse(
-                tick: 8,
-                elapsed: .milliseconds(250),
-                signal: tripwireSignal(sequence: 0)
-            )
         )
     }
 
@@ -140,13 +125,10 @@ final class SemanticObservationStreamTests: XCTestCase {
     }
 
     private func pulse(
-        tick: UInt64,
-        elapsed: Duration = .zero,
         signal: TheTripwire.TripwireSignal = .empty
     ) -> TheTripwire.PulseReading {
         TheTripwire.PulseReading(
-            tick: tick,
-            elapsed: elapsed,
+            frameDuration: .milliseconds(16),
             tripwireSignal: signal
         )
     }

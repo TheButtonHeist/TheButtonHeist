@@ -31,8 +31,7 @@ extension ElementInflationProductTests {
             while !Task.isCancelled {
                 if stream.observationWaiterCount > 0 {
                     stream.deliver(TheTripwire.PulseReading(
-                        tick: 1,
-                        elapsed: .zero,
+                        frameDuration: .milliseconds(16),
                         tripwireSignal: .empty
                     ))
                 }

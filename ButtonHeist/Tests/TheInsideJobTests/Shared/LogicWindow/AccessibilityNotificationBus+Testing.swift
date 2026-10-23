@@ -6,14 +6,14 @@ extension AccessibilityNotificationBus {
     func recordForTesting(
         code: UInt32,
         timestamp: Date = Date(),
-        notificationData: CapturedAccessibilityNotificationPayload,
-        associatedElement: CapturedAccessibilityNotificationPayload
+        notificationData: PendingAccessibilityNotificationPayload,
+        associatedElement: PendingAccessibilityNotificationPayload
     ) {
         record(
             rawCode: code,
             timestamp: timestamp,
-            notificationData: notificationData.pendingPayload,
-            associatedElement: associatedElement.pendingPayload
+            notificationData: notificationData,
+            associatedElement: associatedElement
         )
     }
 }

@@ -280,8 +280,7 @@ extension TheVault {
             let nextTree = continuity.isReplacement ? admission.tree : candidateTree
             let snapshot = Self.snapshot(
                 tree: nextTree,
-                admission: admission,
-                semanticSignal: admission.tripwireSignal.semanticValue
+                admission: admission
             )
             let notificationEvents = admittedNotifications.compactMap {
                 Observation.Notification(text: $0.text, element: $0.element)
@@ -339,13 +338,12 @@ extension TheVault {
 
         private static func snapshot(
             tree: InterfaceTree,
-            admission: Observation.Admission,
-            semanticSignal: TheTripwire.SemanticSignal
+            admission: Observation.Admission
         ) -> Observation.Snapshot {
-            let windows = semanticSignal.windows.enumerated().map { index, window in
+            let windows = admission.tripwireSignal.windowStack.windows.enumerated().map { index, window in
                 Observation.WindowContext(
                     index: index,
-                    level: window.level,
+                    level: Double(window.level),
                     isKeyWindow: window.isKeyWindow
                 )
             }

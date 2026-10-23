@@ -18,7 +18,7 @@ extension TheVaultResolutionTests {
             kind: .layoutChanged,
             timestamp: Date(timeIntervalSince1970: 0),
             notificationData: .string("Updated"),
-            associatedElement: .object(AccessibilityNotificationObjectIdentity(button)),
+            associatedElement: .object(AccessibilityNotificationObject(button)),
             provenance: .scoped
         )
 
@@ -44,8 +44,8 @@ extension TheVaultResolutionTests {
             let action = vault.accessibilityNotifications.beginActionWindow()
             vault.accessibilityNotifications.recordForTesting(
                 code: code,
-                notificationData: CapturedAccessibilityNotificationPayload(text as NSString),
-                associatedElement: CapturedAccessibilityNotificationPayload(context)
+                notificationData: PendingAccessibilityNotificationPayload(text as NSString),
+                associatedElement: PendingAccessibilityNotificationPayload(context)
             )
             let admitted = await action.admitCausallyCovered { coverage in
                 await publishVisible(observation, covering: coverage)
@@ -74,7 +74,7 @@ extension TheVaultResolutionTests {
         vault.accessibilityNotifications.recordForTesting(
             code: 1000,
             notificationData: .none,
-            associatedElement: CapturedAccessibilityNotificationPayload(context)
+            associatedElement: PendingAccessibilityNotificationPayload(context)
         )
         let admitted = await action.admitCausallyCovered { coverage in
             await publishVisible(observation, covering: coverage)
@@ -94,7 +94,7 @@ extension TheVaultResolutionTests {
     func testAdmittedNotificationDoesNotRetainUIKitObjectIdentity() throws {
         var button: UIButton? = UIButton(type: .system)
         button?.accessibilityLabel = "Save"
-        let identity = AccessibilityNotificationObjectIdentity(try XCTUnwrap(button))
+        let identity = AccessibilityNotificationObject(try XCTUnwrap(button))
         let event = PendingAccessibilityNotificationEvent(
             sequence: 1,
             kind: .layoutChanged,
@@ -121,7 +121,7 @@ extension TheVaultResolutionTests {
         let action = vault.accessibilityNotifications.beginActionWindow()
         vault.accessibilityNotifications.recordForTesting(
             code: 1008,
-            notificationData: CapturedAccessibilityNotificationPayload("Saved" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("Saved" as NSString),
             associatedElement: .none
         )
         let admitted = await action.admitCausallyCovered { coverage in
@@ -161,7 +161,7 @@ extension TheVaultResolutionTests {
         for text in expectedText {
             vault.accessibilityNotifications.recordForTesting(
                 code: 1008,
-                notificationData: CapturedAccessibilityNotificationPayload(text as NSString),
+                notificationData: PendingAccessibilityNotificationPayload(text as NSString),
                 associatedElement: .none
             )
         }
@@ -196,17 +196,17 @@ extension TheVaultResolutionTests {
         let action = vault.accessibilityNotifications.beginActionWindow()
         vault.accessibilityNotifications.recordForTesting(
             code: 1008,
-            notificationData: CapturedAccessibilityNotificationPayload("Saved" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("Saved" as NSString),
             associatedElement: .none
         )
         vault.accessibilityNotifications.recordForTesting(
             code: 1001,
             notificationData: .none,
-            associatedElement: CapturedAccessibilityNotificationPayload(elementOnlyButton)
+            associatedElement: PendingAccessibilityNotificationPayload(elementOnlyButton)
         )
         vault.accessibilityNotifications.recordForTesting(
             code: 1008,
-            notificationData: CapturedAccessibilityNotificationPayload("Ready to pay" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("Ready to pay" as NSString),
             associatedElement: .none
         )
         let committed = await action.admitCausallyCovered { coverage in
@@ -234,7 +234,7 @@ extension TheVaultResolutionTests {
             let action = vault.accessibilityNotifications.beginActionWindow()
             vault.accessibilityNotifications.recordForTesting(
                 code: 1008,
-                notificationData: CapturedAccessibilityNotificationPayload(text as NSString),
+                notificationData: PendingAccessibilityNotificationPayload(text as NSString),
                 associatedElement: .none
             )
             let committed = await action.admitCausallyCovered { coverage in

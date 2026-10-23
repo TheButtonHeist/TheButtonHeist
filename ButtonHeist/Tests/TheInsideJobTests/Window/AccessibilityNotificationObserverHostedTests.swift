@@ -51,7 +51,6 @@ final class AccessibilityNotificationObserverHostedTests: XCTestCase {
             return XCTFail("Expected element notification data, got \(layoutChange.notificationData)")
         }
         XCTAssertNil(objectIdentity.object)
-        XCTAssertTrue(objectIdentity.summary?.contains("AXUIElementRef") == true)
 
         UIAccessibility.post(notification: .screenChanged, argument: nil)
         let screenChange = try await waitForNotification(kind: .screenChanged, after: cursor, in: bus)

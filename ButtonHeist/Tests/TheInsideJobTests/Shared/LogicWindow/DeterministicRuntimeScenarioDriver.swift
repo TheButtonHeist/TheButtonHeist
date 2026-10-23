@@ -9,14 +9,14 @@ import Foundation
 struct AccessibilityNotificationFixture {
     let rawCode: UInt32
     let timestamp: Date
-    let notificationData: CapturedAccessibilityNotificationPayload
-    let associatedElement: CapturedAccessibilityNotificationPayload
+    let notificationData: PendingAccessibilityNotificationPayload
+    let associatedElement: PendingAccessibilityNotificationPayload
 
     init(
         rawCode: UInt32 = 1008,
         timestamp: Date,
-        notificationData: CapturedAccessibilityNotificationPayload,
-        associatedElement: CapturedAccessibilityNotificationPayload = .none
+        notificationData: PendingAccessibilityNotificationPayload,
+        associatedElement: PendingAccessibilityNotificationPayload = .none
     ) {
         self.rawCode = rawCode
         self.timestamp = timestamp
@@ -32,7 +32,7 @@ struct AccessibilityNotificationFixture {
         self.init(
             rawCode: rawCode,
             timestamp: timestamp,
-            notificationData: CapturedAccessibilityNotificationPayload(text as NSString)
+            notificationData: PendingAccessibilityNotificationPayload(text as NSString)
         )
     }
 }
@@ -879,8 +879,8 @@ final class DeterministicRuntimeScenarioDriver {
         vault.accessibilityNotifications.record(
             rawCode: fixture.rawCode,
             timestamp: fixture.timestamp,
-            notificationData: fixture.notificationData.pendingPayload,
-            associatedElement: fixture.associatedElement.pendingPayload
+            notificationData: fixture.notificationData,
+            associatedElement: fixture.associatedElement
         )
     }
 
@@ -896,8 +896,7 @@ final class DeterministicRuntimeScenarioDriver {
         let subscription = stream.subscribe(scope: .visible)
         defer { subscription.cancel() }
         stream.deliver(.init(
-            tick: tick,
-            elapsed: session.clock.currentElapsed,
+            frameDuration: .milliseconds(16),
             tripwireSignal: .init(
                 topmostVC: nil,
                 navigation: .empty,

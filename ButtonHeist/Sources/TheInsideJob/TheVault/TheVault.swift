@@ -33,7 +33,7 @@ final class TheVault {
         self.observationSchedulingBoundary = observationSchedulingBoundary
     }
 
-    /// TheTripwire handles window access and animation detection.
+    /// TheTripwire owns window access and live observation pacing.
     let tripwire: TheTripwire
 
     /// Parser used only while capturing a live accessibility hierarchy.

@@ -8,7 +8,7 @@ import UIKit
 /// Ambient observation runs at a low rate; active demand raises that same link
 /// to at most 30 Hz. Each tick samples controller identity, public navigation
 /// state, and ordered visible windows. Pulse admission yields one capture after
-/// touch-up or hierarchy change so UIKit can render before an accessibility read.
+/// touch-up or hierarchy change, and at most two after an over-budget capture.
 ///
 /// The accessibility tree is TheVault's domain; TheTripwire never reads it.
 @MainActor
