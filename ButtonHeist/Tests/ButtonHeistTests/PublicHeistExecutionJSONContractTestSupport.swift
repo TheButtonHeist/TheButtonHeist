@@ -125,6 +125,7 @@ enum PublicHeistExecutionJSONContractFixture {
         ),
         ExpectationGapCase(gap: .captureUnavailable, publicCode: "capture_unavailable"),
         ExpectationGapCase(gap: .historyUnavailable, publicCode: "history_unavailable"),
+        ExpectationGapCase(gap: .explorationIncomplete, publicCode: "exploration_incomplete"),
     ]
 
     static func actionWithExpectation() -> HeistExecutionStepResult {

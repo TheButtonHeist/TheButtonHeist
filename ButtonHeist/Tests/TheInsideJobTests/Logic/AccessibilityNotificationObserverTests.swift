@@ -485,7 +485,9 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
             keyboardVisible: nil,
             timestamp: Date(timeIntervalSince1970: 0),
             viewportFrames: observation.tree.viewportFrames,
-            geometryTolerance: CoarseFrameComparison.currentGeometryTolerance
+            geometryTolerance: CoarseFrameComparison.currentGeometryTolerance,
+            confirmedMissingElements: [],
+            invalidatedGeometryOwners: []
         )
     }
 

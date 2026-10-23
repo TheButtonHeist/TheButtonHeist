@@ -81,17 +81,44 @@ extension Navigation {
     }
 
     struct InterfaceExplorationResult {
+        enum Outcome: Equatable, Sendable {
+            case goalSatisfied
+            case exhausted
+            case cancelled
+            case interrupted
+        }
+
+        let outcome: Outcome
         let current: TheVault.State.Current
         let progress: InterfaceExplorationProgress
         let didMoveViewport: Bool
         let viewportExit: ViewportExit.Outcome
 
+        var waitResult: WaitExplorationResult {
+            let complete: Bool = switch outcome {
+            case .goalSatisfied:
+                true
+            case .exhausted:
+                progress.pendingScrollPaths.isEmpty
+                    && progress.omittedScrollPathReasons.isEmpty
+                    && progress.limitReasons.isEmpty
+            case .cancelled, .interrupted:
+                false
+            }
+            return .init(
+                viewportExit: viewportExit,
+                coverage: complete ? .complete : .incomplete(.explorationIncomplete)
+            )
+        }
+
         internal init(
             current: TheVault.State.Current,
             progress: InterfaceExplorationProgress,
             didMoveViewport: Bool = false,
-            viewportExit: ViewportExit.Outcome
+            viewportExit: ViewportExit.Outcome,
+            outcome: Outcome
         ) {
+            self.outcome = outcome
             self.current = current
             self.progress = progress
             self.didMoveViewport = didMoveViewport
@@ -159,25 +186,37 @@ extension Navigation {
             startTime: CFTimeInterval,
             current: TheVault.State.Current,
             didMoveViewport: Bool,
-            viewportExit: ViewportExit.Outcome
+            viewportExit: ViewportExit.Outcome,
+            outcome: InterfaceExplorationResult.Outcome
         ) -> InterfaceExplorationResult {
             progress.explorationTime = CACurrentMediaTime() - startTime
             return InterfaceExplorationResult(
                 current: current,
                 progress: progress,
                 didMoveViewport: didMoveViewport,
-                viewportExit: viewportExit
+                viewportExit: viewportExit,
+                outcome: outcome
             )
         }
+    }
+
+    struct WaitExplorationResult: Sendable, Equatable {
+        let viewportExit: ViewportExit.Outcome
+        let coverage: Observation.Coverage
     }
 
     func exploreForWait(
         target: ResolvedAccessibilityTarget?,
         deadline: SemanticObservationDeadline,
+        maxScrollsPerDiscovery: Int? = nil,
         stopWhen: @escaping @MainActor () -> Bool
-    ) async -> ViewportExit.Outcome {
-        guard !stopWhen() else { return .restored }
-        guard deadline.hasTimeRemaining(at: RuntimeElapsed.now) else { return .restored }
+    ) async -> WaitExplorationResult {
+        guard !stopWhen() else {
+            return .init(viewportExit: .restored, coverage: .complete)
+        }
+        guard deadline.hasTimeRemaining(at: RuntimeElapsed.now) else {
+            return .init(viewportExit: .restored, coverage: .incomplete(.explorationIncomplete))
+        }
         // Knowing where the element is makes it a seed, not a different search.
         // Inflation goes straight there, then cleanup restores the origin. The
         // same stop condition decides whether that seed answered the wait or
@@ -185,21 +224,18 @@ extension Navigation {
         if let target,
            target.isElementTarget,
            case .resolved(.element) = vault.resolveTarget(target) {
-            let transaction = ElementInflation.RevealTransaction(vault: vault)
-            transaction.captureScrollableHierarchy()
-            _ = await elementInflation.inflate(
+            let viewportExit = await elementInflation.inflateForObservation(
                 for: target,
-                method: .scrollToVisible,
                 deadline: deadline
             )
-            let viewportExit = await transaction.rollBack(
-                using: elementInflation.exploration.moveViewport,
-                deadline: deadline
-            )
-            guard viewportExit == .restored else { return viewportExit }
-            if stopWhen() || Task.isCancelled
-                || !deadline.hasTimeRemaining(at: RuntimeElapsed.now) {
-                return .restored
+            guard viewportExit == .restored else {
+                return .init(viewportExit: viewportExit, coverage: .incomplete(.explorationIncomplete))
+            }
+            if stopWhen() {
+                return .init(viewportExit: .restored, coverage: .complete)
+            }
+            if Task.isCancelled || !deadline.hasTimeRemaining(at: RuntimeElapsed.now) {
+                return .init(viewportExit: .restored, coverage: .incomplete(.explorationIncomplete))
             }
         }
 
@@ -208,13 +244,14 @@ extension Navigation {
             startingFresh: true,
             exitPosition: .origin,
             deadline: deadline,
+            maxScrollsPerDiscovery: maxScrollsPerDiscovery,
             onObservation: { _ in
                 stopWhen() ? .goalSatisfied : .continue
             }
         ) else {
-            return .restored
+            return .init(viewportExit: .restored, coverage: .incomplete(.explorationIncomplete))
         }
-        return exploration.viewportExit
+        return exploration.waitResult
     }
 }
 

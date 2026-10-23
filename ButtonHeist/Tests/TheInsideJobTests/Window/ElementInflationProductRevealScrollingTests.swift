@@ -11,6 +11,347 @@ extension ElementInflationProductTests {
 
     // MARK: - Reveal and Nested Scrolling
 
+    func testObservationInflationRestoresOriginAfterRevealingKnownElement() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "observation_inflation_target",
+            label: "Observation Inflation Target"
+        )
+        try await seedOffViewportTarget(fixture)
+
+        let outcome = await brains.navigation.elementInflation.inflateForObservation(
+            for: try AccessibilityTarget.identifier(fixture.identifier).resolve(in: .empty),
+            deadline: SemanticObservationDeadline(start: RuntimeElapsed.now, timeoutSeconds: 10)
+        )
+
+        XCTAssertEqual(outcome, .restored)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, 0)
+    }
+
+    func testObservationInflationRejectsRemovedRememberedElementAndRestoresOriginOnce() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "removed_observation_target",
+            label: "Removed Observation Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.removeFromSuperview()
+        let target = try AccessibilityTarget.label(fixture.label).resolve(in: .empty)
+        guard case .resolved(.element) = brains.vault.resolveTarget(target) else {
+            return XCTFail("The removed target must still be remembered before inflation")
+        }
+        let revealCount = fixture.scrollView.revealRequestCount
+        let moveViewport = brains.navigation.elementInflation.exploration.moveViewport
+        var restorationAttempts = 0
+        brains.navigation.elementInflation.exploration.moveViewport = { intent, deadline in
+            if case .restoreVisualOrigin = intent {
+                restorationAttempts += 1
+            }
+            return await moveViewport(intent, deadline)
+        }
+
+        let outcome = await brains.navigation.elementInflation.inflateForObservation(
+            for: target,
+            deadline: SemanticObservationDeadline(start: RuntimeElapsed.now, timeoutSeconds: 10)
+        )
+
+        XCTAssertEqual(outcome, .restored)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, revealCount)
+        XCTAssertEqual(restorationAttempts, 1)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+
+        // Assertions refresh their evidence; retained discovery memory is not a fresh verdict.
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .missing(.label(fixture.label)), timeout: 5)),
+        ])
+        let result = try await brains.executeHeistPlan(plan).get()
+        let step = try XCTUnwrap(result.steps.first)
+        let evidence = try XCTUnwrap(step.waitEvidence?.observation)
+        let exists = try AccessibilityPredicate.exists(.label(fixture.label)).resolve(in: .empty)
+        XCTAssertEqual(step.status, .passed)
+        XCTAssertEqual(evidence.coverage, .complete)
+        XCTAssertFalse(try exists.evaluate(in: evidence).met)
+    }
+
+    func testExistenceWaitRevealsRememberedElementBeforeSuccess() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "remembered_existence_target",
+            label: "Remembered Existence Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        let revealCount = fixture.scrollView.revealRequestCount
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .exists(.label(fixture.label)), timeout: 5)),
+        ])
+
+        let result = try await brains.executeHeistPlan(plan).get()
+
+        XCTAssertEqual(result.steps.first?.status, .passed)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, revealCount)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+    }
+
+    func testAbsenceWaitRechecksRemovedRememberedElement() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "remembered_absence_target",
+            label: "Remembered Absence Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.removeFromSuperview()
+        let revealCount = fixture.scrollView.revealRequestCount
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .missing(.label(fixture.label)), timeout: 5)),
+        ])
+
+        let result = try await brains.executeHeistPlan(plan).get()
+
+        XCTAssertEqual(result.steps.first?.status, .passed)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, revealCount)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+    }
+
+    func testExistenceWaitSearchesAfterMissingRememberedLocation() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "relocated_existence_target",
+            label: "Relocated Existence Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.frame.origin.y = 1_200
+        fixture.scrollView.revealThreshold = 1_100
+        let target = try AccessibilityTarget.label(fixture.label).resolve(in: .empty)
+        let vault = brains.vault
+        let moveViewport = brains.navigation.elementInflation.exploration.moveViewport
+        var missedRememberedLocation = false
+        brains.navigation.elementInflation.exploration.moveViewport = { intent, deadline in
+            let transition = await moveViewport(intent, deadline)
+            if case .revealViewPoint = intent,
+               case .notFound = vault.resolveVisibleTarget(target) {
+                missedRememberedLocation = true
+            }
+            return transition
+        }
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .exists(.label(fixture.label)), timeout: 5)),
+        ])
+
+        let result = try await brains.executeHeistPlan(plan).get()
+
+        XCTAssertTrue(missedRememberedLocation)
+        XCTAssertEqual(result.steps.first?.status, .passed)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+    }
+
+    func testAbsenceWaitSearchesAfterMissingRememberedLocation() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "relocated_absence_target",
+            label: "Relocated Absence Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.frame.origin.y = 1_200
+        fixture.scrollView.revealThreshold = 1_100
+        let target = try AccessibilityTarget.label(fixture.label).resolve(in: .empty)
+        guard case .resolved(.element) = brains.vault.resolveTarget(target) else {
+            return XCTFail("The moved target must remain remembered before the wait")
+        }
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .missing(.label(fixture.label)), timeout: 5)),
+        ])
+
+        let result = try await brains.executeHeistPlan(plan).get()
+
+        let step = try XCTUnwrap(result.steps.first)
+        XCTAssertEqual(step.status, .failed)
+        XCTAssertEqual(step.failure?.category, .timeout)
+        guard case .resolved(.element(let found)) = brains.vault.resolveTarget(target),
+              case .available(let geometry) = found.geometry.view else {
+            return XCTFail("Search must find the moved target after missing its old location")
+        }
+        XCTAssertEqual(geometry.frame.cgRect.minY, 1_200)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+    }
+
+    func testLimitedSearchCannotProveMovedRememberedTargetAbsent() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "limited_search_target", label: "Limited Search Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.frame.origin.y = 1_200
+        fixture.scrollView.revealThreshold = 1_100
+        let live = HeistExecution.Host.RuntimeBoundary.live(brains: brains)
+        var searchCount = 0
+        let boundary = HeistExecution.Host.RuntimeBoundary(
+            now: live.now, wait: live.wait, dispatch: live.dispatch,
+            explore: { target, deadline in
+                searchCount += 1
+                return await self.brains.navigation.exploreForWait(
+                    target: target, deadline: deadline, maxScrollsPerDiscovery: 1,
+                    stopWhen: { false }
+                )
+            },
+            captureFailure: live.captureFailure
+        )
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .missing(.label(fixture.label)), timeout: 2)),
+        ])
+
+        let completion = try await HeistExecution.Host(brains: brains, runtimeBoundary: boundary)
+            .execute(plan, timeout: .default)
+
+        let step = try XCTUnwrap(completion.steps.first)
+        XCTAssertEqual(step.status, .failed)
+        XCTAssertEqual(step.failure?.category, .timeout)
+        XCTAssertEqual(step.waitEvidence?.observation.coverage, .incomplete(.explorationIncomplete))
+        XCTAssertGreaterThan(searchCount, 0)
+        XCTAssertEqual(fixture.target.superview, fixture.scrollView)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+    }
+
+    func testExistenceWaitRejectsRemovedRememberedElement() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "removed_existence_target",
+            label: "Removed Existence Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.removeFromSuperview()
+        let revealCount = fixture.scrollView.revealRequestCount
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .exists(.label(fixture.label)), timeout: 2)),
+        ])
+
+        let result = try await brains.executeHeistPlan(plan).get()
+
+        let step = try XCTUnwrap(result.steps.first)
+        XCTAssertEqual(step.status, .failed)
+        XCTAssertEqual(step.failure?.category, .timeout)
+        let evidence = try XCTUnwrap(step.waitEvidence?.observation)
+        let exists = try AccessibilityPredicate.exists(.label(fixture.label)).resolve(in: .empty)
+        XCTAssertFalse(try exists.evaluate(in: evidence).met)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, revealCount)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+    }
+
+    func testObservationInflationReportsFailedOriginRestoration() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "observation_restore_failure",
+            label: "Observation Restore Failure"
+        )
+        try await seedOffViewportTarget(fixture)
+        let moveViewport = brains.navigation.elementInflation.exploration.moveViewport
+        var restorationAttempts = 0
+        brains.navigation.elementInflation.exploration.moveViewport = { intent, deadline in
+            if case .restoreVisualOrigin = intent {
+                restorationAttempts += 1
+                return .unavailable()
+            }
+            return await moveViewport(intent, deadline)
+        }
+
+        let outcome = await brains.navigation.elementInflation.inflateForObservation(
+            for: try AccessibilityTarget.identifier(fixture.identifier).resolve(in: .empty),
+            deadline: SemanticObservationDeadline(start: RuntimeElapsed.now, timeoutSeconds: 10)
+        )
+
+        XCTAssertEqual(outcome, .failed(.originUnavailable))
+        XCTAssertEqual(restorationAttempts, 1)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, 0)
+    }
+
+    func testCapturePreservesRemovedTargetOutsideReadViewport() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "unvisited_removed_target",
+            label: "Unvisited Removed Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.removeFromSuperview()
+        let target = try AccessibilityTarget.label(fixture.label).resolve(in: .empty)
+        guard case .resolved(.element) = brains.vault.resolveTarget(target) else {
+            return XCTFail("The fixture must retain the unvisited target")
+        }
+
+        let capture = try XCTUnwrap(TheVault.captureVisibleObservation(from: brains.vault))
+
+        XCTAssertTrue(brains.vault.confirmedMissingElements(in: capture).isEmpty)
+    }
+
+    func testCaptureCannotUseIdenticalScrollOwnerToEraseRememberedTarget() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "other_owner_target", label: "Other Owner Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        let original = brains.vault.currentInterfaceObservation
+        let ownerPath = try XCTUnwrap(liveScrollableContainerPath(for: fixture.scrollView, in: original))
+        let decoyParent = UIView(frame: fixture.viewController.view.bounds)
+        fixture.viewController.view.addSubview(decoyParent)
+        let decoy = UIScrollView(frame: fixture.scrollView.frame)
+        decoy.contentSize = fixture.scrollView.contentSize
+        decoyParent.addSubview(decoy)
+        let row = UILabel(frame: CGRect(x: 24, y: 840, width: 240, height: 44))
+        row.text = "Other Owner Row"
+        row.isAccessibilityElement = true
+        decoy.addSubview(row)
+        decoy.setContentOffset(CGPoint(x: 0, y: 800), animated: false)
+        fixture.scrollView.isHidden = true
+        let capture = try XCTUnwrap(TheVault.captureVisibleObservation(from: brains.vault))
+        let decoyPath = try XCTUnwrap(liveScrollableContainerPath(for: decoy, in: capture))
+        let owner = try XCTUnwrap(original.tree.containers[ownerPath])
+        XCTAssertTrue(TheVault.matchesContainer(try XCTUnwrap(capture.tree.containers[decoyPath]), to: owner))
+        XCTAssertEqual(capture.tree.orderedContainers.filter { TheVault.matchesContainer($0, to: owner) }.count, 1)
+        XCTAssertTrue(decoy.bounds.contains(CGRect(origin: fixture.frameOrigin, size: fixture.target.bounds.size)))
+
+        XCTAssertTrue(brains.vault.confirmedMissingElements(in: capture).isEmpty)
+        await brains.vault.semanticObservationStream
+            .commitDiscoveryObservationAfterViewportMovementForTesting(capture)
+        XCTAssertNotNil(brains.vault.interfaceTree.findElement(heistId: fixture.knownHeistId))
+        let nextCapture = try XCTUnwrap(TheVault.captureVisibleObservation(from: brains.vault))
+        XCTAssertTrue(brains.vault.confirmedMissingElements(in: nextCapture).isEmpty)
+    }
+
+    func testCapturePreservesTargetWithInvalidatedStoredGeometry() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "invalidated_removed_target",
+            label: "Invalidated Removed Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.removeFromSuperview()
+        let target = try AccessibilityTarget.label(fixture.label).resolve(in: .empty)
+        guard case .resolved(.element(let remembered)) = brains.vault.resolveTarget(target) else {
+            return XCTFail("The fixture must retain the target before geometry invalidation")
+        }
+        let observation = brains.vault.currentInterfaceObservation
+        fixture.scrollView.setContentOffset(CGPoint(x: 0, y: 800), animated: false)
+        let capture = try XCTUnwrap(TheVault.captureVisibleObservation(from: brains.vault))
+        XCTAssertEqual(brains.vault.confirmedMissingElements(in: capture), [remembered.heistId])
+        let invalidated = try observation.replacingTreeWithCurrentCapture(
+            observation.tree.invalidatingParentSpaceGeometry()
+        )
+        await brains.vault.semanticObservationStream.commitDiscoveryObservationForTesting(invalidated)
+
+        XCTAssertTrue(brains.vault.confirmedMissingElements(in: capture).isEmpty)
+    }
+
+    func testCancelledObservationInflationRestoresOrigin() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "cancelled_observation_inflation",
+            label: "Cancelled Observation Inflation"
+        )
+        try await seedOffViewportTarget(fixture)
+        let target = try AccessibilityTarget.identifier(fixture.identifier).resolve(in: .empty)
+        var inflationTask: Task<Navigation.ViewportExit.Outcome, Never>?
+        fixture.scrollView.onFirstRevealRequest = { inflationTask?.cancel() }
+        let task = Task { @MainActor in
+            await self.brains.navigation.elementInflation.inflateForObservation(
+                for: target,
+                deadline: SemanticObservationDeadline(start: RuntimeElapsed.now, timeoutSeconds: 10)
+            )
+        }
+        inflationTask = task
+
+        let outcome = await task.value
+
+        XCTAssertEqual(outcome, .restored)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+        XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, 0)
+    }
+
     func testWaitFastPathStopsBeforeCachedTargetInflation() async throws {
         let fixture = try installOffscreenActivationFixture(
             identifier: "wait_fast_path_target",
@@ -27,7 +368,7 @@ extension ElementInflationProductTests {
             stopWhen: { true }
         )
 
-        XCTAssertEqual(outcome, .restored)
+        XCTAssertEqual(outcome.viewportExit, .restored)
         XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
         XCTAssertEqual(fixture.scrollView.revealRequestCount, 0)
     }
@@ -62,7 +403,7 @@ extension ElementInflationProductTests {
             stopWhen: stopWhenRevealed
         )
 
-        XCTAssertEqual(cachedOutcome, .restored)
+        XCTAssertEqual(cachedOutcome.viewportExit, .restored)
         XCTAssertEqual(exhaustiveOutcome, cachedOutcome)
         XCTAssertEqual(cachedOffset, .zero)
         XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
@@ -77,7 +418,7 @@ extension ElementInflationProductTests {
         )
         try await seedOffViewportTarget(fixture)
         let target = try AccessibilityTarget.identifier(fixture.identifier).resolve(in: .empty)
-        var waitTask: Task<Navigation.ViewportExit.Outcome, Never>?
+        var waitTask: Task<Navigation.WaitExplorationResult, Never>?
         fixture.scrollView.onFirstRevealRequest = {
             waitTask?.cancel()
         }
@@ -95,7 +436,7 @@ extension ElementInflationProductTests {
 
         let outcome = await task.value
 
-        XCTAssertEqual(outcome, .restored)
+        XCTAssertEqual(outcome.viewportExit, .restored)
         XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
         XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, 0)
     }

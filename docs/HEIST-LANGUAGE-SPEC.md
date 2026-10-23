@@ -289,7 +289,15 @@ expose only valid combinations:
 
 `exists` and `missing` always read the current delivered interface tree. They
 use the same `AccessibilityTarget` resolution as actions and subtree queries,
-including element, container-only, and descendant-scoped targets. `appeared`,
+including element, container-only, and descendant-scoped targets. Element
+existence requires a current parser capture match, even when screen geometry
+is unavailable. A remembered offscreen entry
+proves neither presence nor absence. Wait preparation reveals that location
+and captures fresh evidence before the check can complete. Unread positions,
+invalidated geometry, and ambiguous scroll owners preserve the remembered entry.
+A miss continues into search under the same deadline. A later sighting
+invalidates provisional absence before the wait can complete.
+`appeared`,
 `disappeared`, and `updated` consume ordered `Observation.Event` values. There
 is no root-level generic changed predicate and no alternate spelling.
 

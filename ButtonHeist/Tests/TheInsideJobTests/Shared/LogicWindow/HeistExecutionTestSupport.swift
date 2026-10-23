@@ -110,7 +110,7 @@ struct HeistExecutionTestDriver {
             return execution.reduce(.dispatchCompleted(id, result, at: now))
 
         case .explore(let id, _, _):
-            return execution.reduce(.viewportExited(id, .retained, at: now))
+            return execution.reduce(.explorationCompleted(id, .init(viewportExit: .retained, coverage: .complete), at: now))
 
         case .sampleObservationClose(
             let effectID,

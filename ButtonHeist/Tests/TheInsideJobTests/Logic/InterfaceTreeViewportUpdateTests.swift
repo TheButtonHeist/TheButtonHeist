@@ -5,6 +5,32 @@ import XCTest
 @testable import TheScore
 
 extension InterfaceTreeTests {
+    func testFreshViewportRemovesOnlyConfirmedMissingDiscoveryMemory() {
+        let anchor = makeElement(label: "Anchor", traits: .staticText)
+        let old = InterfaceObservation.makeForTests(
+            elements: [(anchor, "anchor")],
+            offViewport: [
+                .init(makeElement(label: "Removed", traits: .button), heistId: "removed"),
+                .init(makeElement(label: "Unvisited", traits: .button), heistId: "unvisited"),
+            ]
+        ).tree
+        let fresh = InterfaceObservation.makeForTests(elements: [(anchor, "anchor")]).tree
+
+        XCTAssertEqual(
+            old.merging(fresh, confirmedMissing: ["removed"]).elementIDs,
+            ["anchor", "unvisited"]
+        )
+        XCTAssertEqual(
+            old.updatingViewport(with: fresh, confirmedMissing: ["removed"]).elementIDs,
+            ["anchor", "unvisited"]
+        )
+        XCTAssertEqual(
+            old.merging(fresh, confirmedMissing: ["removed"]).semanticInterface(timestamp: .distantPast)
+                .annotations.elements.map(\.source),
+            [.capture, .memory]
+        )
+    }
+
     func testViewportUpdateRetainsElementsThatMoveOffscreenInFullTreeCapture() throws {
         let visibleTarget = makeElement(label: "Target", traits: .button)
         let anchor = makeElement(label: "Anchor", traits: .staticText)
@@ -60,6 +86,10 @@ extension InterfaceTreeTests {
         XCTAssertEqual(updated.viewportElementIDs, ["anchor"])
         XCTAssertEqual(updated.elementIDs, ["anchor", "target"])
         XCTAssertEqual(updated.findElement(heistId: "target")?.geometry.screen, .offscreen)
+        XCTAssertEqual(
+            updated.semanticInterface(timestamp: .distantPast).annotations.elements.map(\.source),
+            [.capture, .capture]
+        )
         XCTAssertEqual(
             updated.findElement(heistId: "target")?.geometry.view,
             retainedParentGeometry

@@ -157,6 +157,31 @@ final class TheBrainsPipelineTests: XCTestCase {
         XCTAssertTrue(exploration.progress.pendingScrollPaths.contains(nestedPath))
     }
 
+    func testFoundTargetProvesWaitEvenWithUnvisitedContainers() async {
+        var exploration = Navigation.SemanticExploration(startingFresh: false)
+        exploration.progress.addPendingScrollPaths([TreePath([0])])
+        let current = await brains.vault.semanticObservationStream
+            .commitDiscoveryObservationForTesting(.empty).current
+        let result = exploration.finish(
+            startTime: CACurrentMediaTime(), current: current, didMoveViewport: false,
+            viewportExit: .restored, outcome: .goalSatisfied
+        )
+
+        XCTAssertEqual(result.waitResult.coverage, .complete)
+    }
+
+    func testInterruptedCaptureCannotProveWaitWithoutPendingContainers() async {
+        var exploration = Navigation.SemanticExploration(startingFresh: false)
+        let current = await brains.vault.semanticObservationStream
+            .commitDiscoveryObservationForTesting(.empty).current
+        let result = exploration.finish(
+            startTime: CACurrentMediaTime(), current: current, didMoveViewport: false,
+            viewportExit: .restored, outcome: .interrupted
+        )
+
+        XCTAssertEqual(result.waitResult.coverage, .incomplete(.explorationIncomplete))
+    }
+
     func testSemanticExplorationFinishOwnsExplorationTimestamp() async {
         var exploration = Navigation.SemanticExploration(startingFresh: false)
         let current = await brains.vault.semanticObservationStream
@@ -168,7 +193,8 @@ final class TheBrainsPipelineTests: XCTestCase {
             startTime: startTime,
             current: current,
             didMoveViewport: false,
-            viewportExit: .restored
+            viewportExit: .restored,
+            outcome: .exhausted
         )
         let finishTime = CACurrentMediaTime()
 

@@ -67,6 +67,23 @@ final class TheVaultObservedStateEqualityTests: XCTestCase {
         XCTAssertFalse(previous.hasSameObservedState(as: current, geometryTolerance: geometryTolerance))
     }
 
+    func testCaptureMembershipIsObservedStateWithoutScreenGeometry() throws {
+        let captured = snapshot(visibility: .offscreen)
+        let interface = captured.interface
+        let remembered = Observation.Snapshot(
+            interface: try Interface(
+                timestamp: interface.timestamp,
+                tree: interface.tree,
+                annotations: InterfaceAnnotations(elements: interface.annotations.elements.map {
+                    InterfaceElementAnnotation(path: $0.path, actions: $0.actions, geometry: $0.geometry, source: .memory)
+                }, containers: interface.annotations.containers)
+            ),
+            context: captured.context
+        )
+
+        XCTAssertFalse(captured.hasSameObservedState(as: remembered, geometryTolerance: geometryTolerance))
+    }
+
     func testFocusAndKeyboardContextAreObservedState() {
         let baseline = snapshot(context: Self.context())
         let focused = snapshot(context: Self.context(firstResponder: .label("Search")))

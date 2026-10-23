@@ -124,7 +124,7 @@ extension HeistExecution {
             case .cancellationRequested:
                 return reduceCancellation()
             case .currentSnapshot, .observationBegan, .observation, .dispatchCompleted,
-                 .viewportExited, .observationCloseSampled, .failureScreenshotCaptured,
+                 .explorationCompleted, .observationCloseSampled, .failureScreenshotCaptured,
                  .cancellationCompleted, .observationCloseCommitted:
                 break
             }
@@ -202,7 +202,7 @@ extension HeistExecution {
             case .failureScreenshotCaptured, .cancellationCompleted:
                 return false
             case .currentSnapshot, .observationBegan, .dispatchCompleted,
-                 .viewportExited, .observationCloseSampled, .observationCloseCommitted:
+                 .explorationCompleted, .observationCloseSampled, .observationCloseCommitted:
                 return running.pendingEffect?.admits(event) == true
             }
         }
@@ -295,7 +295,7 @@ private extension HeistExecution.Effect {
         case (.currentSnapshot(let expected, _, _), .currentSnapshot(let received, _, _)),
              (.beginObservation(let expected, _, _), .observationBegan(let received, _, _)),
              (.dispatch(let expected, _, _), .dispatchCompleted(let received, _, _)),
-             (.explore(let expected, _, _), .viewportExited(let received, _, _)),
+             (.explore(let expected, _, _), .explorationCompleted(let received, _, _)),
              (.commitObservationClose(let expected, _), .observationCloseCommitted(let received, _)),
              (.captureFailureScreenshot(let expected, _, _), .failureScreenshotCaptured(let received, _, _)),
              (.cancelObservation(let expected, _), .cancellationCompleted(let received, _)):
@@ -320,7 +320,7 @@ private extension HeistExecution.Event {
              .observationBegan(_, _, let time),
              .observation(_, _, let time),
              .dispatchCompleted(_, _, let time),
-             .viewportExited(_, _, let time),
+             .explorationCompleted(_, _, let time),
              .observationCloseSampled(_, _, _, _, _, let time),
              .failureScreenshotCaptured(_, _, let time),
              .deadlineElapsed(_, let time),

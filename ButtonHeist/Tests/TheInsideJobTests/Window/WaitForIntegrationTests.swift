@@ -527,7 +527,7 @@ final class WaitForIntegrationTests: XCTestCase {
         )
     }
 
-    func testWaitForAbsentTreatsKnownOffViewportElementAsPresent() async throws {
+    func testWaitForAbsentDoesNotTreatUnvisitedKnownElementAsMissing() async throws {
         let visibleElement = AccessibilityElement.make(
             label: "WaitFor-Offscreen-Anchor",
             traits: .staticText,
@@ -559,7 +559,7 @@ final class WaitForIntegrationTests: XCTestCase {
         XCTAssertEqual(result.outcome.failureKind, .timeout)
         try assertPredicate(
             .exists(.label("WaitFor-Offscreen-StillHere")),
-            isMet: true,
+            isMet: false,
             in: result
         )
         try assertPredicate(

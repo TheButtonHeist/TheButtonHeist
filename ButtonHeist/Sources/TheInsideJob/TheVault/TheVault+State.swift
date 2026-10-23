@@ -248,21 +248,25 @@ extension TheVault {
             let previousTree = next.interfaceTree
             let retainedTree = admittedNotifications.contains { notification in
                 notification.kind == .layoutChanged
-            } ? previousTree.invalidatingParentSpaceGeometry() : previousTree
+            } ? previousTree.invalidatingParentSpaceGeometry()
+                : previousTree.invalidatingParentSpaceGeometry(ownedBy: admission.invalidatedGeometryOwners)
             let comparedTree: InterfaceTree
             switch admission.scope {
             case .visible:
-                comparedTree = retainedTree.updatingViewport(with: admission.tree)
+                comparedTree = retainedTree.updatingViewport(
+                    with: admission.tree,
+                    confirmedMissing: admission.confirmedMissingElements
+                )
             case .discovery:
                 comparedTree = admission.discoveryCommitPolicy == .replaceInterface
                     ? admission.tree
-                    : retainedTree.merging(admission.tree)
+                    : retainedTree.merging(admission.tree, confirmedMissing: admission.confirmedMissingElements)
             }
             let candidateTree = switch admission.lineage {
             case .resting:
                 comparedTree
             case .viewportMovement:
-                retainedTree.merging(admission.tree)
+                retainedTree.merging(admission.tree, confirmedMissing: admission.confirmedMissingElements)
             }
 
             let replacementRequirement = next.currentPhase.replacementRequirement

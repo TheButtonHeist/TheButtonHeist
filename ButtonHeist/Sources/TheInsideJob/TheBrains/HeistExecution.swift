@@ -47,7 +47,7 @@ extension HeistExecution {
         case observationBegan(EffectID, baseline: Observation.Snapshot?, at: RuntimeElapsed.Instant)
         case observation(EffectID, Observation.Event, at: RuntimeElapsed.Instant)
         case dispatchCompleted(EffectID, TheSafecracker.ActionDispatchResult, at: RuntimeElapsed.Instant)
-        case viewportExited(EffectID, Navigation.ViewportExit.Outcome, at: RuntimeElapsed.Instant)
+        case explorationCompleted(EffectID, Navigation.WaitExplorationResult, at: RuntimeElapsed.Instant)
         case observationCloseSampled(
             EffectID,
             source: ObservationCloseSource,
@@ -116,6 +116,16 @@ extension HeistExecution {
         internal var isNotification: Bool {
             if case .notification = resolved { return true }
             return false
+        }
+
+        internal func canPrepareTarget(in snapshot: Observation.Snapshot?) -> Bool {
+            guard case .elementsChanged(let assertions) = resolved,
+                  assertions.count == 1,
+                  case .missing(let target) = assertions[0]
+            else { return true }
+            return snapshot != nil && Expectation(
+                [.elementsChanged([.exists(target)])], baseline: snapshot
+            ).result != .satisfied
         }
     }
 
@@ -286,7 +296,7 @@ extension HeistExecution {
 extension HeistExecution {
     internal enum ActiveLeaf: Sendable {
         case beginningAction(ActionLeaf)
-        case dispatching(ActionLeaf, expectation: Expectation)
+        case dispatching(ActionLeaf, expectation: Expectation, baseline: Observation.Snapshot?)
         case beginningWait(WaitLeaf)
         case observing(ObservedLeaf)
         case exploring(ObservedLeaf)
@@ -304,7 +314,7 @@ extension HeistExecution {
 
         internal var id: EffectID {
             switch self {
-            case .beginningAction(let leaf), .dispatching(let leaf, _):
+            case .beginningAction(let leaf), .dispatching(let leaf, _, _):
                 leaf.id
             case .beginningWait(let leaf):
                 leaf.id
@@ -330,7 +340,7 @@ extension HeistExecution {
 
         internal var action: ActionLeaf? {
             switch self {
-            case .beginningAction(let leaf), .dispatching(let leaf, _):
+            case .beginningAction(let leaf), .dispatching(let leaf, _, _):
                 return leaf
             case .observing(let leaf),
                  .exploring(let leaf),
@@ -367,6 +377,11 @@ extension HeistExecution {
 
         internal let subject: Subject
         internal var expectation: Expectation
+        internal var explorationCoverage: Observation.Coverage = .complete
+
+        internal var isExplorationSufficient: Bool {
+            explorationCoverage == .complete || !expectation.requiresCompleteExploration
+        }
 
         internal var id: EffectID {
             switch subject {
@@ -394,7 +409,7 @@ extension HeistExecution {
             by evidence: Observation.Evidence,
             requiringNoChange: Bool
         ) -> Bool {
-            evidence.coverage == .complete && Expectation(
+            isExplorationSufficient && evidence.coverage == .complete && Expectation(
                 authoredPredicates,
                 baseline: evidence.baseline,
                 events: evidence.events,

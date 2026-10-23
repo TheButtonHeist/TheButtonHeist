@@ -445,7 +445,9 @@ final class TheVaultStateTests: XCTestCase {
             keyboardVisible: keyboardVisible,
             timestamp: timestamp,
             viewportFrames: observation.tree.viewportFrames,
-            geometryTolerance: CoarseFrameComparison.currentGeometryTolerance
+            geometryTolerance: CoarseFrameComparison.currentGeometryTolerance,
+            confirmedMissingElements: [],
+            invalidatedGeometryOwners: []
         )
     }
 

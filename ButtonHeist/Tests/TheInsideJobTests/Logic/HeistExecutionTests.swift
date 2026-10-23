@@ -163,12 +163,12 @@ final class HeistExecutionTests: XCTestCase {
         }
 
         guard case .perform(let restartedExploration) = execution.reduce(
-            .viewportExited(id, .superseded, at: now)
+            .explorationCompleted(id, .init(viewportExit: .superseded, coverage: .complete), at: now)
         ),
               case .explore(id, _, _) = restartedExploration else {
             return XCTFail("A screen replacement must restart the unfinished discovery")
         }
-        guard case .wait(let firstWait) = execution.reduce(.viewportExited(id, .restored, at: now)) else {
+        guard case .wait(let firstWait) = execution.reduce(.explorationCompleted(id, .init(viewportExit: .restored, coverage: .complete), at: now)) else {
             return XCTFail("A completed unmatched discovery must wait for new evidence")
         }
 
@@ -178,11 +178,75 @@ final class HeistExecutionTests: XCTestCase {
               case .explore(id, _, _) = eventExploration else {
             return XCTFail("A substantive unmatched event must request one new discovery")
         }
-        guard case .wait(let secondWait) = execution.reduce(.viewportExited(id, .restored, at: now)) else {
+        guard case .wait(let secondWait) = execution.reduce(.explorationCompleted(id, .init(viewportExit: .restored, coverage: .complete), at: now)) else {
             return XCTFail("The second completed discovery must return to waiting")
         }
         guard case .wait = execution.reduce(.observation(secondWait.id, .noChange, at: now)) else {
             return XCTFail("Stillness must not start another discovery")
+        }
+    }
+
+    func testVisiblePresenceWaitsForRemovalWithoutPreparingRememberedTarget() throws {
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .missing(.label("Target")), timeout: 1)),
+        ])
+        var execution = try HeistExecution(plan: plan)
+        let now = ContinuousClock.now
+        guard case .perform(.beginObservation(let id, _, _)) = execution.start(at: now, timeout: .default),
+              case .wait = execution.reduce(.observationBegan(
+                  id, baseline: makeTestObservationSnapshot(labels: ["Target"]), at: now
+              )) else {
+            return XCTFail("Fresh visible presence needs observation, not a remembered-target search")
+        }
+    }
+
+    func testActionObservesFreshVisibleRemovalWithoutSearchingDepartureSnapshots() throws {
+        let plan = try HeistPlan(body: [
+            .action(ActionStep(
+                command: .dismiss,
+                expectationPolicy: .expect(ActionExpectation(predicate: .missing(.label("Title")), timeout: 1))
+            )),
+        ])
+        var execution = try HeistExecution(plan: plan)
+        let now = ContinuousClock.now
+        let baseline = makeTestObservationSnapshot(labels: ["Title"])
+        guard case .perform(.beginObservation(let id, _, _)) = execution.start(at: now, timeout: .default),
+              case .perform(.dispatch) = execution.reduce(.observationBegan(id, baseline: baseline, at: now)),
+              case .wait(let wait) = execution.reduce(.dispatchCompleted(id, .success(payload: .dismiss), at: now)),
+              case .wait = execution.reduce(.observation(wait.id, .elementsChanged(baseline), at: now)),
+              case .wait = execution.reduce(.observation(
+                  wait.id, .elementsChanged(makeTestObservationSnapshot(labels: [])), at: now
+              )) else {
+            return XCTFail("Captured presence must observe removal without searching the departing or replacement screen")
+        }
+        guard case .perform(.sampleObservationClose) = execution.reduce(.observation(wait.id, .noChange, at: now)) else {
+            return XCTFail("Fresh absence followed by stillness must complete the action")
+        }
+    }
+
+    func testFreshExistenceCanCompleteAfterAnEarlierLimitedSearch() throws {
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .exists(.label("Target")), timeout: 1)),
+        ])
+        var execution = try HeistExecution(plan: plan)
+        let now = ContinuousClock.now
+        guard case .perform(.beginObservation(let id, _, _)) = execution.start(at: now, timeout: .default),
+              case .perform(.explore) = execution.reduce(.observationBegan(
+                  id, baseline: makeTestObservationSnapshot(labels: []), at: now
+              )),
+              case .wait(let wait) = execution.reduce(.explorationCompleted(
+                  id, .init(viewportExit: .restored, coverage: .incomplete(.explorationIncomplete)), at: now
+              )),
+              case .wait = execution.reduce(.observation(
+                  wait.id, .elementsChanged(makeTestObservationSnapshot(labels: ["Target"])), at: now
+              )) else {
+            return XCTFail("The wait must admit a fresh sighting after limited exploration")
+        }
+
+        guard case .perform(.sampleObservationClose) = execution.reduce(
+            .observation(wait.id, .noChange, at: now)
+        ) else {
+            return XCTFail("Positive capture evidence does not require exhaustive exploration")
         }
     }
 

@@ -105,9 +105,9 @@ struct InterfaceTree: Sendable, Equatable {
         )
     }
 
-    func merging(_ other: InterfaceTree) -> InterfaceTree {
+    func merging(_ other: InterfaceTree, confirmedMissing: Set<HeistId> = []) -> InterfaceTree {
         let nextVisible = other.viewportElementIDs
-        let retainedElements = elements.mapValues { element in
+        let retainedElements = elements.filter { !confirmedMissing.contains($0.key) }.mapValues { element in
             guard case .onscreen = element.geometry.screen,
                   !nextVisible.contains(element.heistId)
             else { return element }
@@ -120,10 +120,10 @@ struct InterfaceTree: Sendable, Equatable {
         )
     }
 
-    func updatingViewport(with next: InterfaceTree) -> InterfaceTree {
+    func updatingViewport(with next: InterfaceTree, confirmedMissing: Set<HeistId> = []) -> InterfaceTree {
         guard next != .empty else { return .empty }
         let previousVisible = viewportElementIDs
-        let disappearedVisible = previousVisible.subtracting(next.viewportElementIDs)
+        let disappearedVisible = previousVisible.subtracting(next.viewportElementIDs).union(confirmedMissing)
         let previousContainerPaths = Set(viewportCapture.hierarchy.pathIndexedContainers.map(\.path))
         let nextContainerPaths = Set(next.viewportCapture.hierarchy.pathIndexedContainers.map(\.path))
         let disappearedContainers = previousContainerPaths.subtracting(nextContainerPaths)
@@ -142,13 +142,22 @@ struct InterfaceTree: Sendable, Equatable {
         )
     }
 
-    /// A layout change ends the lifetime of parent-space geometry retained from
-    /// earlier viewports. Semantic identity and scroll membership remain useful.
-    /// The next viewport capture supplies fresh geometry for everything it sees.
-    func invalidatingParentSpaceGeometry() -> InterfaceTree {
-        Self(
-            elements: elements.mapValues { $0.invalidatingParentSpaceGeometry() },
-            containers: containers.mapValues { $0.invalidatingParentSpaceGeometry() },
+    /// Invalidate all stored parent-space geometry after layout changes, or only
+    /// geometry owned by scroll paths whose live views left the capture.
+    /// Semantic identity and scroll membership survive until fresh evidence replaces them.
+    func invalidatingParentSpaceGeometry(ownedBy owners: Set<TreePath>? = nil) -> InterfaceTree {
+        guard owners?.isEmpty != true else { return self }
+        func invalidates(_ path: TreePath?) -> Bool {
+            guard let owners else { return true }
+            return path.map(owners.contains) ?? false
+        }
+        return Self(
+            elements: elements.mapValues {
+                invalidates($0.geometry.view.ownerPath) ? $0.invalidatingParentSpaceGeometry() : $0
+            },
+            containers: containers.mapValues {
+                invalidates($0.viewSpace.ownerPath) ? $0.invalidatingParentSpaceGeometry() : $0
+            },
             viewportCapture: viewportCapture
         )
     }
@@ -292,6 +301,7 @@ struct InterfaceTree: Sendable, Equatable {
 
     func semanticInterface(timestamp: Date) -> Interface {
         let containerPaths = projectedContainerPathBySourcePath
+        let capturedIDs = Set(viewportCapture.heistIdsByPath.values)
         var elementAnnotations: [InterfaceElementAnnotation] = []
         var containerAnnotations: [InterfaceContainerAnnotation] = []
         var identities: [TreePath: Observation.ElementIdentity] = [:]
@@ -345,7 +355,8 @@ struct InterfaceTree: Sendable, Equatable {
                         geometry: HeistElement.Geometry(
                             screen: entry.geometry.screen,
                             view: project(entry.geometry.view, ownerPath: projectedOwnerPath)
-                        )
+                        ),
+                        source: capturedIDs.contains(heistId) ? .capture : .memory
                     ))
                     identities[node.path] = entry.heistId.observationElementIdentity
                     result.append(.element(entry.element, traversalIndex: traversalIndex))

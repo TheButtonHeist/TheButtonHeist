@@ -738,18 +738,27 @@ public struct ScrollInventory: Codable, Equatable, Hashable, Sendable {
 /// and supported actions. It is keyed by capture-local tree path so the
 /// accessibility tree itself stays full-fidelity and unmodified.
 public struct InterfaceElementAnnotation: Codable, Equatable, Hashable, Sendable {
+    /// Whether this snapshot read the element or retained an earlier sighting.
+    public enum Source: String, Codable, Sendable {
+        case capture
+        case memory
+    }
+
     public let path: TreePath
     public let actions: [ElementAction]
     public let geometry: HeistElement.Geometry
+    public let source: Source
 
     public init(
         path: TreePath,
         actions: [ElementAction],
-        geometry: HeistElement.Geometry
+        geometry: HeistElement.Geometry,
+        source: Source = .capture
     ) {
         self.path = path
         self.actions = actions.canonicalElementActionArray
         self.geometry = geometry
+        self.source = source
     }
 }
 
@@ -758,6 +767,7 @@ extension InterfaceElementAnnotation {
         case path
         case actions
         case geometry
+        case source
     }
 
     public init(from decoder: Decoder) throws {
@@ -766,7 +776,8 @@ extension InterfaceElementAnnotation {
         self.init(
             path: try container.decode(TreePath.self, forKey: .path),
             actions: try container.decode(ElementActionSet.self, forKey: .actions).orderedActions,
-            geometry: try container.decode(HeistElement.Geometry.self, forKey: .geometry)
+            geometry: try container.decode(HeistElement.Geometry.self, forKey: .geometry),
+            source: try container.decode(Source.self, forKey: .source)
         )
     }
 
@@ -775,6 +786,7 @@ extension InterfaceElementAnnotation {
         try container.encode(path, forKey: .path)
         try container.encode(ElementActionSet(actions), forKey: .actions)
         try container.encode(geometry, forKey: .geometry)
+        try container.encode(source, forKey: .source)
     }
 }
 

@@ -38,7 +38,8 @@ extension TheBrainsScrollTests {
                 current: current,
                 progress: .init(),
                 didMoveViewport: true,
-                viewportExit: .retained
+                viewportExit: .retained,
+                outcome: .goalSatisfied
             )
         }
         defer {

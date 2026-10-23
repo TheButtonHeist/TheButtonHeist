@@ -14,8 +14,14 @@ private func multiset<Value: Hashable>(
 /// exactly once. Retained evidence can reconstruct the same result by creating a
 /// fresh expectation and feeding the recorded events in order.
 package struct Expectation: Sendable, Equatable {
+    private enum Settlement: Sendable, Equatable {
+        case notRequired
+        case pending
+        case settled
+    }
+
     private let pending: [Step]
-    private let requiresSettlement: Bool
+    private let settlement: Settlement
 
     package init(
         _ predicates: [ObservationPredicate] = [],
@@ -37,10 +43,10 @@ package struct Expectation: Sendable, Equatable {
 
     private init(
         pending: [Step],
-        requiresSettlement: Bool = false
+        settlement: Settlement = .notRequired
     ) {
         self.pending = pending
-        self.requiresSettlement = requiresSettlement
+        self.settlement = settlement
     }
 
     /// Returns this expectation advanced by one newly published event.
@@ -52,8 +58,8 @@ package struct Expectation: Sendable, Equatable {
     }
 
     package func requiringNoChange() -> Expectation {
-        guard !requiresSettlement else { return self }
-        return Expectation(pending: pending, requiresSettlement: true)
+        guard settlement != .pending else { return self }
+        return Expectation(pending: pending, settlement: .pending)
     }
 
     package enum Result: Sendable, Equatable {
@@ -67,15 +73,20 @@ package struct Expectation: Sendable, Equatable {
     }
 
     package var result: Result {
-        if let description = pending.first?.description {
+        if let description = pending.first(where: { !$0.isMatchedAbsence })?.description {
             return .waiting(description)
         }
-        return requiresSettlement ? .waiting(ObservationPredicate.noChange.description) : .satisfied
+        return settlement == .pending ? .waiting(ObservationPredicate.noChange.description) : .satisfied
     }
 
     package var isWaitingOnlyForNoChange: Bool {
-        requiresSettlement && pending.isEmpty
-            || pending.count == 1 && pending[0].isNoChange
+        let unmatched = pending.filter { !$0.isMatchedAbsence }
+        return settlement == .pending && unmatched.isEmpty
+            || unmatched.count == 1 && unmatched[0].isNoChange
+    }
+
+    package var requiresCompleteExploration: Bool {
+        pending.contains(where: \.isMatchedAbsence)
     }
 
     package var hasMatchedTemporalBaseline: Bool {
@@ -86,12 +97,15 @@ package struct Expectation: Sendable, Equatable {
     }
 
     private func evaluating(_ input: Input) -> Expectation {
-        let maySettle = requiresSettlement && pending.isEmpty
+        let settlement: Settlement = self.settlement == .settled
+            && !input.isNoChange && pending.contains(where: \.isMatchedAbsence)
+            ? .pending : self.settlement
+        let maySettle = settlement == .pending && pending.allSatisfy(\.isMatchedAbsence)
         var next: [Step] = []
         next.reserveCapacity(pending.count)
 
         for (index, step) in pending.enumerated() {
-            switch step.evaluating(input) {
+            switch step.evaluating(input, keepingAbsenceProvisional: index == pending.count - 1) {
             case .indifferent:
                 next.append(step)
             case .matched(let remainder):
@@ -103,11 +117,13 @@ package struct Expectation: Sendable, Equatable {
                 if index + 1 < pending.count {
                     next.append(contentsOf: pending[(index + 1)...])
                 }
-                return Expectation(pending: next, requiresSettlement: requiresSettlement)
+                return Expectation(pending: next, settlement: settlement)
             }
         }
-        let requiresSettlement = requiresSettlement && !(maySettle && input.isNoChange)
-        return Expectation(pending: next, requiresSettlement: requiresSettlement)
+        return Expectation(
+            pending: next,
+            settlement: maySettle && input.isNoChange ? .settled : settlement
+        )
     }
 }
 
@@ -122,6 +138,15 @@ private extension Expectation {
                 return AccessibilityTargetMatchInput(interface: snapshot.interface)
             case .event:
                 return nil
+            }
+        }
+
+        func containsCapturedElement(at path: TreePath) -> Bool {
+            switch self {
+            case .baseline(let snapshot), .event(.elementsChanged(let snapshot)):
+                snapshot.interface.graph.element(at: path)?.annotation.source == .capture
+            case .event:
+                false
             }
         }
 
@@ -200,6 +225,7 @@ private extension Expectation {
     /// through the new case.
     enum Step: Sendable, Equatable {
         case current(ObservationPredicate)
+        case absent(ResolvedAccessibilityTarget)
         case before(
             ObservationPredicate,
             then: ObservationPredicate,
@@ -224,10 +250,26 @@ private extension Expectation {
             case unmatched(Step?)
         }
 
-        func evaluating(_ input: Input) -> Evaluation {
+        func evaluating(_ input: Input, keepingAbsenceProvisional: Bool) -> Evaluation {
             switch self {
             case .current(let predicate):
-                return predicate.evaluateCurrent(input)
+                let evaluation = predicate.evaluateCurrent(input)
+                if keepingAbsenceProvisional,
+                   case .elementsChanged(let assertions) = predicate,
+                   assertions.count == 1,
+                   case .missing(let target) = assertions[0],
+                   case .matched = evaluation {
+                    return .matched(.absent(target))
+                }
+                return evaluation
+            case .absent(let target):
+                // A miss at an old position stays provisional while search can find the target elsewhere.
+                let predicate = ObservationPredicate.elementsChanged([.missing(target)])
+                switch predicate.evaluateCurrent(input) {
+                case .matched: return .matched(self)
+                case .unmatched: return .unmatched(.current(predicate))
+                case .indifferent: return .indifferent
+                }
             case .before(let predicate, let after, let scope):
                 switch predicate.evaluateCurrent(input) {
                 case .indifferent:
@@ -271,6 +313,8 @@ private extension Expectation {
             switch self {
             case .current(let predicate), .before(let predicate, _, _):
                 return predicate.description
+            case .absent(let target):
+                return ObservationPredicate.elementsChanged([.missing(target)]).description
             case .after(let predicate, _, _, _):
                 return predicate.description
             }
@@ -279,6 +323,11 @@ private extension Expectation {
         var isNoChange: Bool {
             guard case .current(.noChange) = self else { return false }
             return true
+        }
+
+        var isMatchedAbsence: Bool {
+            if case .absent = self { return true }
+            return false
         }
     }
 }
@@ -312,7 +361,7 @@ private extension ObservationPredicate {
                 preconditionFailure("One expectation step evaluates one element predicate")
             }
             return assertion.matchesCurrent(
-                AccessibilityTargetMatchGraph(matchInput)
+                AccessibilityTargetMatchGraph(matchInput), input: input
             )
                 ? .matched(nil)
                 : .unmatched(nil)
@@ -363,11 +412,15 @@ private extension ResolvedElementAssertion {
     }
 
     func matchesCurrent(
-        _ graph: AccessibilityTargetMatchGraph<HeistElement>
+        _ graph: AccessibilityTargetMatchGraph<HeistElement>,
+        input: Expectation.Input
     ) -> Bool {
         switch self {
         case .exists(let target):
-            return !graph.resolve(target).isEmpty
+            let matches = graph.resolve(target)
+            return !matches.containers.isEmpty || matches.elements.matches.contains {
+                input.containsCapturedElement(at: $0.path)
+            }
         case .missing(let target):
             return graph.resolve(target).isEmpty
         case .appeared, .disappeared, .updated:

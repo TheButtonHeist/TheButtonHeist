@@ -85,6 +85,8 @@ extension Observation {
         /// The device's touch-target size, captured eagerly because the
         /// comparison that uses it runs off the main actor.
         internal let geometryTolerance: CGFloat
+        internal let confirmedMissingElements: Set<HeistId>
+        internal let invalidatedGeometryOwners: Set<TreePath>
 
         internal var tree: InterfaceTree {
             sourceObservation.tree

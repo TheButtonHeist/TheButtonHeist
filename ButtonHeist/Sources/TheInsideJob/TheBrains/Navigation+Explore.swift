@@ -62,7 +62,8 @@ extension Navigation {
                 startTime: CACurrentMediaTime(),
                 current: current,
                 didMoveViewport: false,
-                viewportExit: exitPosition == .origin ? .restored : .retained
+                viewportExit: exitPosition == .origin ? .restored : .retained,
+                outcome: .goalSatisfied
             )
         }
         let explorer = ViewportExplorer(

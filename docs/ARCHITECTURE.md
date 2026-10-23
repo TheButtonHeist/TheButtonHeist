@@ -490,10 +490,12 @@ comparison, so stretchy overdrag cannot masquerade as another page.
 
 Command discovery and wait discovery use `ViewportExitPosition.origin`: every
 touched scroll view is restored and the restored viewport is committed before
-the operation returns. Target inflation uses `ViewportExitPosition.current`, so
-the requested element remains visible for dispatch. The caller selects this
-exit policy before traversal; finalization applies it whether traversal matched,
-depleted its rays, hit a budget, or was interrupted after dispatch.
+the operation returns. For actions, inflation retains the revealed viewport on
+success so the requested element remains visible for dispatch. For observation,
+element inflation restores its origin before returning. `ElementInflation` owns
+both completions. Wait orchestration adds no outer viewport transaction. The
+operation selects the exit policy before traversal. Finalization applies it
+after a match, exhausted search, budget limit, or interruption after dispatch.
 `Navigation.InterfaceExplorationResult` is the finished event and progress for that
 traversal; it derives from canonical vault truth and owns no second graph or
 commit path. There is no compatibility traversal or commit path.
@@ -529,6 +531,56 @@ Element inflation is the boundary between a durable semantic target and a fresh
 live target that can be acted on now. Callers provide semantic identity. The
 runtime owns the bounded viewport and live-geometry work required to execute
 that intent.
+
+Actions, committed-target refresh, and known-element observation use one
+inflation state machine. It owns the reveal transaction through completion.
+Action success retains the target; failure attempts restoration. Inflation for
+observation attempts restoration after either outcome and returns the typed
+viewport outcome. It does not return a live action target after restoration.
+All cleanup uses the same absolute leaf deadline. Container inflation and
+exhaustive wait search remain separate consolidation work.
+
+An element `exists` assertion requires the selected match in the current parser
+capture. `InterfaceElementAnnotation.source` records `capture` or `memory`,
+derived from the current capture's element IDs. Subtree projection and wire
+encoding preserve this evidence. Screen geometry remains independent: a fresh
+navigation title can prove existence without a usable frame.
+
+A remembered offscreen entry supplies a reveal location and blocks
+`missing`, but proves neither assertion. Wait preparation uses inflation for
+both existence and absence when the admitted baseline lacks fresh presence.
+Waits and action postconditions for an already captured target observe its
+removal directly. Dispatch retains its admitted baseline for this decision;
+subsequent interface snapshots use the same predicate preparation check. Fresh
+departure snapshots do not trigger another search. Notification and screen
+boundary events wait for the canonical following interface snapshot.
+A miss at the remembered location continues into search under the same deadline.
+Search completion and viewport restoration are separate facts. For provisional
+absence, a limited or interrupted search leaves observation coverage incomplete with
+`explorationIncomplete`; stillness cannot turn that partial graph into proof
+of absence. The reducer retains this coverage in the leaf's observation evidence
+and waits until its original deadline rather than completing it. Fresh positive
+capture evidence can still complete existence after an earlier limited search.
+
+The final current absence remains provisional: a later sighting invalidates it
+before the wait can complete. Earlier absence checks in an ordered assertion
+list are consumed so later appearances can advance. Live evaluation and evidence
+replay share these rules in `Expectation`; temporal disappearance keeps its
+ordered event semantics.
+
+After viewport movement, the capture boundary can confirm a remembered entry
+as missing when its complete stored frame falls inside the captured scroll
+viewport. The semantic scroll owner must have exactly one current match backed
+by the same live scroll view in the preceding capture. An identical owner in
+another parent supplies no negative evidence for the remembered owner. If a
+live owner leaves or changes at a capture boundary, canonical commit invalidates
+only the stored geometry owned by its path. Semantic memory survives, while
+later captures cannot reinterpret that geometry under a replacement owner.
+Insets and clipping ancestors limit that viewport. Invalidated geometry,
+ambiguous owners, obscured views, and unread positions supply no negative evidence.
+Layout-change notifications also prevent this comparison against old geometry.
+`Observation.Admission` carries confirmed missing IDs into the existing pure
+commit. The commit removes those entries and preserves other discovery memory.
 
 The pipeline is:
 
@@ -967,8 +1019,10 @@ The public predicate layer is a concrete root with concrete declaration types:
   .missing(target), .appeared(target), .disappeared(target),
   .updated(target, change)])`.
 
-`exists` and `missing` always evaluate against the current delivered tree,
-including elements, containers, and descendant-scoped targets. `appeared`,
+`exists` and `missing` resolve against the current delivered tree,
+including elements, containers, and descendant-scoped targets. An element
+`exists` match also requires current capture evidence. A remembered offscreen
+entry blocks `missing` until a fresh capture disproves that entry. `appeared`,
 `disappeared`, and `updated` consume ordered events. Separating
 `ScreenPredicate` from `ElementAssertion` makes invalid combinations such as an
 `updated` screen assertion unconstructible: a screen predicate matches the

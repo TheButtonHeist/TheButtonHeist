@@ -9,13 +9,6 @@ import ThePlans
 
 extension Navigation {
 
-    private enum TraversalOutcome: Equatable {
-        case goalSatisfied
-        case exhausted
-        case cancelled
-        case interrupted
-    }
-
     private struct ObservedViewport {
         let current: TheVault.State.Current
         let decision: ViewportExplorationDecision
@@ -114,7 +107,7 @@ extension Navigation {
             onObservation: (TheVault.State.Current) async -> ViewportExplorationDecision
         ) async -> InterfaceExplorationResult? {
             let startTime = CACurrentMediaTime()
-            let outcome: TraversalOutcome
+            let outcome: InterfaceExplorationResult.Outcome
 
             if let initial = await observe(onObservation: onObservation) {
                 if initial.decision == .goalSatisfied {
@@ -144,13 +137,14 @@ extension Navigation {
                 startTime: startTime,
                 current: latestCurrent,
                 didMoveViewport: state.didMoveViewport,
-                viewportExit: viewportExit
+                viewportExit: viewportExit,
+                outcome: outcome
             )
         }
 
         private func scanPendingContainers(
             onObservation: (TheVault.State.Current) async -> ViewportExplorationDecision
-        ) async -> TraversalOutcome {
+        ) async -> InterfaceExplorationResult.Outcome {
             while !exploration.progress.pendingScrollPaths.isEmpty {
                 guard !Task.isCancelled else { return .cancelled }
                 guard exploration.hasTimeRemaining else { return .interrupted }
@@ -445,7 +439,7 @@ extension Navigation {
 
         private func finalize(
             exitPosition: ViewportExitPosition,
-            termination: TraversalOutcome,
+            termination: InterfaceExplorationResult.Outcome,
             notifyObservation: Bool,
             onObservation: (TheVault.State.Current) async -> ViewportExplorationDecision
         ) async -> ViewportExit.Outcome {
@@ -719,7 +713,8 @@ extension Navigation {
             current: current,
             progress: .init(),
             didMoveViewport: true,
-            viewportExit: .retained
+            viewportExit: .retained,
+            outcome: .goalSatisfied
         )
         switch semanticTargetScanMatch(request.target) {
         case .visible(let current):

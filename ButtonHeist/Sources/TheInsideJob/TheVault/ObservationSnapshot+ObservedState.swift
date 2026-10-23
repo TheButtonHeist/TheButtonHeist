@@ -58,7 +58,8 @@ private extension InterfaceGraphElementRecord {
               accessibilityElement.hasSameNonGeometricState(
             as: other.accessibilityElement
         ),
-        annotation.actions == other.annotation.actions
+        annotation.actions == other.annotation.actions,
+        annotation.source == other.annotation.source
         else { return false }
 
         return annotation.geometry.hasSameObservedState(

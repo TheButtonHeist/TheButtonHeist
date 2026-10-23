@@ -44,8 +44,36 @@ flowchart TD
     MORE -- "yes" --> GRAPH
     MORE -- "no" --> STABLE["stabilize frame + activationPoint<br/>under the same deadline"]
     STABLE -- "fresh committed capture" --> RERESOLVE
-    STABLE -- "stable and onscreen" --> ACT["LiveActionTarget<br/>for current-capture HeistId"]
+    STABLE -- "stable and onscreen" --> COMPLETION{"inflation completion"}
+    COMPLETION -- "action" --> ACT["retain viewport and hand off LiveActionTarget<br/>for current-capture HeistId"]
+    COMPLETION -- "observation" --> RESTORE["restore origin through viewport transition<br/>under the same deadline"]
     STABLE -- "deadline / offscreen" --> MISS
+    MISS --> RESTORE
+```
+
+Element presence uses the same capture and commit pipeline:
+
+```mermaid
+flowchart TD
+    RESOLVE["resolve selector in full interface"] --> VISIBLE{"match from current capture?<br/>annotation.source = capture"}
+    VISIBLE -- "yes" --> PRESENT["exists can match"]
+    VISIBLE -- "no" --> KNOWN{"remembered entry?"}
+    KNOWN -- "no" --> ABSENT["missing can match"]
+    KNOWN -- "yes" --> INFLATE["inflate remembered location"]
+    INFLATE --> CAPTURE["capture visible tree"]
+    CAPTURE --> COVERED{"stored frame fully read<br/>under the same live owner?"}
+    COVERED -- "no" --> UNKNOWN["retain remembered entry<br/>neither predicate proven"]
+    COVERED -- "yes" --> SEEN{"entry in fresh capture?"}
+    SEEN -- "yes" --> PRESENT
+    SEEN -- "no" --> REMOVE["commit confirmed missing ID"]
+    REMOVE --> SEARCH["search other viewports<br/>under the same deadline"]
+    UNKNOWN --> SEARCH
+    SEARCH --> FOUND{"target found?"}
+    FOUND -- "yes" --> PRESENT
+    FOUND -- "no" --> COMPLETE{"search exhausted<br/>without limits or interruption?"}
+    COMPLETE -- "yes" --> ABSENT
+    COMPLETE -- "no" --> LIMITED["incomplete exploration evidence<br/>absence cannot pass"]
+    PRESENT --> INVALIDATE["invalidate provisional absence"]
 ```
 
 Notes:
@@ -53,6 +81,26 @@ Notes:
 - Resolution reads the **interface tree only** (`TheVault.interfaceTree`). Live capture proves current actionability and geometry for an interface element; it is not a second search space.
 - Container-only targets are valid for predicates and subtree queries. Element-
   only actions reject a resolved container with a typed target-kind error.
+- `ElementInflation` owns its reveal transaction through completion. Actions
+  retain the revealed viewport on success and attempt restoration on failure.
+  Element inflation for observation attempts restoration after either outcome and
+  returns the typed restoration outcome. Wait orchestration adds no outer
+  viewport transaction. Container inflation and exhaustive wait search
+  orchestration remain follow-up work.
+- Element presence requires a match in the current parser capture. Geometry
+  can be unavailable. The element annotation's `source` records capture or
+  memory and survives subtree projection and encoding. Remembered
+  offscreen entries guide wait inflation and block absence until fresh evidence
+  disproves their stored positions. The capture boundary admits confirmed
+  missing IDs only after viewport movement, under one matching semantic scroll
+  owner backed by the same live view in both captures, with complete frame coverage and valid stored geometry. The canonical
+  commit removes those IDs and preserves other discovery memory. When a live
+  owner leaves or changes, commit invalidates its retained geometry so a later
+  capture cannot reinterpret it under a replacement owner.
+  A miss continues into search under the same deadline. A later sighting
+  invalidates the final current absence in the shared expectation evaluator.
+  Earlier ordered absence checks are consumed. Limited or interrupted search
+  records incomplete observation coverage, which cannot prove absence.
 - Matching is **exact or miss**: string checks are case-insensitive with typography folding (smart quotes, dashes, ellipsis fold to ASCII), traits compare as sets. On a miss the resolver returns structured facts — the interface elements in scope — through the diagnostic path; substring matching is not part of resolution.
 - A capture-local action can join the selected element's current `HeistId`
   directly to live UIKit evidence. Before any cross-capture reveal, inflation
