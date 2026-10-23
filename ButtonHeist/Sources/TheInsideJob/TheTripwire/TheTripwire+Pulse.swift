@@ -15,6 +15,7 @@ extension TheTripwire {
         private let pulseStartTime: CFTimeInterval
         var latestReading: PulseReading?
         var tickCount: UInt64 = 0
+        var admission = PulseAdmission()
         var observationDemand: TickDemand?
         var receiveObservationPulse: (@MainActor (PulseReading) -> Void)?
 
@@ -120,6 +121,16 @@ extension TheTripwire {
         updateDisplayLinkRate(context)
     }
 
+    /// Gives UIKit a render opportunity after a successful synthetic touch-up.
+    func deferObservationForRendering() {
+        runningContext?.admission.deferForRendering()
+    }
+
+    /// Applies render grace immediately before a live capture can claim evidence.
+    func admitObservationPulse(_ reading: PulseReading) -> Bool {
+        runningContext?.admission.admit(reading.tripwireSignal.hierarchy) == true
+    }
+
     // MARK: - Tick Handler
 
     /// Samples live UIKit and display-link time before handing one complete
@@ -127,10 +138,6 @@ extension TheTripwire {
     func captureDisplayLinkPulse(from displayLink: CADisplayLink) {
         guard let context = runningContext else { return }
         context.tickCount += 1
-
-        // Flush pending implicit transactions so SwiftUI's deferred layout
-        // commits before we sample.
-        CATransaction.flush()
 
         let tripwireSignal = tripwireSignal()
         let reading = PulseReading(

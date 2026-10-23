@@ -37,12 +37,12 @@ final class TripwireIntegrationTests: XCTestCase {
         XCTAssertEqual(context.displayFrameRateRange, ambientRate)
     }
 
-    func testImmediateTickRateUsesScreenMaximum() {
+    func testImmediateTickRateIsCappedBelowScreenMaximum() {
         let range = TheTripwire.activeDisplayFrameRateRange(maximumFramesPerSecond: 120)
 
-        XCTAssertEqual(range.minimum, 120)
-        XCTAssertEqual(range.maximum, 120)
-        XCTAssertEqual(range.preferred, 120)
+        XCTAssertEqual(range.minimum, 30)
+        XCTAssertEqual(range.maximum, 30)
+        XCTAssertEqual(range.preferred, 30)
     }
 
     // MARK: - Pulse produces readings

@@ -128,7 +128,7 @@ The stream is also the one observation producer. In production, TheTripwire's
 persistent `CADisplayLink` samples UIKit and supplies complete serialized pulse
 readings only while stream demand is nonzero. Deterministic execution selects
 injected pulse ingress and delivers the same typed reading without starting a
-display link or sampling a clock or UIKit. One pulse starts one
+display link or sampling a clock or UIKit. One admitted pulse starts one
 claim/capture/parse/commit/publish/evaluate cycle;
 concurrent consumers join it. Once a Vault commit installs admitted-read state,
 waits and action before-state acquisition reuse the committed event until the
@@ -182,10 +182,9 @@ capture, event, predicate, and public-fold boundaries.
 
 ### One Heist Reducer
 
-TheTripwire samples UIKit timing signals: presentation-layer movement, pending
-layout, animations, top view-controller identity, navigation state, window
-ordering, keyboard state, and first responder state. It never classifies the
-accessibility tree.
+TheTripwire samples top view-controller identity, navigation state, and window
+ordering. Its live pulse admission gives UIKit a render opportunity after
+touch-up or a hierarchy change. It never classifies the accessibility tree.
 
 ```swift
 enum HeistExecution.Decision {
@@ -346,8 +345,17 @@ not evidence of replacement or stability.
 
 The runtime classifies accessibility state, not animations. One persistent
 `CADisplayLink` in TheTripwire is the sole live observation clock. Scope pressure
-is reduced to one pulse demand; zero demand pauses the link. Injected ingress is
-used only by deterministic execution and never starts that live clock. A pulse starts at most
+is reduced to one pulse demand; zero demand pauses the link. Active demand caps
+the link at 30 Hz, bounded by the screen's maximum; ambient demand retains its
+configured rate. The callback samples UIKit without forcing a Core Animation
+transaction flush. A successful synthetic touch-up requests render grace.
+Immediately before a live capture, `TheTripwire.PulseAdmission` skips one pulse
+after that request or a changed hierarchy. The next pulse is admitted even if
+the hierarchy changes again, so grace cannot starve observation. A skipped
+pulse does not claim notifications, complete capture waiters, or publish
+`noChange`. Periodic sampling continues even when no UIKit signal changes.
+Injected ingress authors admitted pulses for deterministic execution and never
+starts that live clock. A pulse starts at most
 one capture cycle, and pulses received while that synchronous cycle is active
 are dropped. A later display pulse starts the next demanded cycle. The cycle
 claims notifications, captures and parses live UIKit state, commits snapshot and

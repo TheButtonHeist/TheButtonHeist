@@ -312,7 +312,12 @@ internal final class Stream {
         )
         cycle.receive(pulse) { [weak self] request in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.cycle.owns(request.identity) else { return }
+                if self.pulseIngress == .displayLink,
+                   !self.tripwire.admitObservationPulse(request.pulse) {
+                    _ = self.cycle.complete(request.identity)
+                    return
+                }
                 let result = await self.performObservationCycle(request)
                 self.finishCycle(request.identity, result: result)
             }

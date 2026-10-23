@@ -74,7 +74,8 @@ final class TheBrains {
         self.requestExecutor = InteractionRequestExecutor()
         let safecracker = TheSafecracker(
             fingerprintsEnabled: fingerprintsEnabled,
-            keyboardInput: keyboardInput
+            keyboardInput: keyboardInput,
+            touchEnded: { tripwire.deferObservationForRendering() }
         )
         let vault = TheVault(
             tripwire: tripwire,

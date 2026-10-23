@@ -20,9 +20,11 @@ final class SafecrackerTouchInjection {
     }
 
     private let fingerprints: TheFingerprints
+    private let touchEnded: @MainActor () -> Void
 
-    init(fingerprints: TheFingerprints) {
+    init(fingerprints: TheFingerprints, touchEnded: @escaping @MainActor () -> Void) {
         self.fingerprints = fingerprints
+        self.touchEnded = touchEnded
     }
 
     func tap(at point: CGPoint) async -> Bool {
@@ -185,6 +187,9 @@ final class SafecrackerTouchInjection {
             return false
         }
 
+        if phase == .ended {
+            touchEnded()
+        }
         return true
     }
 

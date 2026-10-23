@@ -5,14 +5,10 @@ import UIKit
 /// Detects UIKit tripwire triggers without touching the accessibility tree.
 ///
 /// TheTripwire monitors UIKit signals via one persistent CADisplayLink tick.
-/// Ambient observation runs at a low rate; immediate one-shot demand temporarily
-/// raises that same link to the active screen's maximum refresh rate. Every tick runs the
-/// full set of checks: layer scan (presentation fingerprint and layout), VC
-/// identity, public navigation state, and ordered visible windows.
-///
-/// The pulse answers three questions:
-/// 1. **Is the UI settled?** (no pending layout, stable presentation fingerprint)
-/// 2. **Should the accessibility tree be checked again?** (Tripwire triggered)
+/// Ambient observation runs at a low rate; active demand raises that same link
+/// to at most 30 Hz. Each tick samples controller identity, public navigation
+/// state, and ordered visible windows. Pulse admission yields one capture after
+/// touch-up or hierarchy change so UIKit can render before an accessibility read.
 ///
 /// The accessibility tree is TheVault's domain; TheTripwire never reads it.
 @MainActor
@@ -54,7 +50,7 @@ final class TheTripwire {
 
     static func activeDisplayFrameRateRange(maximumFramesPerSecond: Int) -> CAFrameRateRange {
         precondition(maximumFramesPerSecond > 0, "display refresh rate must be positive")
-        let maximum = Float(maximumFramesPerSecond)
+        let maximum = Float(min(30, maximumFramesPerSecond))
         return CAFrameRateRange(minimum: maximum, maximum: maximum, preferred: maximum)
     }
 }

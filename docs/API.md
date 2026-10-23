@@ -367,7 +367,7 @@ unprefixed name wins when it is valid.
 
 | Variable | Default | Clamp | Purpose |
 |----------|---------|-------|---------|
-| `BH_TRIPWIRE_PULSE_HZ` | `10` | `1...120` | Accessibility tripwire polling frequency. |
+| `BH_TRIPWIRE_PULSE_HZ` | `10` | `1...120` | Ambient accessibility observation frequency. Active steps use at most 30 Hz, bounded by the screen maximum. |
 | `BH_MAX_SCROLLS_PER_CONTAINER` | `200` | `1...2000` | Per-container scroll exploration safety limit. |
 | `BH_MAX_SCROLLS_PER_DISCOVERY` | `200` | `1...2000` | Whole-discovery scroll exploration safety limit. |
 | `BUTTONHEIST_MAX_WAIT_TIMEOUT` | `60` | finite seconds, at least `30` | Maximum duration accepted by `WaitTimeout`; no additional fixed policy cap. |
