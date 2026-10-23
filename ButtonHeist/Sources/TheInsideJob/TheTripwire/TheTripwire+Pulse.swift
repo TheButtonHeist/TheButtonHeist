@@ -12,9 +12,7 @@ extension TheTripwire {
     final class RunningContext {
         private let displayLink: CADisplayLink
         private let target: PulseTick
-        private let pulseStartTime: CFTimeInterval
-        var latestReading: PulseReading?
-        var tickCount: UInt64 = 0
+        var admission = PulseAdmission()
         var observationDemand: TickDemand?
         var receiveObservationPulse: (@MainActor (PulseReading) -> Void)?
 
@@ -28,7 +26,6 @@ extension TheTripwire {
                 target: target,
                 selector: #selector(PulseTick.handleTick)
             )
-            pulseStartTime = CACurrentMediaTime()
             displayLink.preferredFrameRateRange = TheTripwire.pulseFrameRateRange
             displayLink.add(to: .main, forMode: .common)
             displayLink.isPaused = true
@@ -39,32 +36,17 @@ extension TheTripwire {
         }
 
         func updateDisplayLink(
-            demand: TickDemand?,
-            activeMaximumFramesPerSecond: Int
+            frameRateRange: CAFrameRateRange,
+            isPaused: Bool
         ) {
-            let hasImmediateDemand = demand == .immediate
-            displayLink.preferredFrameRateRange = hasImmediateDemand
-                ? TheTripwire.activeDisplayFrameRateRange(
-                    maximumFramesPerSecond: activeMaximumFramesPerSecond
-                )
-                : TheTripwire.pulseFrameRateRange
-            displayLink.isPaused = demand == nil
-        }
-
-        func elapsed(at timestamp: CFTimeInterval) -> Duration {
-            .seconds(max(0, timestamp - pulseStartTime))
+            displayLink.preferredFrameRateRange = frameRateRange
+            displayLink.isPaused = isPaused
         }
     }
 
     enum PulsePhase {
         case idle
         case running(RunningContext)
-    }
-
-    /// The latest pulse reading, if the pulse is running.
-    private(set) var latestReading: PulseReading? {
-        get { runningContext?.latestReading }
-        set { runningContext?.latestReading = newValue }
     }
 
     enum TickDemand: Equatable, Sendable {
@@ -110,43 +92,55 @@ extension TheTripwire {
     func stopObservingPulses() {
         guard let context = runningContext else { return }
         context.receiveObservationPulse = nil
-        context.observationDemand = nil
-        updateDisplayLinkRate(context)
+        setObservationPulseDemand(nil)
     }
 
     func setObservationPulseDemand(_ demand: TickDemand?) {
-        guard let context = runningContext else { return }
+        guard let context = runningContext,
+              context.observationDemand != demand else { return }
         context.observationDemand = demand
+        if demand != .immediate {
+            context.admission.cancelRecovery()
+        }
         updateDisplayLinkRate(context)
+    }
+
+    /// Gives UIKit a render opportunity after a successful synthetic touch-up.
+    func deferObservationForRendering() {
+        runningContext?.admission.deferForRendering()
+    }
+
+    /// Applies render grace immediately before a live capture can claim evidence.
+    func admitObservationPulse(_ reading: PulseReading) -> Bool {
+        runningContext?.admission.admit(reading.tripwireSignal.hierarchy) == true
+    }
+
+    func recordObservationDuration(_ duration: Duration, frameDuration: Duration) {
+        guard let context = runningContext,
+              context.observationDemand == .immediate else { return }
+        context.admission.recordCapture(duration: duration, frameDuration: frameDuration)
     }
 
     // MARK: - Tick Handler
 
-    /// Samples live UIKit and display-link time before handing one complete
-    /// value to the semantic observation stream.
+    /// Samples live UIKit and the display-frame budget for the observation stream.
     func captureDisplayLinkPulse(from displayLink: CADisplayLink) {
         guard let context = runningContext else { return }
-        context.tickCount += 1
-
-        // Flush pending implicit transactions so SwiftUI's deferred layout
-        // commits before we sample.
-        CATransaction.flush()
-
-        let tripwireSignal = tripwireSignal()
         let reading = PulseReading(
-            tick: context.tickCount,
-            elapsed: context.elapsed(at: displayLink.timestamp),
-            tripwireSignal: tripwireSignal
+            frameDuration: .seconds(displayLink.duration),
+            tripwireSignal: tripwireSignal()
         )
-        context.latestReading = reading
 
         context.receiveObservationPulse?(reading)
     }
 
     private func updateDisplayLinkRate(_ context: RunningContext) {
+        let range = context.observationDemand == .immediate
+            ? Self.activeDisplayFrameRateRange(maximumFramesPerSecond: activeScreenMaximumFramesPerSecond())
+            : Self.pulseFrameRateRange
         context.updateDisplayLink(
-            demand: context.observationDemand,
-            activeMaximumFramesPerSecond: activeScreenMaximumFramesPerSecond()
+            frameRateRange: range,
+            isPaused: context.observationDemand == nil
         )
     }
 

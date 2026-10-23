@@ -304,15 +304,19 @@ internal final class Stream {
     /// value directly.
     internal func deliver(_ pulse: TheTripwire.PulseReading) {
         let pulse = TheTripwire.PulseReading(
-            tick: pulse.tick,
-            elapsed: pulse.elapsed,
+            frameDuration: pulse.frameDuration,
             tripwireSignal: pulse.tripwireSignal.recordingAccessibilityNotifications(
                 through: vault.accessibilityNotifications.latestSequence
             )
         )
         cycle.receive(pulse) { [weak self] request in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.cycle.owns(request.identity) else { return }
+                if self.pulseIngress == .displayLink,
+                   !self.tripwire.admitObservationPulse(request.pulse) {
+                    _ = self.cycle.complete(request.identity)
+                    return
+                }
                 let result = await self.performObservationCycle(request)
                 self.finishCycle(request.identity, result: result)
             }
@@ -333,10 +337,12 @@ internal final class Stream {
                 "A committed observation must acknowledge its exact notification claim"
             )
         }
-        completeObservationWaiters(
-            completedScope: completedScope,
-            observationCommitted: observationCommitted
-        )
+        if !observationCommitted {
+            completeObservationWaiters(
+                completedScope: completedScope,
+                observationCommitted: false
+            )
+        }
     }
 
     private func performObservationCycle(
@@ -346,11 +352,18 @@ internal final class Stream {
             return nil
         }
         let claim = vault.accessibilityNotifications.freezeObservationCycleClaim()
+        let captureStart = pulseIngress == .displayLink ? RuntimeElapsed.now : nil
         let committed = await observeSemanticState(
             scope: request.scope,
             pulse: request.pulse,
             notificationBatch: claim.batch
         )
+        if let captureStart, cycle.owns(request.identity) {
+            tripwire.recordObservationDuration(
+                captureStart.duration(to: RuntimeElapsed.now),
+                frameDuration: request.pulse.frameDuration
+            )
+        }
         return CycleResult(
             claim: claim,
             observationCommitted: committed && cycle.owns(request.identity)

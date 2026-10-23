@@ -38,7 +38,7 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         bus.recordForTesting(code: 1005, notificationData: .none, associatedElement: .none)
         bus.recordForTesting(
             code: 1008,
-            notificationData: CapturedAccessibilityNotificationPayload("Done" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("Done" as NSString),
             associatedElement: .none
         )
 
@@ -73,7 +73,7 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         for index in 0..<scopedEventCount {
             bus.recordForTesting(
                 code: 1008,
-                notificationData: CapturedAccessibilityNotificationPayload(
+                notificationData: PendingAccessibilityNotificationPayload(
                     "Action announcement \(index)" as NSString
                 ),
                 associatedElement: .none
@@ -219,7 +219,7 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         for index in 0..<65 {
             bus.recordForTesting(
                 code: 1008,
-                notificationData: CapturedAccessibilityNotificationPayload(
+                notificationData: PendingAccessibilityNotificationPayload(
                     "Unrelated announcement \(index)" as NSString
                 ),
                 associatedElement: .none
@@ -242,7 +242,7 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         for index in 0..<64 {
             bus.recordForTesting(
                 code: 1008,
-                notificationData: CapturedAccessibilityNotificationPayload(
+                notificationData: PendingAccessibilityNotificationPayload(
                     "Unrelated announcement \(index)" as NSString
                 ),
                 associatedElement: .none
@@ -250,7 +250,7 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         }
         bus.recordForTesting(
             code: 1008,
-            notificationData: CapturedAccessibilityNotificationPayload(
+            notificationData: PendingAccessibilityNotificationPayload(
                 "Expected announcement" as NSString
             ),
             associatedElement: .none
@@ -296,17 +296,17 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
 
         bus.recordForTesting(
             code: 1008,
-            notificationData: CapturedAccessibilityNotificationPayload("Item deleted" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("Item deleted" as NSString),
             associatedElement: .none
         )
         bus.recordForTesting(
             code: 1001,
-            notificationData: CapturedAccessibilityNotificationPayload("3 items selected" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("3 items selected" as NSString),
             associatedElement: .none
         )
         bus.recordForTesting(
             code: 1000,
-            notificationData: CapturedAccessibilityNotificationPayload("Checkout" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("Checkout" as NSString),
             associatedElement: .none
         )
 
@@ -402,52 +402,6 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
             [1, 2]
         )
         XCTAssertEqual(bus.latestSequence, 2)
-    }
-
-    func testProbeObservesOnlyElementUpdateNotifications() throws {
-        let payload = CapturedAccessibilityNotificationPayload("Updated" as NSString)
-
-        XCTAssertNil(
-            AccessibilityNotificationProbe.description(
-                rawCode: 1001,
-                notificationData: payload,
-                associatedElement: .none
-            )
-        )
-        XCTAssertNotNil(
-            AccessibilityNotificationProbe.description(
-                rawCode: 1005,
-                notificationData: payload,
-                associatedElement: .none
-            )
-        )
-    }
-
-    func testProbeDescriptionPreservesBehaviorTokensFromRawPayload() throws {
-        let behavior = [
-            "ChangeType": 2,
-            "IsQuiet": true,
-        ] as NSDictionary
-        let notificationData = [
-            "data": behavior,
-            "token": "kAXValueChangeUserInfoKey",
-        ] as NSDictionary
-        let associatedElement = NSObject()
-
-        let description = try XCTUnwrap(
-            AccessibilityNotificationProbe.description(
-                rawCode: 1005,
-                notificationData: CapturedAccessibilityNotificationPayload(notificationData),
-                associatedElement: CapturedAccessibilityNotificationPayload(associatedElement)
-            )
-        )
-
-        XCTAssertTrue(description.contains("code=1005(elementUpdate)"))
-        XCTAssertTrue(description.contains("notificationData.class="))
-        XCTAssertTrue(description.contains("kAXValueChangeUserInfoKey"))
-        XCTAssertTrue(description.contains("ChangeType"))
-        XCTAssertTrue(description.contains("IsQuiet"))
-        XCTAssertTrue(description.contains("associatedElement.class="))
     }
 
     func testUnknownNotificationsPreserveRawCodesAtBoundary() async {

@@ -414,15 +414,11 @@ extension TheInsideJob {
     ) async -> Result<HeistResult, HeistExecution.Failure> {
         let shouldRestoreRuntime = !brains.semanticObservationIsActive
         if shouldRestoreRuntime {
-            tripwire.startPulse()
-            brains.vault.semanticObservationStream.start()
-            brains.safecracker.startKeyboardObservation()
+            activateObservation()
         }
         defer {
             if shouldRestoreRuntime {
-                brains.vault.semanticObservationStream.stop()
-                tripwire.stopPulse()
-                brains.safecracker.stopKeyboardObservation()
+                releaseObservation()
             }
         }
         // Each top-level heist starts from a fresh live visible state. This

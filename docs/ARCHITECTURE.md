@@ -128,7 +128,7 @@ The stream is also the one observation producer. In production, TheTripwire's
 persistent `CADisplayLink` samples UIKit and supplies complete serialized pulse
 readings only while stream demand is nonzero. Deterministic execution selects
 injected pulse ingress and delivers the same typed reading without starting a
-display link or sampling a clock or UIKit. One pulse starts one
+display link or sampling a clock or UIKit. One admitted pulse starts one
 claim/capture/parse/commit/publish/evaluate cycle;
 concurrent consumers join it. Once a Vault commit installs admitted-read state,
 waits and action before-state acquisition reuse the committed event until the
@@ -180,12 +180,15 @@ targets from the new interface evidence. See the
 the [observation pipeline diagram](diagrams/observation-pipeline.md) for the
 capture, event, predicate, and public-fold boundaries.
 
+The [Tripwire admission diagram](diagrams/tripwire.md) shows live pacing,
+notification ownership, capture validation, and the frame-budget feedback loop.
+
 ### One Heist Reducer
 
-TheTripwire samples UIKit timing signals: presentation-layer movement, pending
-layout, animations, top view-controller identity, navigation state, window
-ordering, keyboard state, and first responder state. It never classifies the
-accessibility tree.
+TheTripwire samples top view-controller identity, navigation state, and window
+ordering. Its live pulse admission gives UIKit a render opportunity after
+touch-up or a hierarchy change, and bounds recovery after an over-budget
+visible capture under active demand. It never classifies the accessibility tree.
 
 ```swift
 enum HeistExecution.Decision {
@@ -295,9 +298,11 @@ it never replaces the original failed path.
 One pure `ScreenClassifier` combines typed snapshots with scoped
 `screenChanged`, `layoutChanged`, `elementUpdate`, and `announcement`
 notifications.
-The process callback crosses onto `MainActor` once and delivers to the one bus
-owned by the live Vault. `AccessibilityNotificationBus` assigns sequence and
-appends package-internal ingress records to its bounded log. `Observation.Stream`
+The process callback captures the current attachment at entry, then crosses
+onto `MainActor` once. Delivery requires the same attachment to remain active,
+so queued callbacks cannot cross a Vault replacement or a stream restart. The
+live Vault owns the destination bus. `AccessibilityNotificationBus` assigns
+sequence and appends package-internal ingress records to its bounded log. `Observation.Stream`
 freezes one exact claim at the start of each observation cycle. That claim is
 the only notification input to the cycle and stays pending until the
 corresponding semantic observation commits.
@@ -346,15 +351,37 @@ not evidence of replacement or stability.
 
 The runtime classifies accessibility state, not animations. One persistent
 `CADisplayLink` in TheTripwire is the sole live observation clock. Scope pressure
-is reduced to one pulse demand; zero demand pauses the link. Injected ingress is
-used only by deterministic execution and never starts that live clock. A pulse starts at most
+is reduced to one pulse demand; zero demand pauses the link. Active demand caps
+the link at 30 Hz, bounded by the screen's maximum; ambient demand retains its
+configured rate. The callback samples UIKit without forcing a Core Animation
+transaction flush. A successful synthetic touch-up requests render grace.
+Immediately before a live capture, `TheTripwire.PulseAdmission` skips one pulse
+after that request or a changed hierarchy. The next pulse is admitted even if
+the hierarchy changes again. The stream measures each live visible observation
+cycle against the display frame duration supplied by that pulse. Under active
+demand, a cycle longer than one frame skips one subsequent capture opportunity.
+A cycle longer than two frames skips two opportunities. Ambient captures do not
+schedule recovery. Returning to ambient or pausing demand cancels pending
+recovery while preserving render grace. Both causes share one admission policy
+and coalesce rather than stacking. Further touch or hierarchy changes cannot
+extend that bounded recovery. A skipped pulse does not claim notifications, complete
+capture waiters, or publish
+`noChange`. Periodic sampling continues even when no UIKit signal changes.
+Injected ingress authors admitted pulses for deterministic execution and never
+starts that live clock. A pulse starts at most
 one capture cycle, and pulses received while that synchronous cycle is active
 are dropped. A later display pulse starts the next demanded cycle. The cycle
-claims notifications, captures and parses live UIKit state, commits snapshot and
-history, then publishes ordered events to `HeistExecution`. A fresh capture
+claims notifications, captures and parses the visible accessibility tree, commits
+snapshot and history, then publishes ordered events to `HeistExecution`. A fresh capture
 that proves complete observed equality produces `noChange`. That case has no
 payload, but it means neither semantic state nor geometry changed within the
 admitted comparison tolerance.
+The display pulse carries only its UIKit signal and display-frame budget. Cycle
+identity owns task lifetime; business deadlines use their own elapsed-time
+boundary. Window facts project directly into snapshot context. Notification
+payloads normalize once into text or weak live objects. Server and in-app
+entry points share observation-resource activation and release.
+
 Motion with no accessibility representation is not execution evidence. Business
 deadlines may cancel work, but no timer, sleep, caller loop, or discovery path
 acts as a second observation clock.
@@ -742,10 +769,13 @@ the canonical `Observation.History` established by reducer boundaries; they do
 not own notification ingress or a parallel temporal record.
 
 `AccessibilityNotificationObserver` installs one process-lifetime callback and
-holds one weak bus destination. Starting the live observation stream attaches
-its Vault bus; stopping it detaches that destination without replacing the
-callback. The bus, its scope leases, cycle claims, sequence, and retention log
-are all `MainActor` owned.
+holds one attachment with a weak bus destination. Starting the live observation
+stream attaches its Vault bus; stopping it revokes that attachment without
+replacing the callback. Callback entry reads the attachment under a lock. Main
+queue delivery rejects a revoked attachment, even if the same bus has since
+reattached. Action attribution occurs at admitted delivery; sealing an action
+keeps later deliveries outside that action. The bus, its scope leases, cycle
+claims, sequence, and retention log are all `MainActor` owned.
 
 `Observation.Stream` owns notification invalidation. It records the
 scoped `screenChanged` sequence covered by the committed claim. A later scoped

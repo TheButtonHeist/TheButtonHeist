@@ -7,6 +7,76 @@ import TheScore
 
 @MainActor
 final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
+    func testQueuedPrivateCallbacksCannotCrossDestinationReplacement() async throws {
+        var installed: ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock?
+        let observer = AccessibilityNotificationObserver(installPrivateCallbackForTesting: { installed = $0 })
+        let original = AccessibilityNotificationBus()
+        let replacement = AccessibilityNotificationBus()
+        observer.attach(original)
+        let callback = try XCTUnwrap(installed)
+
+        callback(1008, "Queued before detach" as NSString, nil)
+        observer.detach(original)
+        callback(1008, "Entered while detached" as NSString, nil)
+        observer.attach(replacement)
+        defer { observer.detach(replacement) }
+        callback(1008, "Current destination" as NSString, nil)
+        await drainPrivateCallbacks()
+
+        let events = replacement.checkpoint(after: .origin, selection: .all).events
+        XCTAssertEqual(events.count, 1)
+        guard case .string(let text) = events.last?.notificationData else {
+            return XCTFail("Expected the current destination's announcement")
+        }
+        XCTAssertEqual(text, "Current destination")
+        XCTAssertEqual(original.latestSequence, 0)
+    }
+
+    func testQueuedPrivateCallbackCannotCrossRestartOfTheSameDestination() async throws {
+        var installed: ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock?
+        let observer = AccessibilityNotificationObserver(installPrivateCallbackForTesting: { installed = $0 })
+        let bus = AccessibilityNotificationBus()
+        observer.attach(bus)
+        let callback = try XCTUnwrap(installed)
+
+        callback(1000, nil, nil)
+        observer.detach(bus)
+        observer.attach(bus)
+        defer { observer.detach(bus) }
+        callback(1008, "After restart" as NSString, nil)
+        await drainPrivateCallbacks()
+
+        XCTAssertEqual(
+            bus.checkpoint(after: .origin, selection: .all).events.map(\.kind),
+            [.announcement]
+        )
+    }
+
+    func testPrivateQueueDeliveryRespectsSealedActionCoverage() async throws {
+        var installed: ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock?
+        let observer = AccessibilityNotificationObserver(installPrivateCallbackForTesting: { installed = $0 })
+        let bus = AccessibilityNotificationBus()
+        observer.attach(bus)
+        defer { observer.detach(bus) }
+        let callback = try XCTUnwrap(installed)
+        let heist = bus.beginHeistScope()
+        defer { heist.cancel() }
+        let action = bus.beginActionWindow()
+
+        callback(1001, nil, nil)
+        await drainPrivateCallbacks()
+        let coverage = await action.admitCausallyCovered { Optional($0) }
+        callback(1008, "After action seal" as NSString, nil)
+        await drainPrivateCallbacks()
+
+        XCTAssertEqual(coverage?.through.sequence, 1)
+        let events = bus.checkpoint(after: .origin, selection: .all).events
+        guard events.count == 2, case .action = events[0].owner else {
+            return XCTFail("Expected the delivered notification to belong to the action")
+        }
+        XCTAssertEqual(events[1].owner, .heist)
+    }
+
     func testDetachedDestinationRejectsCallbackRetainedByPrivateSPI() async throws {
         let harness = CallbackHarness()
         let observer = makeObserver(harness: harness)
@@ -255,6 +325,12 @@ final class AccessibilityNotificationCallbackLifecycleTests: XCTestCase {
                 harness.install(callback)
             }
         )
+    }
+
+    private func drainPrivateCallbacks() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
     }
 
     @MainActor

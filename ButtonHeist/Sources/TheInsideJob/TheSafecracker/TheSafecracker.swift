@@ -22,12 +22,16 @@ final class TheSafecracker {
 
     init(
         fingerprintsEnabled: Bool = true,
-        keyboardInput: SafecrackerKeyboardInput = SafecrackerKeyboardInput()
+        keyboardInput: SafecrackerKeyboardInput = SafecrackerKeyboardInput(),
+        touchEnded: @escaping @MainActor () -> Void = {}
     ) {
         let fingerprints = TheFingerprints(isEnabled: fingerprintsEnabled)
         self.keyboardInput = keyboardInput
         self.fingerprints = fingerprints
-        self.touchInjection = SafecrackerTouchInjection(fingerprints: fingerprints)
+        self.touchInjection = SafecrackerTouchInjection(
+            fingerprints: fingerprints,
+            touchEnded: touchEnded
+        )
     }
 
     func startKeyboardObservation() {

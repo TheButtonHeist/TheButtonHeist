@@ -667,6 +667,11 @@ commit, and publication boundary. Production callers request freshness from
 `Observation.Stream`; only its cycle boundary invokes raw live capture.
 
 TheTripwire's single persistent `CADisplayLink` is the observation pulse clock.
+Active observation is capped at 30 Hz. Touch-up and hierarchy changes yield one
+capture opportunity. Under active demand, a visible observation cycle exceeding
+its display-frame budget yields one or two opportunities through the same
+bounded admission policy. Ambient captures do not schedule recovery. Ending
+active demand cancels recovery while preserving render grace.
 `Observation.Stream` reduces all visible and discovery subscriptions to one
 demand. Zero demand pauses the link. A pulse starts one cycle, which claims
 notification ingress, captures and parses UIKit state, commits snapshot and

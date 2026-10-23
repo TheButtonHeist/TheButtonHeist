@@ -113,17 +113,17 @@ final class TheGetawayTransportWiringTests: XCTestCase {
         let notificationWindow = brains.vault.accessibilityNotifications.beginActionWindow()
         brains.vault.accessibilityNotifications.recordForTesting(
             code: 1008,
-            notificationData: CapturedAccessibilityNotificationPayload("Saved" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("Saved" as NSString),
             associatedElement: .none
         )
         brains.vault.accessibilityNotifications.recordForTesting(
             code: 1001,
             notificationData: .none,
-            associatedElement: CapturedAccessibilityNotificationPayload(elementOnlyButton)
+            associatedElement: PendingAccessibilityNotificationPayload(elementOnlyButton)
         )
         brains.vault.accessibilityNotifications.recordForTesting(
             code: 1008,
-            notificationData: CapturedAccessibilityNotificationPayload("Ready" as NSString),
+            notificationData: PendingAccessibilityNotificationPayload("Ready" as NSString),
             associatedElement: .none
         )
         let committed = await notificationWindow.admitCausallyCovered { coverage in

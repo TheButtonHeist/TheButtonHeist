@@ -1,8 +1,10 @@
 #if canImport(UIKit)
 // Integration tests for whole-heist waits over the semantic accessibility
 // observation stream. Requires the BH Demo test host.
-import ButtonHeistSupport
+import SwiftUI
 import XCTest
+
+import ButtonHeistSupport
 import ThePlans
 @testable import AccessibilitySnapshotParser
 @testable import TheInsideJob
@@ -213,6 +215,71 @@ final class WaitForIntegrationTests: XCTestCase {
     }
 
     // MARK: - Passive Observation
+
+    func testTapPresentingAnimatedSwiftUIWindowRemainsObservable() async throws {
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(true)
+        defer { UIView.setAnimationsEnabled(animationsWereEnabled) }
+        let button = addButton("Present animated overlay")
+        var overlay: UIWindow?
+        defer {
+            overlay?.isHidden = true
+            overlay?.rootViewController = nil
+            button.removeFromSuperview()
+        }
+        let scene = try XCTUnwrap(window.windowScene)
+        button.addAction(UIAction { _ in
+            let presented = UIWindow(windowScene: scene)
+            presented.frame = self.window.bounds
+            presented.windowLevel = .alert + 70
+            presented.rootViewController = UIHostingController(rootView: AnimatedObservationOverlay())
+            presented.isHidden = false
+            overlay = presented
+        }, for: .touchUpInside)
+
+        for selection in [
+            GesturePointSelection.element(.label("Present animated overlay")),
+            .coordinate(ScreenPoint(x: 110, y: 122)),
+        ] {
+            let result = try await executeHeistStep(.action(ActionStep(
+                command: .oneFingerTap(TapTarget(selection: selection)),
+                expectationPolicy: .expect(ActionExpectation(
+                    predicate: .exists(.label("Animated overlay")),
+                    timeout: try .seconds(3)
+                ))
+            )))
+
+            XCTAssertTrue(result.outcome.isSuccess, result.message ?? "overlay tap failed")
+            try assertPredicate(.exists(.label("Animated overlay")), isMet: true, in: result)
+            overlay?.isHidden = true
+            overlay?.rootViewController = nil
+            overlay = nil
+        }
+    }
+
+    func testWaitObservesValueOnlyChangeWithoutNotificationOrInvalidation() async throws {
+        let label = addLabel("Unannounced value")
+        label.accessibilityValue = "Loading"
+        defer { label.removeFromSuperview() }
+        let observed = await waitForVisibleObservation()
+        XCTAssertTrue(observed)
+        let baselineDemand = insideJob.brains.vault.semanticObservationStream.activeObservationDemandCount
+        let mutation = Task { @MainActor in
+            await self.waitForObservationDemand(after: baselineDemand)
+            label.accessibilityValue = "Ready"
+        }
+        defer { mutation.cancel() }
+        let predicate = AccessibilityPredicate.elementsChanged([.updated(
+            .label("Unannounced value"),
+            .value(before: "Loading", after: "Ready")
+        )])
+
+        let result = try await waitFor(expectation: predicate, timeout: 2)
+        await mutation.value
+
+        XCTAssertTrue(result.outcome.isSuccess, result.message ?? "unannounced value was missed")
+        try assertPredicate(predicate, isMet: true, in: result)
+    }
 
     func testPassiveVisibleObservationPublishesStableAXTreeWhileLayerAnimationRuns() async throws {
         let label = addLabel("PassiveObservation-StableAX")
@@ -644,6 +711,33 @@ final class WaitForIntegrationTests: XCTestCase {
         )
     }
 
+}
+
+private struct AnimatedObservationOverlay: View {
+    @State private var progress: CGFloat = 0
+
+    var body: some View {
+        AnimatedObservationContent(progress: progress)
+            .onAppear {
+                withAnimation(.linear(duration: 0.45)) {
+                    progress = 1
+                }
+            }
+    }
+}
+
+nonisolated private struct AnimatedObservationContent: View, Animatable {
+    var progress: CGFloat
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    @MainActor var body: some View {
+        Text("Animated overlay")
+            .offset(x: progress * 80)
+    }
 }
 
 private extension HeistExecutionStepResult {

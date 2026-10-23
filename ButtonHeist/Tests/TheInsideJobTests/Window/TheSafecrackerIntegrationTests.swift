@@ -57,6 +57,41 @@ final class TheSafecrackerIntegrationTests: XCTestCase {
 
     // MARK: - Touch Injection
 
+    func testSuccessfulTouchUpRequestsRenderGraceAfterActionDispatch() async {
+        let control = makeTouchLifecycleControl()
+        defer { control.removeFromSuperview() }
+        var completedActionCounts: [Int] = []
+        let safecracker = TheSafecracker(
+            fingerprintsEnabled: false,
+            touchEnded: { completedActionCounts.append(control.actionCount) }
+        )
+
+        let result = await safecracker.tap(at: screenPoint(in: control, x: 0.5, y: 0.5))
+
+        XCTAssertTrue(result)
+        XCTAssertEqual(completedActionCounts, [1])
+    }
+
+    func testCancelledTouchDoesNotRequestRenderGrace() async {
+        let control = makeTouchLifecycleControl()
+        defer { control.removeFromSuperview() }
+        var endedCount = 0
+        let safecracker = TheSafecracker(
+            fingerprintsEnabled: false,
+            touchEnded: { endedCount += 1 }
+        )
+        let task = Task { @MainActor in
+            await safecracker.tap(at: screenPoint(in: control, x: 0.5, y: 0.5))
+        }
+        await control.waitForBegan()
+        task.cancel()
+
+        let result = await task.value
+
+        XCTAssertFalse(result)
+        XCTAssertEqual(endedCount, 0)
+    }
+
     func testCancellingBeforeTapBeginsEmitsNoTouch() async {
         let control = makeTouchLifecycleControl()
         defer { control.removeFromSuperview() }

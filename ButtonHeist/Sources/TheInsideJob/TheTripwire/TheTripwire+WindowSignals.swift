@@ -4,12 +4,6 @@ import UIKit
 
 extension TheTripwire {
 
-    struct SemanticSignal: Sendable, Equatable {
-        static let empty = SemanticSignal(windows: [])
-
-        let windows: [SemanticWindowSignal]
-    }
-
     /// Where UIKit has the user: the topmost controller, the navigation state
     /// and the window stack. Two readings taken under equal hierarchy signals
     /// describe the same place.
@@ -17,11 +11,6 @@ extension TheTripwire {
         let topmostVC: ObjectIdentifier?
         let navigation: NavigationSignal
         let windowStack: WindowStackSignal
-    }
-
-    struct SemanticWindowSignal: Sendable, Equatable {
-        let level: Double
-        let isKeyWindow: Bool
     }
 
     /// Cheap UIKit-side identity used to decide whether to re-check the
@@ -63,15 +52,6 @@ extension TheTripwire {
                 navigation: navigation,
                 windowStack: windowStack
             )
-        }
-
-        var semanticValue: SemanticSignal {
-            SemanticSignal(windows: windowStack.windows.map {
-                SemanticWindowSignal(
-                    level: Double($0.level),
-                    isKeyWindow: $0.isKeyWindow
-                )
-            })
         }
 
         func recordingAccessibilityNotifications(through sequence: UInt64) -> Self {

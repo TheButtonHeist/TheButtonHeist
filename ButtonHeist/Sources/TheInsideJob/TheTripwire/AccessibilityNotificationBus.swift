@@ -213,93 +213,6 @@ final class AccessibilityNotificationBus {
         ))
     }
 
-    nonisolated fileprivate static func stringPayload(_ value: AnyObject?) -> String? {
-        switch value {
-        case let string as NSString:
-            return normalized(string as String)
-        case let attributed as NSAttributedString:
-            return normalized(attributed.string)
-        default:
-            return nil
-        }
-    }
-
-    nonisolated fileprivate static func notificationPayloadObject(from object: AnyObject?) -> AnyObject? {
-        guard let dictionary = object as? NSDictionary,
-              let data = dictionary["data"]
-        else {
-            return object
-        }
-        if data is NSNull {
-            return nil
-        }
-        return data as AnyObject
-    }
-
-    nonisolated private static func normalized(_ string: String) -> String? {
-        let normalized = string
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return normalized.isEmpty ? nil : normalized
-    }
-
-    nonisolated fileprivate static func className(for value: AnyObject?) -> String {
-        guard let object = value else { return "nil" }
-        return NSStringFromClass(type(of: object))
-    }
-
-    nonisolated fileprivate static func summary(for value: AnyObject?) -> String? {
-        switch value {
-        case let dictionary as NSDictionary:
-            return dictionarySummary(dictionary)
-        case let array as NSArray:
-            return arraySummary(array)
-        case let string as NSString:
-            return "string(\(truncated(string as String)))"
-        case let attributed as NSAttributedString:
-            return "attributedString(\(truncated(attributed.string)))"
-        case let object as NSObject:
-            return "object(class=\(NSStringFromClass(type(of: object))) description=\(truncated(String(describing: object))))"
-        default:
-            return nil
-        }
-    }
-
-    nonisolated private static func dictionarySummary(_ dictionary: NSDictionary) -> String {
-        var entries: [String] = []
-        for (key, value) in dictionary {
-            let valueObject = value as AnyObject
-            entries.append(
-                "\(truncated(String(describing: key))):\(className(for: valueObject))=\(truncated(String(describing: value)))"
-            )
-            if entries.count == 8 { break }
-        }
-        let suffix = dictionary.count > entries.count ? ",..." : ""
-        return "dictionary(count=\(dictionary.count) \(entries.joined(separator: ","))\(suffix))"
-    }
-
-    nonisolated private static func arraySummary(_ array: NSArray) -> String {
-        var entries: [String] = []
-        for value in array {
-            let valueObject = value as AnyObject
-            entries.append("\(className(for: valueObject))=\(truncated(String(describing: value)))")
-            if entries.count == 8 { break }
-        }
-        let suffix = array.count > entries.count ? ",..." : ""
-        return "array(count=\(array.count) \(entries.joined(separator: ","))\(suffix))"
-    }
-
-    nonisolated private static func truncated(_ value: String) -> String {
-        let singleLine = value
-            .replacingOccurrences(of: "\n", with: " ")
-            .replacingOccurrences(of: "\r", with: " ")
-        if singleLine.count <= 160 {
-            return singleLine
-        }
-        return "\(singleLine.prefix(157))..."
-    }
-
     func checkpoint(
         after cursor: AccessibilityNotificationCursor,
         selection: AccessibilityNotificationCheckpointSelection = .scoped
@@ -703,92 +616,56 @@ struct PendingAccessibilityNotificationEvent {
 enum PendingAccessibilityNotificationPayload {
     case none
     case string(String)
-    case object(AccessibilityNotificationObjectIdentity)
-}
-
-struct CapturedAccessibilityNotificationPayload {
-    static var none: CapturedAccessibilityNotificationPayload {
-        CapturedAccessibilityNotificationPayload(
-            pendingPayload: .none,
-            className: "nil",
-            summary: nil,
-            objectIdentifier: nil
-        )
-    }
-
-    let pendingPayload: PendingAccessibilityNotificationPayload
-    let className: String
-    let summary: String?
-    let objectIdentifier: ObjectIdentifier?
+    case object(AccessibilityNotificationObject)
 
     init(_ object: AnyObject?) {
-        guard let object else {
+        guard let payload = Self.notificationPayloadObject(from: object) else {
             self = .none
             return
         }
-        let className = AccessibilityNotificationBus.className(for: object)
-        let summary = AccessibilityNotificationBus.summary(for: object)
-        guard let payloadObject = AccessibilityNotificationBus.notificationPayloadObject(from: object) else {
-            self.init(
-                pendingPayload: .none,
-                className: className,
-                summary: summary,
-                objectIdentifier: nil
-            )
-            return
-        }
-        if let value = AccessibilityNotificationBus.stringPayload(payloadObject) {
-            self.init(
-                pendingPayload: .string(value),
-                className: className,
-                summary: summary,
-                objectIdentifier: nil
-            )
+        if let text = Self.stringPayload(payload) {
+            self = .string(text)
         } else {
-            let identity = AccessibilityNotificationObjectIdentity(
-                object: payloadObject,
-                className: className,
-                summary: summary
-            )
-            self.init(
-                pendingPayload: .object(identity),
-                className: className,
-                summary: summary,
-                objectIdentifier: identity.objectIdentifier
-            )
+            self = .object(AccessibilityNotificationObject(payload))
         }
     }
 
-    private init(
-        pendingPayload: PendingAccessibilityNotificationPayload,
-        className: String,
-        summary: String?,
-        objectIdentifier: ObjectIdentifier?
-    ) {
-        self.pendingPayload = pendingPayload
-        self.className = className
-        self.summary = summary
-        self.objectIdentifier = objectIdentifier
+    private static func stringPayload(_ value: AnyObject?) -> String? {
+        switch value {
+        case let string as NSString:
+            return normalized(string as String)
+        case let attributed as NSAttributedString:
+            return normalized(attributed.string)
+        default:
+            return nil
+        }
+    }
+
+    private static func notificationPayloadObject(from object: AnyObject?) -> AnyObject? {
+        guard let dictionary = object as? NSDictionary,
+              let data = dictionary["data"]
+        else {
+            return object
+        }
+        if data is NSNull {
+            return nil
+        }
+        return data as AnyObject
+    }
+
+    private static func normalized(_ string: String) -> String? {
+        let normalized = string
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
     }
 }
 
-final class AccessibilityNotificationObjectIdentity {
-    let objectIdentifier: ObjectIdentifier
-    let className: String
-    let summary: String?
+final class AccessibilityNotificationObject {
     weak var object: AnyObject?
 
     init(_ object: AnyObject) {
-        self.objectIdentifier = ObjectIdentifier(object)
-        self.className = AccessibilityNotificationBus.className(for: object)
-        self.summary = AccessibilityNotificationBus.summary(for: object)
-        self.object = object
-    }
-
-    init(object: AnyObject, className: String, summary: String?) {
-        self.objectIdentifier = ObjectIdentifier(object)
-        self.className = className
-        self.summary = summary
         self.object = object
     }
 }

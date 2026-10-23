@@ -44,21 +44,58 @@ private final class PendingAccessibilityNotificationCallback: @unchecked Sendabl
 /// delivery onto the main dispatch queue before giving UIKit-owned objects to
 /// the main-actor observer. Dispatch's serial FIFO ordering is the observer's
 /// callback order.
-enum AccessibilityNotificationCallbackIngress {
-    static func enqueue(
-        code: UInt32,
-        notificationData: AnyObject?,
-        associatedElement: AnyObject?,
-        handler: @escaping AccessibilityNotificationCallback
-    ) {
-        let pending = PendingAccessibilityNotificationCallback(
-            code: code,
-            notificationData: notificationData,
-            associatedElement: associatedElement
-        )
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated {
-                pending.deliver(to: handler)
+final class AccessibilityNotificationCallbackIngress: Sendable {
+    @MainActor
+    private final class Destination {
+        weak var bus: AccessibilityNotificationBus?
+
+        init(_ bus: AccessibilityNotificationBus) {
+            self.bus = bus
+        }
+    }
+
+    private let attachment = OSAllocatedUnfairLock<Destination?>(initialState: nil)
+
+    @MainActor
+    var destination: AccessibilityNotificationBus? {
+        attachment.withLock { $0 }?.bus
+    }
+
+    @MainActor
+    func attach(_ bus: AccessibilityNotificationBus) {
+        if let destination {
+            precondition(
+                destination === bus,
+                "Only one live Vault may own accessibility notification ingress"
+            )
+            return
+        }
+        let next = Destination(bus)
+        attachment.withLock { $0 = next }
+    }
+
+    @MainActor
+    func detach(_ bus: AccessibilityNotificationBus) {
+        guard destination === bus else { return }
+        attachment.withLock { $0 = nil }
+    }
+
+    func callback(
+        deliveringTo handler: @escaping AccessibilityNotificationCallback
+    ) -> ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock {
+        { code, notificationData, associatedElement in
+            guard let destination = self.attachment.withLock({ $0 }) else { return }
+            let pending = PendingAccessibilityNotificationCallback(
+                code: code,
+                notificationData: notificationData,
+                associatedElement: associatedElement
+            )
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    // A new attachment is a new lifetime, even when it reuses the same Vault.
+                    guard self.attachment.withLock({ $0 === destination }) else { return }
+                    pending.deliver(to: handler)
+                }
             }
         }
     }
@@ -72,18 +109,19 @@ final class AccessibilityNotificationObserver {
     }
 
     private typealias CallbackInstaller = @MainActor (
+        _ ingress: AccessibilityNotificationCallbackIngress,
         _ callback: @escaping AccessibilityNotificationCallback
     ) throws -> CallbackInstallation
 
     static let shared = AccessibilityNotificationObserver()
 
     private let callbackInstaller: CallbackInstaller
-    private weak var destination: AccessibilityNotificationBus?
+    private let ingress = AccessibilityNotificationCallbackIngress()
     private var installation: CallbackInstallation?
     private var installationAttempted = false
 
     var hasDestination: Bool {
-        destination != nil
+        ingress.destination != nil
     }
 
     var isInstalled: Bool {
@@ -91,13 +129,13 @@ final class AccessibilityNotificationObserver {
     }
 
     private convenience init() {
-        self.init { callback in
+        self.init { ingress, callback in
             let armed = AccessibilityNotificationPrivateSPI.enableUnitTestModeIfAvailable()
             if !armed {
                 accessibilityNotificationLogger.info("Private accessibility unit-test mode SPI is unavailable")
             }
             let callback = try AccessibilityNotificationPrivateSPI.installNotificationCallback(
-                callback
+                ingress.callback(deliveringTo: callback)
             )
             return CallbackInstallation(
                 retainedCallback: callback
@@ -112,7 +150,7 @@ final class AccessibilityNotificationObserver {
     convenience init(
         installCallbackForTesting: @escaping @MainActor () throws -> Void
     ) {
-        self.init { _ in
+        self.init { _, _ in
             try installCallbackForTesting()
             return CallbackInstallation(retainedCallback: nil)
         }
@@ -123,7 +161,7 @@ final class AccessibilityNotificationObserver {
             _ callback: @escaping AccessibilityNotificationCallback
         ) -> Void
     ) {
-        self.init { callback in
+        self.init { _, callback in
             installCallbackForTesting(callback)
             return CallbackInstallation(retainedCallback: nil)
         }
@@ -134,41 +172,28 @@ final class AccessibilityNotificationObserver {
             _ callback: @escaping ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock
         ) -> Void
     ) {
-        self.init { handler in
-            let callback: ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock = { code, notificationData, associatedElement in
-                AccessibilityNotificationCallbackIngress.enqueue(
-                    code: code,
-                    notificationData: notificationData,
-                    associatedElement: associatedElement,
-                    handler: handler
-                )
-            }
-            installPrivateCallbackForTesting(callback)
+        self.init { ingress, handler in
+            installPrivateCallbackForTesting(
+                ingress.callback(deliveringTo: handler)
+            )
             return CallbackInstallation(retainedCallback: nil)
         }
     }
 
     func attach(_ bus: AccessibilityNotificationBus) {
-        if let destination {
-            precondition(
-                destination === bus,
-                "Only one live Vault may own accessibility notification ingress"
-            )
-        }
-        destination = bus
+        ingress.attach(bus)
         installCallbackIfNeeded()
     }
 
     func detach(_ bus: AccessibilityNotificationBus) {
-        guard destination === bus else { return }
-        destination = nil
+        ingress.detach(bus)
     }
 
     private func installCallbackIfNeeded() {
         guard !installationAttempted else { return }
         installationAttempted = true
         do {
-            installation = try callbackInstaller { [weak self] code, notificationData, associatedElement in
+            installation = try callbackInstaller(ingress) { [weak self] code, notificationData, associatedElement in
                 self?.publish(
                     code: code,
                     notificationData: notificationData,
@@ -187,25 +212,14 @@ final class AccessibilityNotificationObserver {
         notificationData: AnyObject?,
         associatedElement: AnyObject?
     ) {
-        guard let destination else { return }
+        guard let destination = ingress.destination else { return }
 
         let timestamp = Date()
-        let capturedNotificationData = CapturedAccessibilityNotificationPayload(notificationData)
-        let capturedAssociatedElement = CapturedAccessibilityNotificationPayload(associatedElement)
-        if let description = AccessibilityNotificationProbe.description(
-            rawCode: code,
-            notificationData: capturedNotificationData,
-            associatedElement: capturedAssociatedElement
-        ) {
-            accessibilityNotificationLogger.info("\(description, privacy: .public)")
-        }
-        let notificationPayload = capturedNotificationData.pendingPayload
-        let associatedElementPayload = capturedAssociatedElement.pendingPayload
         destination.record(
             rawCode: code,
             timestamp: timestamp,
-            notificationData: notificationPayload,
-            associatedElement: associatedElementPayload
+            notificationData: PendingAccessibilityNotificationPayload(notificationData),
+            associatedElement: PendingAccessibilityNotificationPayload(associatedElement)
         )
     }
 }
@@ -282,7 +296,7 @@ private enum AccessibilityNotificationPrivateSPI {
 
     @MainActor
     static func installNotificationCallback(
-        _ handler: @escaping AccessibilityNotificationCallback
+        _ callback: @escaping ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock
     ) throws -> InstalledCallback {
         let source = ButtonHeistPrivateSPI.path(.uiAccessibility)
         guard let handle = ButtonHeistPrivateSPI.open(.uiAccessibility),
@@ -294,15 +308,6 @@ private enum AccessibilityNotificationPrivateSPI {
             throw InstallError.callbackSymbolUnavailable(source: source)
         }
         let observerKey = "com.buttonheist.accessibility-notification-observer" as NSString
-        let callback: ButtonHeistPrivateSPI.AccessibilityNotificationCallbackBlock = { code, notificationData, associatedElement in
-            AccessibilityNotificationCallbackIngress.enqueue(
-                code: code,
-                notificationData: notificationData,
-                associatedElement: associatedElement,
-                handler: handler
-            )
-        }
-
         addCallback(callback, observerKey)
         return InstalledCallback(
             frameworkHandle: handle,
