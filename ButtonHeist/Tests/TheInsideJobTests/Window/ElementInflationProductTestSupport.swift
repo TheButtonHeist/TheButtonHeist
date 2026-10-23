@@ -109,6 +109,15 @@ final class ElementInflationProductTests: ButtonHeistRuntimeTestCase {
         )
     }
 
+    func rememberTargetOutsideViewport(_ fixture: SemanticRevealFixture) async throws {
+        fixture.scrollView.setContentOffset(CGPoint(x: 0, y: 800), animated: false)
+        _ = try await publishedVisibleObservation()
+        let origin = await brains.navigation.performViewportTransition(
+            .restoreContentOffset(.zero, in: .original(fixture.scrollView))
+        )
+        XCTAssertEqual(origin.outcome, .moved)
+    }
+
     func seedOffViewportTarget(
         _ fixture: SemanticRevealFixture,
         in targetBrains: TheBrains? = nil,
@@ -257,7 +266,7 @@ final class RevealingScrollView: UIScrollView {
     var onFirstRevealRequest: (() -> Void)?
     private(set) var revealRequestCount = 0
     var didReceiveRevealRequest: Bool { revealRequestCount > 0 }
-    private let revealThreshold: CGFloat = 500
+    var revealThreshold: CGFloat = 500
 
     override var contentOffset: CGPoint {
         didSet {

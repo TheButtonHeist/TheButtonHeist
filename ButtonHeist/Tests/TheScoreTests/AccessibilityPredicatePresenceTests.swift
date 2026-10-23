@@ -81,6 +81,66 @@ final class AccessibilityPredicateTests: XCTestCase {
         )
     }
 
+    func testRememberedOffscreenElementNeedsFreshPositiveEvidence() throws {
+        let visible = element(label: "Ready")
+        let remembered = HeistElement(
+            semantics: visible.semantics,
+            geometry: .init(screen: .offscreen, view: visible.geometry.view)
+        )
+        let snapshot = Observation.Snapshot(
+            interface: try Interface(
+                timestamp: Date(timeIntervalSince1970: 0),
+                tree: [.element(makeTestAccessibilityElement(visible), traversalIndex: 0)],
+                annotations: InterfaceAnnotations(elements: [
+                    InterfaceElementAnnotation(path: TreePath([0]), actions: [], geometry: remembered.geometry, source: .memory),
+                ], containers: []),
+                observationIdentities: .empty
+            ),
+            context: .empty
+        )
+        let exists = try resolved(.exists(.label("Ready")))
+        let missing = try resolved(.missing(.label("Ready")))
+
+        XCTAssertNotEqual(Expectation([exists], baseline: snapshot).result, .satisfied)
+        XCTAssertNotEqual(Expectation([missing], baseline: snapshot).result, .satisfied)
+        XCTAssertEqual(
+            Expectation([exists], baseline: snapshot)
+                .evaluating(.elementsChanged(observationSnapshot(elements: [visible]))).result,
+            .satisfied
+        )
+        XCTAssertEqual(
+            Expectation([missing], baseline: snapshot)
+                .evaluating(.elementsChanged(observationSnapshot(elements: []))).result,
+            .satisfied
+        )
+    }
+
+    func testFreshParserEvidenceDoesNotRequireScreenGeometryAndSurvivesEncoding() throws {
+        let parsed = makeTestAccessibilityElement(element(label: "Navigation Title"))
+        let exists = try resolved(.exists(.label("Navigation Title")))
+        for source in [InterfaceElementAnnotation.Source.capture, .memory] {
+            let interface = try Interface(
+                timestamp: Date(timeIntervalSince1970: 0),
+                tree: [.element(parsed, traversalIndex: 0)],
+                annotations: InterfaceAnnotations(elements: [
+                    InterfaceElementAnnotation(
+                        path: TreePath([0]), actions: [],
+                        geometry: .init(screen: .offscreen, view: .invalidated(ownerPath: .root)),
+                        source: source
+                    ),
+                ], containers: [])
+            )
+            let snapshot = Observation.Snapshot(interface: interface, context: .empty)
+            let decoded = try JSONDecoder().decode(
+                Observation.Snapshot.self, from: JSONEncoder().encode(snapshot)
+            )
+
+            XCTAssertEqual(decoded, snapshot)
+            XCTAssertEqual(Expectation([exists], baseline: decoded).result == .satisfied, source == .capture)
+            XCTAssertEqual(interface.selectingSubtree(at: TreePath([0])).annotations.elements.first?.source, source)
+        }
+    }
+
     func testCanonicalTargetGraphAndExpectationAgree() throws {
         let subject = element(
             label: "Checkout",

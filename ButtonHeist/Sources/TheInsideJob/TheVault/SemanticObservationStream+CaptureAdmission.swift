@@ -274,7 +274,11 @@ extension Observation.Stream {
             keyboardVisible: vault.keyboardVisible,
             timestamp: Date(),
             viewportFrames: sourceObservation.tree.viewportFrames,
-            geometryTolerance: CoarseFrameComparison.currentGeometryTolerance
+            geometryTolerance: CoarseFrameComparison.currentGeometryTolerance,
+            confirmedMissingElements: lineage == .viewportMovement
+                && !notificationSnapshot.admittedNotifications.contains(where: { $0.kind == .layoutChanged })
+                ? vault.confirmedMissingElements(in: sourceObservation)
+                : []
         )
         switch vault.state.commitObservation(
             admission,

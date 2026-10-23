@@ -51,6 +51,29 @@ flowchart TD
     MISS --> RESTORE
 ```
 
+Element presence uses the same capture and commit pipeline:
+
+```mermaid
+flowchart TD
+    RESOLVE["resolve selector in full interface"] --> VISIBLE{"match from current capture?<br/>annotation.source = capture"}
+    VISIBLE -- "yes" --> PRESENT["exists can match"]
+    VISIBLE -- "no" --> KNOWN{"remembered entry?"}
+    KNOWN -- "no" --> ABSENT["missing can match"]
+    KNOWN -- "yes" --> INFLATE["inflate remembered location"]
+    INFLATE --> CAPTURE["capture visible tree"]
+    CAPTURE --> COVERED{"stored frame fully read<br/>under one matching owner?"}
+    COVERED -- "no" --> UNKNOWN["retain remembered entry<br/>neither predicate proven"]
+    COVERED -- "yes" --> SEEN{"entry in fresh capture?"}
+    SEEN -- "yes" --> PRESENT
+    SEEN -- "no" --> REMOVE["commit confirmed missing ID"]
+    REMOVE --> SEARCH["search other viewports<br/>under the same deadline"]
+    UNKNOWN --> SEARCH
+    SEARCH --> FOUND{"target found?"}
+    FOUND -- "yes" --> PRESENT
+    FOUND -- "no" --> ABSENT
+    PRESENT --> INVALIDATE["invalidate provisional absence"]
+```
+
 Notes:
 
 - Resolution reads the **interface tree only** (`TheVault.interfaceTree`). Live capture proves current actionability and geometry for an interface element; it is not a second search space.
@@ -62,6 +85,16 @@ Notes:
   returns the typed restoration outcome. Wait orchestration adds no outer
   viewport transaction. Container inflation and exhaustive wait search
   orchestration remain follow-up work.
+- Element presence requires a match in the current parser capture. Geometry
+  can be unavailable. The element annotation's `source` records capture or
+  memory and survives subtree projection and encoding. Remembered
+  offscreen entries guide wait inflation and block absence until fresh evidence
+  disproves their stored positions. The capture boundary admits confirmed
+  missing IDs only after viewport movement, under one matching semantic scroll
+  owner, with complete frame coverage and valid stored geometry. The canonical
+  commit removes those IDs and preserves other discovery memory.
+  A miss continues into search under the same deadline. A later sighting
+  invalidates current absence in the shared expectation evaluator.
 - Matching is **exact or miss**: string checks are case-insensitive with typography folding (smart quotes, dashes, ellipsis fold to ASCII), traits compare as sets. On a miss the resolver returns structured facts — the interface elements in scope — through the diagnostic path; substring matching is not part of resolution.
 - A capture-local action can join the selected element's current `HeistId`
   directly to live UIKit evidence. Before any cross-capture reveal, inflation

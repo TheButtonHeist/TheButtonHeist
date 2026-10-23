@@ -105,9 +105,9 @@ struct InterfaceTree: Sendable, Equatable {
         )
     }
 
-    func merging(_ other: InterfaceTree) -> InterfaceTree {
+    func merging(_ other: InterfaceTree, confirmedMissing: Set<HeistId> = []) -> InterfaceTree {
         let nextVisible = other.viewportElementIDs
-        let retainedElements = elements.mapValues { element in
+        let retainedElements = elements.filter { !confirmedMissing.contains($0.key) }.mapValues { element in
             guard case .onscreen = element.geometry.screen,
                   !nextVisible.contains(element.heistId)
             else { return element }
@@ -120,10 +120,10 @@ struct InterfaceTree: Sendable, Equatable {
         )
     }
 
-    func updatingViewport(with next: InterfaceTree) -> InterfaceTree {
+    func updatingViewport(with next: InterfaceTree, confirmedMissing: Set<HeistId> = []) -> InterfaceTree {
         guard next != .empty else { return .empty }
         let previousVisible = viewportElementIDs
-        let disappearedVisible = previousVisible.subtracting(next.viewportElementIDs)
+        let disappearedVisible = previousVisible.subtracting(next.viewportElementIDs).union(confirmedMissing)
         let previousContainerPaths = Set(viewportCapture.hierarchy.pathIndexedContainers.map(\.path))
         let nextContainerPaths = Set(next.viewportCapture.hierarchy.pathIndexedContainers.map(\.path))
         let disappearedContainers = previousContainerPaths.subtracting(nextContainerPaths)
@@ -292,6 +292,7 @@ struct InterfaceTree: Sendable, Equatable {
 
     func semanticInterface(timestamp: Date) -> Interface {
         let containerPaths = projectedContainerPathBySourcePath
+        let capturedIDs = Set(viewportCapture.heistIdsByPath.values)
         var elementAnnotations: [InterfaceElementAnnotation] = []
         var containerAnnotations: [InterfaceContainerAnnotation] = []
         var identities: [TreePath: Observation.ElementIdentity] = [:]
@@ -345,7 +346,8 @@ struct InterfaceTree: Sendable, Equatable {
                         geometry: HeistElement.Geometry(
                             screen: entry.geometry.screen,
                             view: project(entry.geometry.view, ownerPath: projectedOwnerPath)
-                        )
+                        ),
+                        source: capturedIDs.contains(heistId) ? .capture : .memory
                     ))
                     identities[node.path] = entry.heistId.observationElementIdentity
                     result.append(.element(entry.element, traversalIndex: traversalIndex))

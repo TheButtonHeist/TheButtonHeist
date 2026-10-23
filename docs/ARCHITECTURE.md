@@ -540,6 +540,30 @@ viewport outcome. It does not return a live action target after restoration.
 All cleanup uses the same absolute leaf deadline. Container inflation and
 exhaustive wait search remain separate consolidation work.
 
+An element `exists` assertion requires the selected match in the current parser
+capture. `InterfaceElementAnnotation.source` records `capture` or `memory`,
+derived from the current capture's element IDs. Subtree projection and wire
+encoding preserve this evidence. Screen geometry remains independent: a fresh
+navigation title can prove existence without a usable frame.
+
+A remembered offscreen entry supplies a reveal location and blocks
+`missing`, but proves neither assertion. Wait preparation uses inflation for
+both existence and absence when the admitted baseline cannot satisfy the check.
+A miss at the remembered location continues into search under the same deadline.
+
+Current absence remains provisional: a later sighting invalidates it before
+the wait can complete. Live evaluation and evidence replay share this rule
+in `Expectation`; temporal disappearance keeps its ordered event semantics.
+
+After viewport movement, the capture boundary can confirm a remembered entry
+as missing when its complete stored frame falls inside the captured scroll
+viewport. The semantic scroll owner must have exactly one current match.
+Insets and clipping ancestors limit that viewport. Invalidated geometry,
+ambiguous owners, obscured views, and unread positions supply no negative evidence.
+Layout-change notifications also prevent this comparison against old geometry.
+`Observation.Admission` carries confirmed missing IDs into the existing pure
+commit. The commit removes those entries and preserves other discovery memory.
+
 The pipeline is:
 
 1. Resolve the semantic target against current admitted accessibility state.
@@ -977,8 +1001,10 @@ The public predicate layer is a concrete root with concrete declaration types:
   .missing(target), .appeared(target), .disappeared(target),
   .updated(target, change)])`.
 
-`exists` and `missing` always evaluate against the current delivered tree,
-including elements, containers, and descendant-scoped targets. `appeared`,
+`exists` and `missing` resolve against the current delivered tree,
+including elements, containers, and descendant-scoped targets. An element
+`exists` match also requires current capture evidence. A remembered offscreen
+entry blocks `missing` until a fresh capture disproves that entry. `appeared`,
 `disappeared`, and `updated` consume ordered events. Separating
 `ScreenPredicate` from `ElementAssertion` makes invalid combinations such as an
 `updated` screen assertion unconstructible: a screen predicate matches the

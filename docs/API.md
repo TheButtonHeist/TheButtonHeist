@@ -288,7 +288,15 @@ ordered predicate evaluation, and the trailing `noChange`; there is no separate
 readiness allowance.
 
 Current predicates such as `exists` and `missing` may match the baseline
-snapshot immediately. Temporal predicates such as `appeared`, `disappeared`,
+snapshot immediately. Element existence requires a match from the current
+parser capture. Screen geometry is independent and can be unavailable.
+A remembered offscreen entry proves neither presence nor absence. Wait
+preparation reveals its stored location through inflation. A fresh capture
+can remove the remembered entry after reading its full stored frame under
+one matching scroll owner. A miss continues into search under the same
+deadline. A later sighting invalidates that provisional absence. Other
+discovery memory remains available.
+Temporal predicates such as `appeared`, `disappeared`,
 and `updated` consume each later history event once in order. Notifications
 likewise match only after the active leaf's boundary. A standalone `waitFor`
 therefore cannot consume evidence from an earlier action or heist.

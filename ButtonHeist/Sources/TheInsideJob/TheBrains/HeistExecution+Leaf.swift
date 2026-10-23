@@ -175,7 +175,9 @@ extension HeistExecution {
             switch assertions[0] {
             case .exists, .disappeared, .updated:
                 canPrepareTarget = true
-            case .missing, .appeared:
+            case .missing:
+                canPrepareTarget = baseline != nil
+            case .appeared:
                 break
             }
         }

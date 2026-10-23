@@ -123,7 +123,7 @@ extension TheVault {
         for containerTarget: InterfaceTree.Container
     ) -> LiveTargetResolution<LiveContainerTarget> {
         guard let semanticContainer = interfaceTree.containers[containerTarget.path],
-              Self.container(semanticContainer, matches: containerTarget) else {
+              Self.matchesContainer(semanticContainer, to: containerTarget) else {
             return .objectUnavailable
         }
         return resolveLiveContainerTarget(forCanonical: semanticContainer)
@@ -153,7 +153,7 @@ extension TheVault {
     ) -> Result<Value, LiveTargetStaleness<TreePath>> {
         let path = target.containerTarget.path
         guard let semanticContainer = interfaceTree.containers[path],
-              Self.container(semanticContainer, matches: target.containerTarget) else {
+              Self.matchesContainer(semanticContainer, to: target.containerTarget) else {
             return .failure(.semanticTargetUnavailable(path))
         }
         switch resolveLiveContainerTarget(forCanonical: semanticContainer) {
@@ -237,7 +237,7 @@ extension TheVault {
         directChildOf parent: UIScrollView? = nil
     ) -> LiveScrollTarget? {
         if let current = interfaceTree.containers[semanticContainer.path],
-           Self.container(current, matches: semanticContainer),
+           Self.matchesContainer(current, to: semanticContainer),
            case .success(let exact) = liveScrollTarget(at: semanticContainer.path),
            parent.map({ isDirectLiveScrollChild(at: semanticContainer.path, of: $0) }) ?? true {
             return exact
@@ -253,7 +253,7 @@ extension TheVault {
         directChildOf parent: UIScrollView? = nil
     ) -> LiveScrollTarget? {
         var matches = interfaceTree.orderedContainers.compactMap { candidate -> LiveScrollTarget? in
-            guard Self.container(candidate, matches: semanticContainer),
+            guard Self.matchesContainer(candidate, to: semanticContainer),
                   case .success(let target) = liveScrollTarget(at: candidate.path)
             else { return nil }
             return target
@@ -272,9 +272,9 @@ extension TheVault {
     ) -> AccessibilityContainer? {
         let path = semanticContainer.path
         guard let observedContainer = currentInterfaceObservation.tree.containers[path],
-              Self.container(observedContainer, matches: semanticContainer),
+              Self.matchesContainer(observedContainer, to: semanticContainer),
               case .container(let evidence, _) = currentInterfaceObservation.tree.viewportCapture.hierarchy.node(at: path),
-              Self.container(evidence, matches: semanticContainer)
+              Self.matchesContainer(evidence, to: semanticContainer)
         else {
             return nil
         }
@@ -301,9 +301,9 @@ extension TheVault {
         return LiveGeometry(frame: frame, activationPoint: activationPoint)
     }
 
-    private static func container(
+    static func matchesContainer(
         _ candidate: InterfaceTree.Container,
-        matches semanticContainer: InterfaceTree.Container
+        to semanticContainer: InterfaceTree.Container
     ) -> Bool {
         guard candidate.container.containerPredicateFacts == semanticContainer.container.containerPredicateFacts,
               candidate.container.scrollableContentSize == semanticContainer.container.scrollableContentSize
@@ -316,9 +316,9 @@ extension TheVault {
         return candidateGeometry.frame.cgRect.size == semanticGeometry.frame.cgRect.size
     }
 
-    private static func container(
+    private static func matchesContainer(
         _ candidate: AccessibilityContainer,
-        matches semanticContainer: InterfaceTree.Container
+        to semanticContainer: InterfaceTree.Container
     ) -> Bool {
         candidate.containerPredicateFacts == semanticContainer.container.containerPredicateFacts
             && candidate.scrollableContentSize == semanticContainer.container.scrollableContentSize

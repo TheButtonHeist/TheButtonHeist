@@ -309,6 +309,7 @@ seconds since 2001-01-01 00:00:00 UTC.
         {
           "path": { "indices": [0] },
           "actions": ["activate"],
+          "source": "capture",
           "geometry": {
             "screen": {
               "visibility": "onscreen",
@@ -484,7 +485,16 @@ The host lowers a standalone `WaitFor` submitted through `perform` to a one-step
 `HeistPlan`; it performs no action dispatch. The machine opens an
 invocation-local Vault history boundary,
 so the wait cannot consume prior action or heist evidence. `exists` and
-`missing` evaluate the current admitted snapshot. Temporal assertions require
+`missing` evaluate the current admitted snapshot. Element existence requires
+a current parser capture match. Retained offscreen entries block absence until a
+fresh capture confirms that their stored positions no longer contain them.
+The wait then searches under the same deadline; a later sighting invalidates
+that provisional absence.
+Element annotations carry a required `source`: `capture` for an element in the
+current parser hierarchy, or `memory` for retained discovery evidence. This
+marker survives wire encoding and subtree projection. Fresh parser evidence
+can prove existence without usable screen geometry, including navigation titles.
+Temporal assertions require
 ordered post-boundary events and never pass from an implied final state.
 
 The response is a heist execution result, even for a single wait. Each action

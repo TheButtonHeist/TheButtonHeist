@@ -87,6 +87,33 @@ import ThePlans
         #expect(expectation.result == .satisfied)
     }
 
+    @Test func `a later sighting invalidates current absence before settlement`() throws {
+        let predicate = try resolved(.missing(.label("Moved")))
+        let missed = Expectation([predicate], requiringNoChange: true)
+            .evaluating(.elementsChanged(snapshot([])))
+        let found = missed.evaluating(.elementsChanged(snapshot(["Moved"])))
+
+        #expect(missed.isWaitingOnlyForNoChange)
+        #expect(!found.isWaitingOnlyForNoChange)
+        #expect(found.evaluating(.noChange).result != .satisfied)
+        #expect(found.evaluating(.elementsChanged(snapshot([])))
+            .evaluating(.noChange).result == .satisfied)
+    }
+
+    @Test func `renewed absence needs settlement after an earlier settled miss`() throws {
+        let predicate = try resolved(.missing(.label("Moved")))
+        let events: [Observation.Event] = [
+            .elementsChanged(snapshot([])),
+            .noChange,
+            .elementsChanged(snapshot(["Moved"])),
+            .elementsChanged(snapshot([])),
+        ]
+        let expectation = Expectation([predicate], events: events, requiringNoChange: true)
+
+        #expect(expectation.result != .satisfied)
+        #expect(expectation.evaluating(.noChange).result == .satisfied)
+    }
+
     @Test func `one event cannot satisfy both legs of an update`() throws {
         let predicate = try resolved(.elementsChanged([
             .updated(.label("Total"), .value()),

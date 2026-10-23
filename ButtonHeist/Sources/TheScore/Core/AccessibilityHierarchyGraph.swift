@@ -234,7 +234,8 @@ package struct InterfaceGraph: Equatable, Sendable {
                         fromSubtreeRoot: originalPath,
                         to: rootPath
                     )
-                )
+                ),
+                source: annotation.source
             )
         }
         let containers = node.compactMapSubtrees(path: rootPath) { node, newPath -> InterfaceContainerAnnotation? in
