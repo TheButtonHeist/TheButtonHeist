@@ -298,9 +298,11 @@ it never replaces the original failed path.
 One pure `ScreenClassifier` combines typed snapshots with scoped
 `screenChanged`, `layoutChanged`, `elementUpdate`, and `announcement`
 notifications.
-The process callback crosses onto `MainActor` once and delivers to the one bus
-owned by the live Vault. `AccessibilityNotificationBus` assigns sequence and
-appends package-internal ingress records to its bounded log. `Observation.Stream`
+The process callback captures the current attachment at entry, then crosses
+onto `MainActor` once. Delivery requires the same attachment to remain active,
+so queued callbacks cannot cross a Vault replacement or a stream restart. The
+live Vault owns the destination bus. `AccessibilityNotificationBus` assigns
+sequence and appends package-internal ingress records to its bounded log. `Observation.Stream`
 freezes one exact claim at the start of each observation cycle. That claim is
 the only notification input to the cycle and stays pending until the
 corresponding semantic observation commits.
@@ -375,9 +377,8 @@ admitted comparison tolerance.
 The display pulse carries only its UIKit signal and display-frame budget. Cycle
 identity owns task lifetime; business deadlines use their own elapsed-time
 boundary. Window facts project directly into snapshot context. Notification
-payloads normalize once into text or weak live objects. Diagnostic summaries
-are formatted only for the probe's admitted notification kinds. Server and
-in-app entry points share observation-resource activation and release.
+payloads normalize once into text or weak live objects. Server and in-app
+entry points share observation-resource activation and release.
 
 Motion with no accessibility representation is not execution evidence. Business
 deadlines may cancel work, but no timer, sleep, caller loop, or discovery path
@@ -766,10 +767,13 @@ the canonical `Observation.History` established by reducer boundaries; they do
 not own notification ingress or a parallel temporal record.
 
 `AccessibilityNotificationObserver` installs one process-lifetime callback and
-holds one weak bus destination. Starting the live observation stream attaches
-its Vault bus; stopping it detaches that destination without replacing the
-callback. The bus, its scope leases, cycle claims, sequence, and retention log
-are all `MainActor` owned.
+holds one attachment with a weak bus destination. Starting the live observation
+stream attaches its Vault bus; stopping it revokes that attachment without
+replacing the callback. Callback entry reads the attachment under a lock. Main
+queue delivery rejects a revoked attachment, even if the same bus has since
+reattached. Action attribution occurs at admitted delivery; sealing an action
+keeps later deliveries outside that action. The bus, its scope leases, cycle
+claims, sequence, and retention log are all `MainActor` owned.
 
 `Observation.Stream` owns notification invalidation. It records the
 scoped `screenChanged` sequence covered by the committed claim. A later scoped

@@ -404,52 +404,6 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
         XCTAssertEqual(bus.latestSequence, 2)
     }
 
-    func testProbeObservesOnlyElementUpdateNotifications() throws {
-        let payload = "Updated" as NSString
-
-        XCTAssertNil(
-            AccessibilityNotificationProbe.description(
-                rawCode: 1001,
-                notificationData: payload,
-                associatedElement: nil
-            )
-        )
-        XCTAssertNotNil(
-            AccessibilityNotificationProbe.description(
-                rawCode: 1005,
-                notificationData: payload,
-                associatedElement: nil
-            )
-        )
-    }
-
-    func testProbeDescriptionPreservesBehaviorTokensFromRawPayload() throws {
-        let behavior = [
-            "ChangeType": 2,
-            "IsQuiet": true,
-        ] as NSDictionary
-        let notificationData = [
-            "data": behavior,
-            "token": "kAXValueChangeUserInfoKey",
-        ] as NSDictionary
-        let associatedElement = NSObject()
-
-        let description = try XCTUnwrap(
-            AccessibilityNotificationProbe.description(
-                rawCode: 1005,
-                notificationData: notificationData,
-                associatedElement: associatedElement
-            )
-        )
-
-        XCTAssertTrue(description.contains("code=1005(elementUpdate)"))
-        XCTAssertTrue(description.contains("notificationData.class="))
-        XCTAssertTrue(description.contains("kAXValueChangeUserInfoKey"))
-        XCTAssertTrue(description.contains("ChangeType"))
-        XCTAssertTrue(description.contains("IsQuiet"))
-        XCTAssertTrue(description.contains("associatedElement.class="))
-    }
-
     func testUnknownNotificationsPreserveRawCodesAtBoundary() async {
         let bus = AccessibilityNotificationBus()
 

@@ -23,9 +23,12 @@ flowchart TD
     Admission -->|"admitted"| Claim["Freeze notification claim"]
 
     subgraph Intake["Notification intake"]
-        SPI["Private UIKit callback"] --> Queue["Main queue handoff"]
-        Queue --> Normalize["Normalize text or weak object"]
-        Queue -.->|"element updates only"| Probe["Diagnostic summaries"]
+        SPI["Private UIKit callback"] --> Attachment{"Active attachment at entry?"}
+        Attachment -->|"yes"| Queue["Main queue handoff"]
+        Attachment -->|"no"| Discard["Discard callback"]
+        Queue --> Current{"Same attachment still active?"}
+        Current -->|"no"| Discard
+        Current -->|"yes"| Normalize["Normalize text or weak object"]
         Normalize --> Bus["Vault notification bus<br>sequence and attribution"]
     end
 
@@ -58,6 +61,11 @@ captures retain their exact notification claim for retry. A successful commit
 publishes its events before the cycle acknowledges that claim. Injected test
 pulses bypass live pacing and do not read the measurement clock.
 
+Callback entry captures one attachment lifetime. Detaching revokes it; queued
+callbacks cannot enter a later attachment, including a restart of the same bus.
+Action attribution occurs when the main queue admits delivery. Sealing an
+action excludes later deliveries from that action.
+
 ## Boundaries to Preserve
 
 | Boundary | Why it exists |
@@ -73,15 +81,11 @@ pulses bypass live pacing and do not read the measurement clock.
 1. **Visible capture cost.** Measure parsing, normalization, comparison, and
    publication separately. Pacing reduces frequency but does not reduce the
    cost of each accepted visible-tree capture.
-2. **Queued notification attribution.** The main queue assigns ownership when
-   it delivers a callback. A callback can enter before one Vault detaches and
-   arrive after another Vault attaches. Define ownership at entry or delivery.
-   Then test runtime replacement and action-window closure through the shared adapter.
-3. **Capture freshness.** A pulse samples hierarchy before its task executes.
+2. **Capture freshness.** A pulse samples hierarchy before its task executes.
    Post-capture validation rejects a changed hierarchy, but the rejected parse
    has already consumed main-thread time. Measure whether this retry path is
    common before adding another live read.
-4. **Semantic stillness and visible motion.** Equal observations establish
+3. **Semantic stillness and visible motion.** Equal observations establish
    accessibility stability. They do not establish that all rendered animation
    has ended. Keep this distinction explicit in settling and recording tools.
 
