@@ -486,7 +486,8 @@ final class AccessibilityNotificationObserverTests: XCTestCase {
             timestamp: Date(timeIntervalSince1970: 0),
             viewportFrames: observation.tree.viewportFrames,
             geometryTolerance: CoarseFrameComparison.currentGeometryTolerance,
-            confirmedMissingElements: []
+            confirmedMissingElements: [],
+            invalidatedGeometryOwners: []
         )
     }
 

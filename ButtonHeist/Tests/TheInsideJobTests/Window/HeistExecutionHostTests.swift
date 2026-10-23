@@ -37,7 +37,7 @@ final class HeistExecutionHostTests: ButtonHeistTestCase {
                     message: "Unexpected action dispatch"
                 )
             },
-            explore: { _, _ in .failed(.originUnavailable) },
+            explore: { _, _ in .init(viewportExit: .failed(.originUnavailable), coverage: .complete) },
             captureFailure: { _, _ in
                 captureRequestCount += 1
                 captureEntered.finish()

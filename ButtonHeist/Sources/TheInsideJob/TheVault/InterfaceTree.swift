@@ -142,13 +142,22 @@ struct InterfaceTree: Sendable, Equatable {
         )
     }
 
-    /// A layout change ends the lifetime of parent-space geometry retained from
-    /// earlier viewports. Semantic identity and scroll membership remain useful.
-    /// The next viewport capture supplies fresh geometry for everything it sees.
-    func invalidatingParentSpaceGeometry() -> InterfaceTree {
-        Self(
-            elements: elements.mapValues { $0.invalidatingParentSpaceGeometry() },
-            containers: containers.mapValues { $0.invalidatingParentSpaceGeometry() },
+    /// Invalidate all stored parent-space geometry after layout changes, or only
+    /// geometry owned by scroll paths whose live views left the capture.
+    /// Semantic identity and scroll membership survive until fresh evidence replaces them.
+    func invalidatingParentSpaceGeometry(ownedBy owners: Set<TreePath>? = nil) -> InterfaceTree {
+        guard owners?.isEmpty != true else { return self }
+        func invalidates(_ path: TreePath?) -> Bool {
+            guard let owners else { return true }
+            return path.map(owners.contains) ?? false
+        }
+        return Self(
+            elements: elements.mapValues {
+                invalidates($0.geometry.view.ownerPath) ? $0.invalidatingParentSpaceGeometry() : $0
+            },
+            containers: containers.mapValues {
+                invalidates($0.viewSpace.ownerPath) ? $0.invalidatingParentSpaceGeometry() : $0
+            },
             viewportCapture: viewportCapture
         )
     }

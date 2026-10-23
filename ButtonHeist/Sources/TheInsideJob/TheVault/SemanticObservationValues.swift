@@ -86,6 +86,7 @@ extension Observation {
         /// comparison that uses it runs off the main actor.
         internal let geometryTolerance: CGFloat
         internal let confirmedMissingElements: Set<HeistId>
+        internal let invalidatedGeometryOwners: Set<TreePath>
 
         internal var tree: InterfaceTree {
             sourceObservation.tree

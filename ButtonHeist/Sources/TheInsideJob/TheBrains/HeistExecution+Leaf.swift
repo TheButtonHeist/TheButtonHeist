@@ -26,7 +26,7 @@ extension HeistExecution {
                 requiringNoChange: true
             )
             return update(
-                .dispatching(leaf, expectation: expectation),
+                .dispatching(leaf, expectation: expectation, baseline: baseline),
                 performing: .dispatch(leaf.id, leaf.command, deadline: activeDeadline)
             )
 
@@ -48,7 +48,7 @@ extension HeistExecution {
             return begin(wait: leaf, baseline: baseline)
 
         case (
-            .dispatching(let leaf, let expectation),
+            .dispatching(let leaf, let expectation, let baseline),
             .observation(_, let observation, _)
         ):
             guard case .noChange = observation else {
@@ -56,19 +56,21 @@ extension HeistExecution {
                     leaf,
                     expectation: expectation
                         .evaluating(observation)
-                        .requiringNoChange()
+                        .requiringNoChange(),
+                    baseline: baseline
                 )
                 return wait()
             }
             return wait()
 
         case (
-            .dispatching(let leaf, let expectation),
+            .dispatching(let leaf, let expectation, let baseline),
             .dispatchCompleted(let id, let dispatch, _)
         ) where id == leaf.id:
             return completeDispatch(
                 action: leaf,
                 expectation: expectation,
+                baseline: baseline,
                 dispatch: dispatch
             )
 
@@ -79,9 +81,9 @@ extension HeistExecution {
 
         case (
             .exploring(let leaf),
-            .viewportExited(let id, let outcome, _)
+            .explorationCompleted(let id, let result, _)
         ) where id == leaf.id:
-            return admitViewportExit(leaf, outcome: outcome)
+            return admitExploration(leaf, result: result)
 
         case (
             .finishing(let leaf, let source, let didCaptureDeadlineStability),
@@ -176,7 +178,7 @@ extension HeistExecution {
             case .exists, .disappeared, .updated:
                 canPrepareTarget = true
             case .missing:
-                canPrepareTarget = baseline != nil
+                canPrepareTarget = leaf.predicate.canPrepareTarget(in: baseline)
             case .appeared:
                 break
             }
@@ -196,6 +198,7 @@ extension HeistExecution {
     mutating func completeDispatch(
         action leaf: HeistExecution.ActionLeaf,
         expectation: Expectation,
+        baseline: Observation.Snapshot?,
         dispatch: TheSafecracker.ActionDispatchResult
     ) -> HeistExecution.Decision {
         let observed = HeistExecution.ObservedLeaf(
@@ -205,7 +208,8 @@ extension HeistExecution {
         guard dispatch.success else {
             return finish(observed, exitPosition: .current)
         }
-        guard let predicate = observed.explorationPredicate else {
+        guard let predicate = observed.explorationPredicate,
+              predicate.canPrepareTarget(in: baseline) else {
             running.activeLeaf = .observing(observed)
             return wait()
         }
@@ -215,11 +219,13 @@ extension HeistExecution {
         )
     }
 
-    mutating func admitViewportExit(
-        _ leaf: HeistExecution.ObservedLeaf,
-        outcome: Navigation.ViewportExit.Outcome
+    mutating func admitExploration(
+        _ observed: HeistExecution.ObservedLeaf,
+        result: Navigation.WaitExplorationResult
     ) -> HeistExecution.Decision {
-        switch outcome {
+        var leaf = observed
+        leaf.explorationCoverage = result.coverage
+        switch result.viewportExit {
         case .failed:
             return finish(leaf, exitPosition: .current)
         case .superseded:
@@ -245,7 +251,8 @@ extension HeistExecution {
         switch activeLeaf {
         case .observing(var leaf):
             leaf.expectation = expectation(leaf.expectation, evaluating: event)
-            guard leaf.expectation.result == .satisfied else {
+            guard leaf.expectation.result == .satisfied,
+                  leaf.isExplorationSufficient else {
                 if !leaf.expectation.isWaitingOnlyForNoChange,
                    shouldExplore(after: event, for: leaf.explorationPredicate),
                    let predicate = leaf.explorationPredicate {
@@ -261,7 +268,8 @@ extension HeistExecution {
 
         case .exploring(var leaf):
             leaf.expectation = expectation(leaf.expectation, evaluating: event)
-            guard leaf.expectation.result == .satisfied else {
+            guard leaf.expectation.result == .satisfied,
+                  leaf.isExplorationSufficient else {
                 running.activeLeaf = .exploring(leaf)
                 return wait()
             }
@@ -335,6 +343,11 @@ extension HeistExecution {
         close: HeistExecution.ObservationClose,
         at: RuntimeElapsed.Instant
     ) -> HeistExecution.Decision {
+        let evidence = Observation.Evidence(
+            baseline: evidence.baseline, events: evidence.events, current: evidence.current,
+            coverage: evidence.coverage == .complete && !leaf.isExplorationSufficient
+                ? leaf.explorationCoverage : evidence.coverage
+        )
         let effectID = nextID()
         let outcome = observationOutcome(
             leaf,
@@ -471,11 +484,10 @@ private extension HeistExecution {
         for predicate: HeistExecution.Predicate?
     ) -> Bool {
         guard let predicate,
-              case .elementsChanged = predicate.resolved else {
-            return false
-        }
-        if case .noChange = event { return false }
-        return true
+              case .elementsChanged = predicate.resolved,
+              case .elementsChanged(let snapshot) = event
+        else { return false }
+        return predicate.canPrepareTarget(in: snapshot)
     }
 
     func expectation(

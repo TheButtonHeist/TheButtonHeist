@@ -8,6 +8,16 @@ extension TheVault {
 
     // MARK: - Viewport Evidence
 
+    /// End stored geometry's lifetime when its live owner leaves or changes at the capture boundary.
+    func invalidatedGeometryOwners(in observation: InterfaceObservation) -> Set<TreePath> {
+        Set(currentLiveCapture.dispatchReferences.scrollableContainerViewsByPath.compactMap { path, previous in
+            guard let previousView = previous.view,
+                  observation.liveCapture.scrollView(forContainerPath: path) === previousView
+            else { return path }
+            return nil
+        })
+    }
+
     /// Confirm missing remembered entries only where this capture read their stored positions.
     func confirmedMissingElements(in observation: InterfaceObservation) -> Set<HeistId> {
         let freshIDs = observation.tree.elementIDs
@@ -20,11 +30,16 @@ extension TheVault {
             rememberedByOwner[ownerPath, default: []].append(element)
         }
 
-        let capturedContainers = observation.tree.viewportOnly.orderedContainers
+        let capturedContainers = observation.tree.orderedContainers
         var missing = Set<HeistId>()
         for (ownerPath, elements) in rememberedByOwner {
-            guard let owner = interfaceTree.containers[ownerPath] else { continue }
-            let matches = capturedContainers.filter { Self.matchesContainer($0, to: owner) }
+            guard let owner = interfaceTree.containers[ownerPath],
+                  let previousView = currentLiveCapture.scrollView(forContainerPath: ownerPath)
+            else { continue }
+            let matches = capturedContainers.filter {
+                Self.matchesContainer($0, to: owner)
+                    && observation.liveCapture.scrollView(forContainerPath: $0.path) === previousView
+            }
             guard matches.count == 1,
                   let scrollView = observation.liveCapture.scrollView(forContainerPath: matches[0].path),
                   let viewport = Self.capturedViewport(in: scrollView)

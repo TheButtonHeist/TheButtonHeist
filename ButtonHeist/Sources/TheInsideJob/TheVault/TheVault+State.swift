@@ -248,7 +248,8 @@ extension TheVault {
             let previousTree = next.interfaceTree
             let retainedTree = admittedNotifications.contains { notification in
                 notification.kind == .layoutChanged
-            } ? previousTree.invalidatingParentSpaceGeometry() : previousTree
+            } ? previousTree.invalidatingParentSpaceGeometry()
+                : previousTree.invalidatingParentSpaceGeometry(ownedBy: admission.invalidatedGeometryOwners)
             let comparedTree: InterfaceTree
             switch admission.scope {
             case .visible:

@@ -697,7 +697,7 @@ final class DeterministicRuntimeScenarioDriver {
             now: { clock.now() },
             wait: { duration in await clock.wait(for: duration) },
             dispatch: { command, deadline in await effects.dispatch(command, deadline: deadline) },
-            explore: { target, _ in effects.explore(target) },
+            explore: { target, _ in .init(viewportExit: effects.explore(target), coverage: .complete) },
             captureFailure: { path, mode in effects.captureFailure(path: path, mode: mode) }
         )
     }

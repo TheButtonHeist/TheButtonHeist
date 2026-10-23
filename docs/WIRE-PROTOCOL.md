@@ -489,7 +489,9 @@ so the wait cannot consume prior action or heist evidence. `exists` and
 a current parser capture match. Retained offscreen entries block absence until a
 fresh capture confirms that their stored positions no longer contain them.
 The wait then searches under the same deadline; a later sighting invalidates
-that provisional absence.
+that provisional absence. A limited or interrupted search records observation
+coverage `incomplete(explorationIncomplete)` and cannot prove absence. Earlier
+absence checks in an ordered assertion list are consumed before later steps.
 Element annotations carry a required `source`: `capture` for an element in the
 current parser hierarchy, or `memory` for retained discovery evidence. This
 marker survives wire encoding and subtree projection. Fresh parser evidence
@@ -504,7 +506,7 @@ action projections derive a delta only from the action evidence they own.
 When an admitted failed result contains incomplete expectation evidence, report
 projection remains total: the node omits a derived `expectation` verdict and
 includes `expectationGap` with `notification_ingress`, `capture_unavailable`,
-or `history_unavailable`. The execution failure remains the source of terminal
+`history_unavailable`, or `exploration_incomplete`. The execution failure remains the source of terminal
 truth.
 
 On timeout, the runtime may append bounded exact-predicate mismatch details from

@@ -85,6 +85,10 @@ package struct Expectation: Sendable, Equatable {
             || unmatched.count == 1 && unmatched[0].isNoChange
     }
 
+    package var requiresCompleteExploration: Bool {
+        pending.contains(where: \.isMatchedAbsence)
+    }
+
     package var hasMatchedTemporalBaseline: Bool {
         pending.contains {
             if case .after = $0 { return true }
@@ -101,7 +105,7 @@ package struct Expectation: Sendable, Equatable {
         next.reserveCapacity(pending.count)
 
         for (index, step) in pending.enumerated() {
-            switch step.evaluating(input) {
+            switch step.evaluating(input, keepingAbsenceProvisional: index == pending.count - 1) {
             case .indifferent:
                 next.append(step)
             case .matched(let remainder):
@@ -246,11 +250,12 @@ private extension Expectation {
             case unmatched(Step?)
         }
 
-        func evaluating(_ input: Input) -> Evaluation {
+        func evaluating(_ input: Input, keepingAbsenceProvisional: Bool) -> Evaluation {
             switch self {
             case .current(let predicate):
                 let evaluation = predicate.evaluateCurrent(input)
-                if case .elementsChanged(let assertions) = predicate,
+                if keepingAbsenceProvisional,
+                   case .elementsChanged(let assertions) = predicate,
                    assertions.count == 1,
                    case .missing(let target) = assertions[0],
                    case .matched = evaluation {

@@ -12,7 +12,7 @@ extension HeistExecution {
             let now: @MainActor () -> RuntimeElapsed.Instant
             let wait: @MainActor (Duration) async -> Bool
             let dispatch: @MainActor (ResolvedHeistActionCommand, SemanticObservationDeadline) async -> TheSafecracker.ActionDispatchResult
-            let explore: @MainActor (ResolvedAccessibilityTarget?, SemanticObservationDeadline) async -> Navigation.ViewportExit.Outcome
+            let explore: @MainActor (ResolvedAccessibilityTarget?, SemanticObservationDeadline) async -> Navigation.WaitExplorationResult
             let captureFailure: @MainActor (HeistExecutionPath, ScreenCaptureMode) async -> HeistFailureCapture
 
             static func live(brains: TheBrains) -> Self {
@@ -178,8 +178,8 @@ extension HeistExecution {
                 return .dispatchCompleted(id, result, at: runtimeBoundary.now())
 
             case .explore(let id, let predicate, let deadline):
-                let outcome = await runtimeBoundary.explore(predicate.resolved.watchTarget, deadline)
-                return .viewportExited(id, outcome, at: runtimeBoundary.now())
+                let result = await runtimeBoundary.explore(predicate.resolved.watchTarget, deadline)
+                return .explorationCompleted(id, result, at: runtimeBoundary.now())
 
             case .sampleObservationClose(let effectID, let observationID, let exitPosition, let capture, let source):
                 return await sampleObservationClose(

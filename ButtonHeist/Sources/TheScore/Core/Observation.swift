@@ -165,6 +165,7 @@ public extension Observation {
         )
         case captureUnavailable
         case historyUnavailable
+        case explorationIncomplete
     }
 
     /// Whether every selected fact in an observation interval is represented.

@@ -169,6 +169,42 @@ extension ElementInflationProductTests {
         XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
     }
 
+    func testLimitedSearchCannotProveMovedRememberedTargetAbsent() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "limited_search_target", label: "Limited Search Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        fixture.target.frame.origin.y = 1_200
+        fixture.scrollView.revealThreshold = 1_100
+        let live = HeistExecution.Host.RuntimeBoundary.live(brains: brains)
+        var searchCount = 0
+        let boundary = HeistExecution.Host.RuntimeBoundary(
+            now: live.now, wait: live.wait, dispatch: live.dispatch,
+            explore: { target, deadline in
+                searchCount += 1
+                return await self.brains.navigation.exploreForWait(
+                    target: target, deadline: deadline, maxScrollsPerDiscovery: 1,
+                    stopWhen: { false }
+                )
+            },
+            captureFailure: live.captureFailure
+        )
+        let plan = try HeistPlan(body: [
+            .wait(WaitStep(predicate: .missing(.label(fixture.label)), timeout: 2)),
+        ])
+
+        let completion = try await HeistExecution.Host(brains: brains, runtimeBoundary: boundary)
+            .execute(plan, timeout: .default)
+
+        let step = try XCTUnwrap(completion.steps.first)
+        XCTAssertEqual(step.status, .failed)
+        XCTAssertEqual(step.failure?.category, .timeout)
+        XCTAssertEqual(step.waitEvidence?.observation.coverage, .incomplete(.explorationIncomplete))
+        XCTAssertGreaterThan(searchCount, 0)
+        XCTAssertEqual(fixture.target.superview, fixture.scrollView)
+        XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
+    }
+
     func testExistenceWaitRejectsRemovedRememberedElement() async throws {
         let fixture = try installOffscreenActivationFixture(
             identifier: "removed_existence_target",
@@ -236,6 +272,39 @@ extension ElementInflationProductTests {
         XCTAssertTrue(brains.vault.confirmedMissingElements(in: capture).isEmpty)
     }
 
+    func testCaptureCannotUseIdenticalScrollOwnerToEraseRememberedTarget() async throws {
+        let fixture = try installOffscreenActivationFixture(
+            identifier: "other_owner_target", label: "Other Owner Target"
+        )
+        try await rememberTargetOutsideViewport(fixture)
+        let original = brains.vault.currentInterfaceObservation
+        let ownerPath = try XCTUnwrap(liveScrollableContainerPath(for: fixture.scrollView, in: original))
+        let decoyParent = UIView(frame: fixture.viewController.view.bounds)
+        fixture.viewController.view.addSubview(decoyParent)
+        let decoy = UIScrollView(frame: fixture.scrollView.frame)
+        decoy.contentSize = fixture.scrollView.contentSize
+        decoyParent.addSubview(decoy)
+        let row = UILabel(frame: CGRect(x: 24, y: 840, width: 240, height: 44))
+        row.text = "Other Owner Row"
+        row.isAccessibilityElement = true
+        decoy.addSubview(row)
+        decoy.setContentOffset(CGPoint(x: 0, y: 800), animated: false)
+        fixture.scrollView.isHidden = true
+        let capture = try XCTUnwrap(TheVault.captureVisibleObservation(from: brains.vault))
+        let decoyPath = try XCTUnwrap(liveScrollableContainerPath(for: decoy, in: capture))
+        let owner = try XCTUnwrap(original.tree.containers[ownerPath])
+        XCTAssertTrue(TheVault.matchesContainer(try XCTUnwrap(capture.tree.containers[decoyPath]), to: owner))
+        XCTAssertEqual(capture.tree.orderedContainers.filter { TheVault.matchesContainer($0, to: owner) }.count, 1)
+        XCTAssertTrue(decoy.bounds.contains(CGRect(origin: fixture.frameOrigin, size: fixture.target.bounds.size)))
+
+        XCTAssertTrue(brains.vault.confirmedMissingElements(in: capture).isEmpty)
+        await brains.vault.semanticObservationStream
+            .commitDiscoveryObservationAfterViewportMovementForTesting(capture)
+        XCTAssertNotNil(brains.vault.interfaceTree.findElement(heistId: fixture.knownHeistId))
+        let nextCapture = try XCTUnwrap(TheVault.captureVisibleObservation(from: brains.vault))
+        XCTAssertTrue(brains.vault.confirmedMissingElements(in: nextCapture).isEmpty)
+    }
+
     func testCapturePreservesTargetWithInvalidatedStoredGeometry() async throws {
         let fixture = try installOffscreenActivationFixture(
             identifier: "invalidated_removed_target",
@@ -299,7 +368,7 @@ extension ElementInflationProductTests {
             stopWhen: { true }
         )
 
-        XCTAssertEqual(outcome, .restored)
+        XCTAssertEqual(outcome.viewportExit, .restored)
         XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
         XCTAssertEqual(fixture.scrollView.revealRequestCount, 0)
     }
@@ -334,7 +403,7 @@ extension ElementInflationProductTests {
             stopWhen: stopWhenRevealed
         )
 
-        XCTAssertEqual(cachedOutcome, .restored)
+        XCTAssertEqual(cachedOutcome.viewportExit, .restored)
         XCTAssertEqual(exhaustiveOutcome, cachedOutcome)
         XCTAssertEqual(cachedOffset, .zero)
         XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
@@ -349,7 +418,7 @@ extension ElementInflationProductTests {
         )
         try await seedOffViewportTarget(fixture)
         let target = try AccessibilityTarget.identifier(fixture.identifier).resolve(in: .empty)
-        var waitTask: Task<Navigation.ViewportExit.Outcome, Never>?
+        var waitTask: Task<Navigation.WaitExplorationResult, Never>?
         fixture.scrollView.onFirstRevealRequest = {
             waitTask?.cancel()
         }
@@ -367,7 +436,7 @@ extension ElementInflationProductTests {
 
         let outcome = await task.value
 
-        XCTAssertEqual(outcome, .restored)
+        XCTAssertEqual(outcome.viewportExit, .restored)
         XCTAssertEqual(fixture.scrollView.contentOffset, .zero)
         XCTAssertGreaterThan(fixture.scrollView.revealRequestCount, 0)
     }

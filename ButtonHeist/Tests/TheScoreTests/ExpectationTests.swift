@@ -114,6 +114,35 @@ import ThePlans
         #expect(expectation.evaluating(.noChange).result == .satisfied)
     }
 
+    @Test func `ordered absence is consumed before a later appearance`() throws {
+        let predicate = try resolved(.elementsChanged([
+            .missing(.label("A")),
+            .appeared(.label("A")),
+        ]))
+        let expectation = Expectation(
+            [predicate], baseline: snapshot([]), requiringNoChange: true
+        ).evaluating(.elementsChanged(snapshot(["A"])))
+
+        #expect(expectation.evaluating(.noChange).result == .satisfied)
+    }
+
+    @Test func `only the final ordered absence remains provisional`() throws {
+        let predicate = try resolved(.elementsChanged([
+            .missing(.label("A")),
+            .appeared(.label("A")),
+            .missing(.label("A")),
+        ]))
+        let appeared = Expectation(
+            [predicate], baseline: snapshot([]), requiringNoChange: true
+        ).evaluating(.elementsChanged(snapshot(["A"])))
+        let disappeared = appeared.evaluating(.elementsChanged(snapshot([])))
+
+        #expect(appeared.evaluating(.noChange).result != .satisfied)
+        #expect(disappeared.evaluating(.noChange).result == .satisfied)
+        #expect(disappeared.evaluating(.elementsChanged(snapshot(["A"])))
+            .evaluating(.noChange).result != .satisfied)
+    }
+
     @Test func `one event cannot satisfy both legs of an update`() throws {
         let predicate = try resolved(.elementsChanged([
             .updated(.label("Total"), .value()),

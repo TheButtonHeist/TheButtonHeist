@@ -154,6 +154,8 @@ private extension Observation.Gap {
             "capture_unavailable"
         case .historyUnavailable:
             "history_unavailable"
+        case .explorationIncomplete:
+            "exploration_incomplete"
         }
     }
 }

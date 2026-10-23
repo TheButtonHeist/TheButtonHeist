@@ -468,7 +468,8 @@ private func stateAdmission(for observation: InterfaceObservation) -> Observatio
         timestamp: Date(timeIntervalSince1970: 0),
         viewportFrames: observation.tree.viewportFrames,
         geometryTolerance: CoarseFrameComparison.currentGeometryTolerance,
-        confirmedMissingElements: []
+        confirmedMissingElements: [],
+        invalidatedGeometryOwners: []
     )
 }
 

@@ -548,16 +548,34 @@ navigation title can prove existence without a usable frame.
 
 A remembered offscreen entry supplies a reveal location and blocks
 `missing`, but proves neither assertion. Wait preparation uses inflation for
-both existence and absence when the admitted baseline cannot satisfy the check.
+both existence and absence when the admitted baseline lacks fresh presence.
+Waits and action postconditions for an already captured target observe its
+removal directly. Dispatch retains its admitted baseline for this decision;
+subsequent interface snapshots use the same predicate preparation check. Fresh
+departure snapshots do not trigger another search. Notification and screen
+boundary events wait for the canonical following interface snapshot.
 A miss at the remembered location continues into search under the same deadline.
+Search completion and viewport restoration are separate facts. For provisional
+absence, a limited or interrupted search leaves observation coverage incomplete with
+`explorationIncomplete`; stillness cannot turn that partial graph into proof
+of absence. The reducer retains this coverage in the leaf's observation evidence
+and waits until its original deadline rather than completing it. Fresh positive
+capture evidence can still complete existence after an earlier limited search.
 
-Current absence remains provisional: a later sighting invalidates it before
-the wait can complete. Live evaluation and evidence replay share this rule
-in `Expectation`; temporal disappearance keeps its ordered event semantics.
+The final current absence remains provisional: a later sighting invalidates it
+before the wait can complete. Earlier absence checks in an ordered assertion
+list are consumed so later appearances can advance. Live evaluation and evidence
+replay share these rules in `Expectation`; temporal disappearance keeps its
+ordered event semantics.
 
 After viewport movement, the capture boundary can confirm a remembered entry
 as missing when its complete stored frame falls inside the captured scroll
-viewport. The semantic scroll owner must have exactly one current match.
+viewport. The semantic scroll owner must have exactly one current match backed
+by the same live scroll view in the preceding capture. An identical owner in
+another parent supplies no negative evidence for the remembered owner. If a
+live owner leaves or changes at a capture boundary, canonical commit invalidates
+only the stored geometry owned by its path. Semantic memory survives, while
+later captures cannot reinterpret that geometry under a replacement owner.
 Insets and clipping ancestors limit that viewport. Invalidated geometry,
 ambiguous owners, obscured views, and unread positions supply no negative evidence.
 Layout-change notifications also prevent this comparison against old geometry.

@@ -278,7 +278,8 @@ extension Observation.Stream {
             confirmedMissingElements: lineage == .viewportMovement
                 && !notificationSnapshot.admittedNotifications.contains(where: { $0.kind == .layoutChanged })
                 ? vault.confirmedMissingElements(in: sourceObservation)
-                : []
+                : [],
+            invalidatedGeometryOwners: vault.invalidatedGeometryOwners(in: sourceObservation)
         )
         switch vault.state.commitObservation(
             admission,

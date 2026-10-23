@@ -61,7 +61,7 @@ flowchart TD
     KNOWN -- "no" --> ABSENT["missing can match"]
     KNOWN -- "yes" --> INFLATE["inflate remembered location"]
     INFLATE --> CAPTURE["capture visible tree"]
-    CAPTURE --> COVERED{"stored frame fully read<br/>under one matching owner?"}
+    CAPTURE --> COVERED{"stored frame fully read<br/>under the same live owner?"}
     COVERED -- "no" --> UNKNOWN["retain remembered entry<br/>neither predicate proven"]
     COVERED -- "yes" --> SEEN{"entry in fresh capture?"}
     SEEN -- "yes" --> PRESENT
@@ -70,7 +70,9 @@ flowchart TD
     UNKNOWN --> SEARCH
     SEARCH --> FOUND{"target found?"}
     FOUND -- "yes" --> PRESENT
-    FOUND -- "no" --> ABSENT
+    FOUND -- "no" --> COMPLETE{"search exhausted<br/>without limits or interruption?"}
+    COMPLETE -- "yes" --> ABSENT
+    COMPLETE -- "no" --> LIMITED["incomplete exploration evidence<br/>absence cannot pass"]
     PRESENT --> INVALIDATE["invalidate provisional absence"]
 ```
 
@@ -91,10 +93,14 @@ Notes:
   offscreen entries guide wait inflation and block absence until fresh evidence
   disproves their stored positions. The capture boundary admits confirmed
   missing IDs only after viewport movement, under one matching semantic scroll
-  owner, with complete frame coverage and valid stored geometry. The canonical
-  commit removes those IDs and preserves other discovery memory.
+  owner backed by the same live view in both captures, with complete frame coverage and valid stored geometry. The canonical
+  commit removes those IDs and preserves other discovery memory. When a live
+  owner leaves or changes, commit invalidates its retained geometry so a later
+  capture cannot reinterpret it under a replacement owner.
   A miss continues into search under the same deadline. A later sighting
-  invalidates current absence in the shared expectation evaluator.
+  invalidates the final current absence in the shared expectation evaluator.
+  Earlier ordered absence checks are consumed. Limited or interrupted search
+  records incomplete observation coverage, which cannot prove absence.
 - Matching is **exact or miss**: string checks are case-insensitive with typography folding (smart quotes, dashes, ellipsis fold to ASCII), traits compare as sets. On a miss the resolver returns structured facts — the interface elements in scope — through the diagnostic path; substring matching is not part of resolution.
 - A capture-local action can join the selected element's current `HeistId`
   directly to live UIKit evidence. Before any cross-capture reveal, inflation
