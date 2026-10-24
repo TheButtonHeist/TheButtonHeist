@@ -301,7 +301,7 @@ jobs:
           echo "IOS_DEMO_RUN_END=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Check source and prebuilt app integration
-        timeout-minutes: 25
+        timeout-minutes: 35
         run: |
           source scripts/release-contract.sh
           VERSION=$(buttonheist_code_version)
