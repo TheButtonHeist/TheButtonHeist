@@ -171,7 +171,10 @@ CI budgets macOS capacity explicitly:
   lane, keeping macOS concurrency at three.
 - A final `exact-sha-suite` job records the commit, workflow revision, run ID,
   and every required suite conclusion in `buttonheist-exact-sha-suite`. Release
-  admission accepts only that successful aggregate and validates its manifest.
+  admission requires a GitHub-verified commit signature, accepts only that
+  successful aggregate, and validates its manifest. Tagging the same commit
+  reuses this record; it does not start another source CI run. Release packaging
+  still builds and verifies the artifacts from that exact SHA.
 - Successful jobs publish timing summaries. Recorded heist results and Xcode
   result bundles are retained only when a job fails; the release admission
   manifest is retained for every main run.

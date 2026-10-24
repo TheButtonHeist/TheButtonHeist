@@ -11,7 +11,7 @@ public let buttonHeistServiceType = "_buttonheist._tcp"
 /// SemVer (`MAJOR.MINOR.PATCH`). There is no separate "wire protocol version"
 /// — the handshake requires exact equality between
 /// the server's and the client's `buttonHeistVersion`. Update this constant
-/// only via `scripts/release.sh`. See `docs/WIRE-PROTOCOL.md` and
+/// only via `scripts/bump-version.sh`; merge it before publication. See `docs/WIRE-PROTOCOL.md` and
 /// `VERSIONING.md` in bh-infra.
 public let buttonHeistVersion: ButtonHeistVersion = "0.6.38"
 

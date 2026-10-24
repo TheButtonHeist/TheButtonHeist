@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Require a successful main-branch CI push run for one exact commit.
+# Require a verified signature and successful main CI for one exact release commit.
 
 set -euo pipefail
 
@@ -16,7 +16,7 @@ POLL_SECONDS=15
 
 usage() {
     cat <<'EOF'
-Usage: scripts/require-successful-ci-for-commit.sh [options] COMMIT [LABEL]
+Usage: scripts/require-release-commit.sh [options] COMMIT [LABEL]
 
 Options:
   --repo OWNER/REPO  GitHub repository. Defaults to the release contract repo.
@@ -46,6 +46,16 @@ fi
 if ! [[ "$TIMEOUT_SECONDS" =~ ^[0-9]+$ && "$POLL_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
     echo "Error: timeout must be nonnegative and poll must be positive" >&2
     exit 2
+fi
+
+if ! gh api "repos/$REPOSITORY/commits/$COMMIT_SHA" \
+    | jq -e --arg commit "$COMMIT_SHA" '
+        .sha == $commit
+        and .commit.verification.verified == true
+        and .commit.verification.reason == "valid"
+    ' >/dev/null; then
+    echo "Error: $LABEL $COMMIT_SHA must have a GitHub-verified commit signature." >&2
+    exit 1
 fi
 
 list_ci_runs() {

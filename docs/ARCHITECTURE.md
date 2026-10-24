@@ -56,13 +56,26 @@ without the iOS runtime. The source package retains automatic linkage selection.
 Local release readiness verifies both Homebrew formulas. After publication,
 `release.sh` upgrades the formulas already installed and verifies their versions.
 
+Release admission requires a GitHub-verified signature and the existing green
+main CI suite for the exact source commit. If a version bump is needed,
+`release.sh` prepares it with `bump-version.sh` and stops for review and merge.
+Otherwise it tags the admitted main SHA. Release builds use that exact commit
+and reuse its CI result.
+
+`publish-release.py` uploads a draft and verifies the uploaded checksums before
+publication. It then updates both Homebrew formulas through one Git commit and
+one non-forced branch update. Retries use published assets and leave matching
+formulas unchanged. Failures preserve published files and tags.
+
 ```mermaid
 flowchart LR
-    Sources["Runtime + private dependencies"] --> Package["Debug distribution build"]
+    Main["Signed main commit + existing green CI"] --> Sources["Runtime + private dependencies"]
+    Sources --> Package["Debug distribution build"]
     Package --> Framework["TheInsideJob.xcframework<br/>device + simulator + resources + symbols"]
     Framework --> Zip["theinsidejob-version.zip"]
-    Zip --> GitHub["GitHub release"]
-    Zip --> Brew["Optional Homebrew formula"]
+    Zip --> Draft["Draft: upload and verify"]
+    Draft --> GitHub["Published GitHub release"]
+    GitHub --> Brew["Both Homebrew formulas in one commit"]
     GitHub --> App["App includes framework only in Debug"]
     Brew --> App
     App --> Debug["Debug: auto-start"]
