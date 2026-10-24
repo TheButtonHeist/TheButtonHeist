@@ -33,6 +33,16 @@ the same pull request.
 
 ## Product Contracts
 
+### Prebuilt iOS Integration
+
+The prebuilt iOS distribution packages the Debug runtime, its binary
+dependencies, resources, and symbols under one release version. Tuist consumers
+weak-link the XCFrameworks. The final integration build phase copies Debug
+resources and removes all distributed frameworks and resources from every other
+configuration. Runtime `#if DEBUG` is decided when the framework is compiled,
+so the host build owns production exclusion. See
+[Prebuilt iOS Runtime](PREBUILT-IOS.md).
+
 ### Strings Only at Edges
 
 There is one product command contract: `TheFence.Command`. CLI arguments, MCP

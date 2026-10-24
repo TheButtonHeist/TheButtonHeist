@@ -19,6 +19,7 @@ BUTTONHEIST_MCP_ARTIFACT_PREFIX="buttonheist-mcp"
 BUTTONHEIST_MACOS_ARTIFACT_SUFFIX="macos"
 BUTTONHEIST_DEMO_ARTIFACT_PREFIX="bh-demo"
 BUTTONHEIST_DEMO_ARTIFACT_SUFFIX="iphonesimulator"
+BUTTONHEIST_INSIDEJOB_ARTIFACT_PREFIX="theinsidejob"
 
 buttonheist_code_version() {
     local versions
@@ -65,4 +66,9 @@ buttonheist_demo_archive_name() {
         "$BUTTONHEIST_DEMO_ARTIFACT_PREFIX" \
         "$version" \
         "$BUTTONHEIST_DEMO_ARTIFACT_SUFFIX"
+}
+
+buttonheist_insidejob_archive_name() {
+    local version="$1"
+    printf '%s-%s.zip' "$BUTTONHEIST_INSIDEJOB_ARTIFACT_PREFIX" "$version"
 }

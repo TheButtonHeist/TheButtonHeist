@@ -86,12 +86,17 @@ grep -Fq "$EXPECTED_HOMEPAGE" "$BUTTONHEIST_FORMULA_TEMPLATE" \
 
 CLI_TEMPLATE_PATH="$(buttonheist_cli_archive_name '#{version}')"
 MCP_TEMPLATE_PATH="$(buttonheist_mcp_archive_name '#{version}')"
+INSIDEJOB_TEMPLATE_PATH="$(buttonheist_insidejob_archive_name '#{version}')"
 EXPECTED_RELEASE_URL="https://github.com/$BUTTONHEIST_GITHUB_REPO/releases/download/v#{version}"
 
 grep -Fq "$EXPECTED_RELEASE_URL/$CLI_TEMPLATE_PATH" "$BUTTONHEIST_FORMULA_TEMPLATE" \
     || fail "$BUTTONHEIST_FORMULA_TEMPLATE CLI URL does not match release contract"
 grep -Fq "$EXPECTED_RELEASE_URL/$MCP_TEMPLATE_PATH" "$BUTTONHEIST_FORMULA_TEMPLATE" \
     || fail "$BUTTONHEIST_FORMULA_TEMPLATE MCP URL does not match release contract"
+grep -Fq "$EXPECTED_RELEASE_URL/$INSIDEJOB_TEMPLATE_PATH" "$BUTTONHEIST_FORMULA_TEMPLATE" \
+    || fail "$BUTTONHEIST_FORMULA_TEMPLATE TheInsideJob URL does not match release contract"
+grep -Fq 'resource("insidejob").stage(libexec/"TheInsideJob")' "$BUTTONHEIST_FORMULA_TEMPLATE" \
+    || fail "$BUTTONHEIST_FORMULA_TEMPLATE must install the prebuilt runtime under libexec"
 grep -Fq 'bin.install "buttonheist-mcp"' "$BUTTONHEIST_FORMULA_TEMPLATE" \
     || fail "$BUTTONHEIST_FORMULA_TEMPLATE must install the MCP server"
 grep -Fq 'assert_predicate bin/"buttonheist-mcp", :executable?' "$BUTTONHEIST_FORMULA_TEMPLATE" \
@@ -120,8 +125,9 @@ trap 'rm -f "$TMP_FORMULA"' EXIT
 
 DUMMY_CLI_SHA="1111111111111111111111111111111111111111111111111111111111111111"
 DUMMY_MCP_SHA="2222222222222222222222222222222222222222222222222222222222222222"
+DUMMY_INSIDEJOB_SHA="3333333333333333333333333333333333333333333333333333333333333333"
 
-"$SCRIPT_DIR/render-homebrew-formula.sh" "$CANONICAL_VERSION" "$DUMMY_CLI_SHA" "$DUMMY_MCP_SHA" "$TMP_FORMULA"
+"$SCRIPT_DIR/render-homebrew-formula.sh" "$CANONICAL_VERSION" "$DUMMY_CLI_SHA" "$DUMMY_MCP_SHA" "$DUMMY_INSIDEJOB_SHA" "$TMP_FORMULA"
 
 assert_rendered_url_checksum_pair() {
     local label="$1"
@@ -182,6 +188,7 @@ grep -Fq "sha256 \"$DUMMY_MCP_SHA\"" "$TMP_FORMULA" \
     || fail "rendered formula is missing MCP checksum"
 assert_rendered_url_checksum_pair "CLI" "$(buttonheist_release_url "$CANONICAL_VERSION")/$(buttonheist_cli_archive_name "$CANONICAL_VERSION")" "$DUMMY_CLI_SHA"
 assert_rendered_url_checksum_pair "MCP" "$(buttonheist_release_url "$CANONICAL_VERSION")/$(buttonheist_mcp_archive_name "$CANONICAL_VERSION")" "$DUMMY_MCP_SHA"
+assert_rendered_url_checksum_pair "TheInsideJob" "$(buttonheist_release_url "$CANONICAL_VERSION")/$(buttonheist_insidejob_archive_name "$CANONICAL_VERSION")" "$DUMMY_INSIDEJOB_SHA"
 if grep -Fq 'PLACEHOLDER' "$TMP_FORMULA"; then
     fail "rendered formula still contains checksum placeholder"
 fi

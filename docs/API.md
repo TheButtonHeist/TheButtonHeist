@@ -47,7 +47,7 @@ module map and the wire boundary are drawn in the
 | Surface | Public status | Entry points | Contract source | Compatibility policy |
 |---------|---------------|--------------|-----------------|----------------------|
 | SwiftPM products and modules | Public integration surface | `ButtonHeistTesting`, `TheInsideJob`, `ButtonHeist`, `TheScore`, `ThePlans` | `Package.swift`, this document, [Swift Heist Authoring](SWIFT-HEIST-AUTHORING.md), and [Wire Protocol](WIRE-PROTOCOL.md) | Released as one product version. `ThePlans` is the single Swift heist authoring and plan module. Use matching package, CLI, MCP, and embedded app builds. |
-| Homebrew release | Public install surface | `buttonheist`, `buttonheist-mcp`, installed `ThePlans` compiler artifacts | `Formula/buttonheist.rb` and `scripts/release-contract.sh` | Formula and release archives use SemVer `MAJOR.MINOR.PATCH`. |
+| Homebrew release | Public install surface | `buttonheist`, `buttonheist-mcp`, installed `ThePlans` compiler artifacts, prebuilt Debug iOS runtime | `Formula/buttonheist.rb` and `scripts/release-contract.sh` | Formula and release archives use SemVer `MAJOR.MINOR.PATCH`. |
 | CLI commands | Public command surface | `buttonheist <command>` | `TheFence.Command` descriptors and `buttonheist --help` | Command names, CLI exposure, and parameters are descriptor-owned. |
 | JSON-lines input | Public CLI session surface | `buttonheist json_lines` | `TheFence.Command` descriptors and command help | Each line is one ordered JSON command and produces one ordered response. MCP-only tools are excluded. Raw plan IR fields are not the public `run_heist` input shape. |
 | MCP tools | Public agent tool surface | `buttonheist-mcp` tools | MCP `tools/list` schemas projected from `TheFence.Command` descriptors | Tool names and schemas are descriptor-owned. `perform` accepts one durable DSL instruction; `run_heist` accepts durable source `plan` or generated `.heist` `path`. |
@@ -129,6 +129,12 @@ TheInsideJob is the iOS framework embedded in the target app. In debug builds
 it auto-starts through the ObjC load hook, reads environment and Info.plist
 configuration, starts a TLS TCP listener, and maintains event-driven
 accessibility captures.
+
+For Tuist apps that use a prebuilt runtime, each release includes a Debug bundle.
+Follow [Prebuilt iOS Runtime](PREBUILT-IOS.md)
+to weak-link its XCFrameworks and exclude them from every non-Debug build.
+The precompiled binary retains its Debug code regardless of the host's build
+configuration; production exclusion is owned by the integration build phase.
 
 ### Configuration
 

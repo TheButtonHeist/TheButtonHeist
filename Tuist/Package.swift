@@ -4,14 +4,19 @@ import PackageDescription
 #if TUIST
 import ProjectDescription
 
+let accessibilitySnapshotProducts: [String: ProjectDescription.Product] = [
+    "AccessibilitySnapshotCore": .framework,
+    "AccessibilitySnapshotModel": .framework,
+    "AccessibilitySnapshotParser": .framework,
+    "AccessibilitySnapshotParser-ObjC": .framework,
+    "AccessibilitySnapshotPreviews": .framework,
+]
+
 let packageSettings = PackageSettings(
-    productTypes: [
-        "AccessibilitySnapshotCore": .framework,
-        "AccessibilitySnapshotModel": .framework,
-        "AccessibilitySnapshotParser": .framework,
-        "AccessibilitySnapshotParser-ObjC": .framework,
-        "AccessibilitySnapshotPreviews": .framework,
-    ]
+    productTypes: accessibilitySnapshotProducts,
+    targetSettings: accessibilitySnapshotProducts.mapValues { _ in
+        Settings.settings(base: ["IPHONEOS_DEPLOYMENT_TARGET": "16.0"])
+    }
 )
 #endif
 

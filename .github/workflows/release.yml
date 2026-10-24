@@ -17,7 +17,7 @@ permissions:
 jobs:
   build-and-release:
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
 
@@ -132,6 +132,17 @@ jobs:
           echo "SIM_UDID=$SIM_UDID" >> "$GITHUB_ENV"
           echo "Built: $APP_PATH (${APP_SIZE_KB}KB)"
 
+      - name: Package prebuilt Debug iOS runtime
+        run: scripts/package-insidejob.sh dist
+
+      - name: Smoke prebuilt runtime in an external Tuist app
+        run: |
+          source scripts/release-contract.sh
+          VERSION="${{ steps.version.outputs.version }}"
+          scripts/smoke-insidejob-bundle.py \
+            "dist/$(buttonheist_insidejob_archive_name "$VERSION")" \
+            ButtonHeistCLI/.build/buttonheist "$SIM_UDID"
+
       - name: Package binaries and scripts
         run: |
           source scripts/release-contract.sh
@@ -203,6 +214,10 @@ jobs:
           cat > "$RELEASE_NOTES" <<EOF
           Parser contract:
           - AccessibilitySnapshotBH: ${PARSER_TAG} (${PARSER_SHA})
+
+          Prebuilt Debug iOS runtime: $(buttonheist_insidejob_archive_name "$VERSION")
+          Device and simulator XCFrameworks, dependencies, resources, and debug symbols (iOS 16+).
+          Integration: https://github.com/${BUTTONHEIST_GITHUB_REPO}/blob/v${VERSION}/docs/PREBUILT-IOS.md
           EOF
           gh release create "v${VERSION}" \
             --title "Button Heist ${VERSION}" \
@@ -212,6 +227,7 @@ jobs:
             "dist/$(buttonheist_cli_archive_name "$VERSION")" \
             "dist/$(buttonheist_mcp_archive_name "$VERSION")" \
             "dist/$(buttonheist_demo_archive_name "$VERSION")" \
+            "dist/$(buttonheist_insidejob_archive_name "$VERSION")" \
             dist/checksums.txt
 
       - name: Update Homebrew tap
@@ -223,13 +239,15 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           CLI_ARCHIVE=$(buttonheist_cli_archive_name "$VERSION")
           MCP_ARCHIVE=$(buttonheist_mcp_archive_name "$VERSION")
+          INSIDEJOB_ARCHIVE=$(buttonheist_insidejob_archive_name "$VERSION")
 
           # Extract checksums
           CLI_SHA=$(grep -F "$CLI_ARCHIVE" dist/checksums.txt | awk '{print $1}')
           MCP_SHA=$(grep -F "$MCP_ARCHIVE" dist/checksums.txt | awk '{print $1}')
+          INSIDEJOB_SHA=$(grep -F "$INSIDEJOB_ARCHIVE" dist/checksums.txt | awk '{print $1}')
 
           # Generate formula from the checked-in template and release contract.
-          scripts/render-homebrew-formula.sh "$VERSION" "$CLI_SHA" "$MCP_SHA" /tmp/buttonheist-final.rb
+          scripts/render-homebrew-formula.sh "$VERSION" "$CLI_SHA" "$MCP_SHA" "$INSIDEJOB_SHA" /tmp/buttonheist-final.rb
 
           # Push to tap repo
           TAP_REPO="$BUTTONHEIST_TAP_REPO"
@@ -243,3 +261,7 @@ jobs:
             --field message="Update buttonheist to ${VERSION}" \
             --field content="$(base64 -b 0 < /tmp/buttonheist-final.rb)" \
             "${SHA_ARG[@]}"
+
+      - name: Delete release simulator
+        if: always() && env.SIM_NAME != ''
+        run: scripts/test-runner.py cleanup --simulator-name "$SIM_NAME"
