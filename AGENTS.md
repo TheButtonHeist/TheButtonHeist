@@ -584,7 +584,9 @@ The contract is locked by `SynthesisDeterminismTests` (property test across 200+
 
 ## Versioning and Releases
 
-There is one version: `buttonHeistVersion` in `ButtonHeist/Sources/TheScore/Wire/Messages.swift`. It uses SemVer (`MAJOR.MINOR.PATCH`), and CLI, MCP, and the iOS server all read it via TheScore. There is no separate "wire protocol version" — the handshake compares the server's and the client's `buttonHeistVersion` for exact equality and rejects on any mismatch. Inside (iOS server) and outside (CLI/MCP) must always be the same release; wire-format changes do not get their own version bump.
+There is one version: `buttonHeistVersion` in `ButtonHeist/Sources/TheScore/Wire/Messages.swift`. It uses SemVer (`MAJOR.MINOR.PATCH`), and CLI, MCP, and the iOS server all read it via TheScore. There is no separate "wire protocol version" — the handshake compares the server's and the client's `buttonHeistVersion` for exact equality and rejects on any mismatch. Inside (iOS server) and outside (CLI/MCP) must always use the same product version.
+
+Every PR that changes command or wire-contract sources must increase this version with `scripts/bump-version.sh`, including between releases. The required `release-contract` CI job compares the exact base and head commits and rejects an unchanged or decreased version for those changes. The guard conservatively covers contract-owning source files, including refactors and comments. See [Contract version guard](docs/CI.md#contract-version-guard) for its scope. A version bump does not publish a release.
 
 `scripts/bump-version.sh` prepares the canonical version change. From a clean `main` at `origin/main`, `scripts/release.sh` requires a GitHub-verified commit signature and the existing successful exact-commit main CI suite. If the current version is already published, it runs the bump script for the next patch and stops. Explicit versions, `--minor`, and `--major` also prepare a bump and stop. Merge that change as a signed commit and let normal main CI pass before running the release script again. Release preparation never commits or pushes source changes.
 
