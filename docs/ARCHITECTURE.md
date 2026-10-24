@@ -52,6 +52,9 @@ Release CI packages the same zip for GitHub and the optional Homebrew
 `theinsidejob` formula. The normal `buttonheist` formula installs the CLI/MCP
 without the iOS runtime. The source package retains automatic linkage selection.
 
+Local release readiness verifies both Homebrew formulas. After publication,
+`release.sh` upgrades the formulas already installed and verifies their versions.
+
 ```mermaid
 flowchart LR
     Sources["Runtime + private dependencies"] --> Package["Debug distribution build"]

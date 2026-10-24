@@ -4,6 +4,7 @@
 # shellcheck disable=SC2034
 BUTTONHEIST_GITHUB_REPO="TheButtonHeist/TheButtonHeist"
 BUTTONHEIST_TAP_REPO="TheButtonHeist/homebrew-tap"
+BUTTONHEIST_HOMEBREW_TAP="TheButtonHeist/tap"
 
 # TheScore owns the version. Release tags must match it, while the checked-in
 # Homebrew formula templates are rendered by the release job.
@@ -72,4 +73,34 @@ buttonheist_demo_archive_name() {
 buttonheist_insidejob_archive_name() {
     local version="$1"
     printf '%s-%s.zip' "$BUTTONHEIST_INSIDEJOB_ARTIFACT_PREFIX" "$version"
+}
+
+buttonheist_upgrade_installed_formulas() {
+    local version="$1"
+    command -v brew &>/dev/null || return 0
+    local formula prefix installed_version
+    local installed_formulas=()
+    for formula in buttonheist theinsidejob; do
+        formula="$BUTTONHEIST_HOMEBREW_TAP/$formula"
+        if brew list --versions "$formula" &>/dev/null; then
+            installed_formulas+=("$formula")
+        fi
+    done
+    if [[ ${#installed_formulas[@]} -gt 0 ]]; then
+        echo "  Upgrading installed Homebrew formulas..."
+        brew update --quiet
+        for formula in "${installed_formulas[@]}"; do
+            brew upgrade "$formula"
+            prefix="$(brew --prefix "$formula")"
+            case "${formula##*/}" in
+                buttonheist) installed_version="$("$prefix/bin/buttonheist" --version)" ;;
+                theinsidejob) installed_version="$(cat "$prefix/libexec/TheInsideJob.xcframework/VERSION")" ;;
+            esac
+            if [[ "$installed_version" != "$version" ]]; then
+                echo "Error: $formula reports '$installed_version', expected '$version'"
+                return 1
+            fi
+            echo "  ✓ $formula upgraded to $installed_version"
+        done
+    fi
 }

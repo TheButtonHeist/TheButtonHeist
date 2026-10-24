@@ -16,6 +16,7 @@ run_step() {
 }
 
 run_step "Release contract and parser pin" "$SCRIPT_DIR/validate-release-contract.sh"
+run_step "Homebrew formula rendering and upgrades" python3 "$SCRIPT_DIR/tests/render-homebrew-formula-test.py"
 run_step "Swift public API breakage" "$SCRIPT_DIR/check-swift-api-breaking-changes.sh"
 run_step "Generate Xcode project" "$SCRIPT_DIR/generate-project.sh"
 run_step "External ButtonHeist import fixture" "$SCRIPT_DIR/check-buttonheist-import-contract.sh"

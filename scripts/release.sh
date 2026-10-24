@@ -413,18 +413,7 @@ else
     if gh run watch "$RUN_ID" --repo "$BUTTONHEIST_GITHUB_REPO" --exit-status; then
         echo ""
         echo "  ✓ Release workflow passed"
-        if command -v brew &>/dev/null && brew list royalpineapple/tap/buttonheist &>/dev/null; then
-            echo "  Upgrading Homebrew..."
-            brew update --quiet
-            brew upgrade royalpineapple/tap/buttonheist
-            HOMEBREW_BUTTONHEIST="$(brew --prefix royalpineapple/tap/buttonheist)/bin/buttonheist"
-            HOMEBREW_VERSION="$("$HOMEBREW_BUTTONHEIST" --version)"
-            if [[ "$HOMEBREW_VERSION" != "$NEW_VERSION" ]]; then
-                echo "Error: Homebrew buttonheist reports '$HOMEBREW_VERSION', expected '$NEW_VERSION'"
-                exit 1
-            fi
-            echo "  ✓ Homebrew upgraded to $HOMEBREW_VERSION"
-        fi
+        buttonheist_upgrade_installed_formulas "$NEW_VERSION"
     else
         echo ""
         echo "  ✗ Release workflow failed — deleting release tag"
