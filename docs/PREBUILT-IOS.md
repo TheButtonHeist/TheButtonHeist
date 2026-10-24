@@ -97,12 +97,12 @@ For Tuist, add the package to your project's `packages` argument:
 packages: [
     .remote(
         url: "https://github.com/TheButtonHeist/TheButtonHeist",
-        requirement: .exact("0.6.38")
+        requirement: .exact("0.7.0")
     ),
 ],
 ```
 
-Replace `0.6.38` with the exact version from `buttonheist --version`.
+Replace `0.7.0` with the exact version from `buttonheist --version`.
 
 Add the product to your app target's `dependencies` argument:
 
