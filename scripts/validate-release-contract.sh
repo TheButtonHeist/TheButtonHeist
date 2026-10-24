@@ -19,19 +19,20 @@ SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
 SEMVER_GREP='[0-9]+\.[0-9]+\.[0-9]+'
 
 extract_formula_version() {
-    grep -E '^[[:space:]]*version "[^"]+"' "$BUTTONHEIST_FORMULA_TEMPLATE" \
+    grep -E '^[[:space:]]*version "[^"]+"' "$1" \
         | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
 CANONICAL_VERSION=$(buttonheist_code_version)
-FORMULA_TEMPLATE_VERSION=$(extract_formula_version || true)
-FORMULA_VERSION_COUNT=$(printf '%s\n' "$FORMULA_TEMPLATE_VERSION" | sed '/^$/d' | wc -l | tr -d '[:space:]')
-
 [[ "$CANONICAL_VERSION" =~ $SEMVER_REGEX ]] || fail "$BUTTONHEIST_CODE_VERSION_FILE ($CANONICAL_VERSION) is not MAJOR.MINOR.PATCH"
-[[ "$FORMULA_VERSION_COUNT" == "1" ]] \
-    || fail "$BUTTONHEIST_FORMULA_TEMPLATE must contain exactly one version placeholder, found $FORMULA_VERSION_COUNT"
-[[ "$FORMULA_TEMPLATE_VERSION" == "$BUTTONHEIST_FORMULA_VERSION_PLACEHOLDER" ]] \
-    || fail "$BUTTONHEIST_FORMULA_TEMPLATE version must be $BUTTONHEIST_FORMULA_VERSION_PLACEHOLDER, found $FORMULA_TEMPLATE_VERSION"
+for template in "$BUTTONHEIST_FORMULA_TEMPLATE" "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE"; do
+    FORMULA_TEMPLATE_VERSION=$(extract_formula_version "$template" || true)
+    FORMULA_VERSION_COUNT=$(printf '%s\n' "$FORMULA_TEMPLATE_VERSION" | sed '/^$/d' | wc -l | tr -d '[:space:]')
+    [[ "$FORMULA_VERSION_COUNT" == "1" ]] \
+        || fail "$template must contain exactly one version placeholder, found $FORMULA_VERSION_COUNT"
+    [[ "$FORMULA_TEMPLATE_VERSION" == "$BUTTONHEIST_FORMULA_VERSION_PLACEHOLDER" ]] \
+        || fail "$template version must be $BUTTONHEIST_FORMULA_VERSION_PLACEHOLDER, found $FORMULA_TEMPLATE_VERSION"
+done
 
 if grep -Fq "$CANONICAL_VERSION" "$BUTTONHEIST_API_DOCS_FILE"; then
     fail "$BUTTONHEIST_API_DOCS_FILE must not duplicate release version $CANONICAL_VERSION"
@@ -113,20 +114,35 @@ grep -Fq 'refute_predicate lib/"ThePlans/arm64-apple-macosx/release/Modules/TheP
 grep -Fq 'ThePlans/arm64-apple-macosx/release/description.json' "$BUTTONHEIST_FORMULA_TEMPLATE" \
     || fail "$BUTTONHEIST_FORMULA_TEMPLATE test must assert installed ThePlans description.json"
 
+INSIDEJOB_TEMPLATE_PATH="$(buttonheist_insidejob_archive_name '#{version}')"
+grep -Fq "$EXPECTED_HOMEPAGE" "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE" \
+    || fail "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE homepage does not match the release contract"
+grep -Fq "$EXPECTED_RELEASE_URL/$INSIDEJOB_TEMPLATE_PATH" "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE" \
+    || fail "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE URL does not match the release contract"
+grep -Fq '(libexec/"TheInsideJob.xcframework").install' "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE" \
+    || fail "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE must install the complete runtime under libexec/TheInsideJob.xcframework"
+if grep -Eq '^[[:space:]]*(resource|depends_on).*theinsidejob' "$BUTTONHEIST_FORMULA_TEMPLATE"; then
+    fail "the normal CLI formula must not download the optional iOS runtime"
+fi
+
 "$SCRIPT_DIR/check-parser-contract.sh"
 
-TMP_FORMULA=$(mktemp)
-trap 'rm -f "$TMP_FORMULA"' EXIT
+TMP_FORMULAS=$(mktemp -d)
+trap 'rm -rf "$TMP_FORMULAS"' EXIT
+TMP_FORMULA="$TMP_FORMULAS/buttonheist.rb"
+TMP_INSIDEJOB_FORMULA="$TMP_FORMULAS/theinsidejob.rb"
 
 DUMMY_CLI_SHA="1111111111111111111111111111111111111111111111111111111111111111"
 DUMMY_MCP_SHA="2222222222222222222222222222222222222222222222222222222222222222"
+DUMMY_INSIDEJOB_SHA="3333333333333333333333333333333333333333333333333333333333333333"
 
-"$SCRIPT_DIR/render-homebrew-formula.sh" "$CANONICAL_VERSION" "$DUMMY_CLI_SHA" "$DUMMY_MCP_SHA" "$TMP_FORMULA"
+"$SCRIPT_DIR/render-homebrew-formula.sh" "$CANONICAL_VERSION" "$DUMMY_CLI_SHA" "$DUMMY_MCP_SHA" "$DUMMY_INSIDEJOB_SHA" "$TMP_FORMULAS"
 
 assert_rendered_url_checksum_pair() {
-    local label="$1"
-    local expected_url="$2"
-    local expected_sha="$3"
+    local formula="$1"
+    local label="$2"
+    local expected_url="$3"
+    local expected_sha="$4"
 
     awk -v label="$label" -v expected_url="$expected_url" -v expected_sha="$expected_sha" '
         /^[[:space:]]*url "[^"]+"/ {
@@ -167,7 +183,7 @@ assert_rendered_url_checksum_pair() {
                 exit 1
             }
         }
-    ' "$TMP_FORMULA" || fail "rendered formula does not bind $label checksum to matching URL"
+    ' "$formula" || fail "rendered formula does not bind $label checksum to matching URL"
 }
 
 grep -Fq "version \"$CANONICAL_VERSION\"" "$TMP_FORMULA" \
@@ -180,8 +196,12 @@ grep -Fq "sha256 \"$DUMMY_CLI_SHA\"" "$TMP_FORMULA" \
     || fail "rendered formula is missing CLI checksum"
 grep -Fq "sha256 \"$DUMMY_MCP_SHA\"" "$TMP_FORMULA" \
     || fail "rendered formula is missing MCP checksum"
-assert_rendered_url_checksum_pair "CLI" "$(buttonheist_release_url "$CANONICAL_VERSION")/$(buttonheist_cli_archive_name "$CANONICAL_VERSION")" "$DUMMY_CLI_SHA"
-assert_rendered_url_checksum_pair "MCP" "$(buttonheist_release_url "$CANONICAL_VERSION")/$(buttonheist_mcp_archive_name "$CANONICAL_VERSION")" "$DUMMY_MCP_SHA"
-if grep -Fq 'PLACEHOLDER' "$TMP_FORMULA"; then
+assert_rendered_url_checksum_pair "$TMP_FORMULA" "CLI" "$(buttonheist_release_url "$CANONICAL_VERSION")/$(buttonheist_cli_archive_name "$CANONICAL_VERSION")" "$DUMMY_CLI_SHA"
+assert_rendered_url_checksum_pair "$TMP_FORMULA" "MCP" "$(buttonheist_release_url "$CANONICAL_VERSION")/$(buttonheist_mcp_archive_name "$CANONICAL_VERSION")" "$DUMMY_MCP_SHA"
+assert_rendered_url_checksum_pair "$TMP_INSIDEJOB_FORMULA" "TheInsideJob" \
+    "$(buttonheist_release_url "$CANONICAL_VERSION")/$(buttonheist_insidejob_archive_name "$CANONICAL_VERSION")" "$DUMMY_INSIDEJOB_SHA"
+grep -Fq "version \"$CANONICAL_VERSION\"" "$TMP_INSIDEJOB_FORMULA" \
+    || fail "rendered runtime formula version does not match $CANONICAL_VERSION"
+if grep -Fq 'PLACEHOLDER' "$TMP_FORMULA" "$TMP_INSIDEJOB_FORMULA"; then
     fail "rendered formula still contains checksum placeholder"
 fi

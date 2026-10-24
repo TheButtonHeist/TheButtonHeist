@@ -1,5 +1,8 @@
 import ProjectDescription
 
+let insideJobDependencyProduct: Product = Environment.insidejobDistribution.getBoolean(default: false)
+    ? .staticFramework : .framework
+
 func frameworkScheme(name: String) -> Scheme {
     .scheme(
         name: name,
@@ -182,7 +185,7 @@ let project = Project(
         .target(
             name: "ButtonHeistSupport",
             destinations: [.iPhone, .iPad, .mac],
-            product: .framework,
+            product: insideJobDependencyProduct,
             bundleId: "com.buttonheist.support",
             deploymentTargets: .multiplatform(iOS: "16.0", macOS: "14.0"),
             infoPlist: .default,
@@ -194,7 +197,7 @@ let project = Project(
         .target(
             name: "ThePlans",
             destinations: [.iPhone, .iPad, .mac],
-            product: .framework,
+            product: insideJobDependencyProduct,
             bundleId: "com.buttonheist.theplans",
             deploymentTargets: .multiplatform(iOS: "16.0", macOS: "14.0"),
             infoPlist: .default,
@@ -206,7 +209,7 @@ let project = Project(
         .target(
             name: "TheScore",
             destinations: [.iPhone, .iPad, .mac],
-            product: .framework,
+            product: insideJobDependencyProduct,
             bundleId: "com.buttonheist.thescore",
             deploymentTargets: .multiplatform(iOS: "16.0", macOS: "14.0"),
             infoPlist: .default,

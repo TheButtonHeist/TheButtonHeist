@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Package the Debug iOS runtime and its complete binary dependency closure.
+# Package one dynamic Debug runtime with statically linked private dependencies.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -16,9 +16,16 @@ VERSION="$(buttonheist_code_version)"
 ARCHIVE="$OUTPUT/$(buttonheist_insidejob_archive_name "$VERSION")"
 [[ ! -e "$ARCHIVE" ]] || { echo "Error: archive already exists: $ARCHIVE" >&2; exit 1; }
 STAGING="$(mktemp -d "$OUTPUT/.insidejob.XXXXXX")"
-trap 'rm -rf "$STAGING"' EXIT
-BUNDLE="$STAGING/TheInsideJob"
-mkdir -p "$BUNDLE/XCFrameworks" "$BUNDLE/Scripts"
+cleanup() {
+    status=$?
+    trap - EXIT
+    TUIST_INSIDEJOB_DISTRIBUTION=false ./scripts/generate-project.sh --skip-install || status=1
+    rm -rf "$STAGING"
+    exit "$status"
+}
+trap cleanup EXIT
+TUIST_INSIDEJOB_DISTRIBUTION=true ./scripts/generate-project.sh
+BUNDLE="$STAGING/TheInsideJob.xcframework"
 
 for platform in iphoneos iphonesimulator; do
     case "$platform" in
@@ -33,29 +40,25 @@ for platform in iphoneos iphonesimulator; do
         DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \
         build
 
+    # Tuist leaves static-package resources beside the final dynamic framework.
     products="$STAGING/DerivedData/Build/Products/Debug-$platform"
-    mkdir -p "$BUNDLE/Resources/$platform"
     shopt -s nullglob
     for resource in "$products/"*.bundle; do
-        cp -R "$resource" "$BUNDLE/Resources/$platform/"
+        cp -R "$resource" "$products/TheInsideJob.framework/"
     done
 done
 
 PRODUCTS="$STAGING/DerivedData/Build/Products"
-frameworks=("$PRODUCTS/Debug-iphoneos/"*.framework)
-[[ ${#frameworks[@]} -gt 0 && -d "$PRODUCTS/Debug-iphoneos/TheInsideJob.framework" ]] \
-    || { echo "Error: TheInsideJob build produced no runtime" >&2; exit 1; }
-for framework in "${frameworks[@]}"; do
-    name="$(basename "$framework" .framework)"
-    # Automatic loading needs no Swift import, so preserve compiler-specific modules.
-    xcodebuild -create-xcframework \
-        -allow-internal-distribution \
-        -framework "$framework" \
-        -debug-symbols "$PRODUCTS/Debug-iphoneos/$name.framework.dSYM" \
-        -framework "$PRODUCTS/Debug-iphonesimulator/$name.framework" \
-        -debug-symbols "$PRODUCTS/Debug-iphonesimulator/$name.framework.dSYM" \
-        -output "$BUNDLE/XCFrameworks/$name.xcframework"
-done
+# Automatic loading needs no Swift import, so preserve compiler-specific modules.
+xcodebuild -create-xcframework \
+    -allow-internal-distribution \
+    -framework "$PRODUCTS/Debug-iphoneos/TheInsideJob.framework" \
+    -debug-symbols "$PRODUCTS/Debug-iphoneos/TheInsideJob.framework.dSYM" \
+    -framework "$PRODUCTS/Debug-iphonesimulator/TheInsideJob.framework" \
+    -debug-symbols "$PRODUCTS/Debug-iphonesimulator/TheInsideJob.framework.dSYM" \
+    -output "$BUNDLE"
+
+mkdir -p "$BUNDLE/Scripts"
 
 cp scripts/integrate-insidejob.sh "$BUNDLE/Scripts/"
 cp docs/PREBUILT-IOS.md "$BUNDLE/README.md"

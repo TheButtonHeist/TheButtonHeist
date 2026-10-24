@@ -24,8 +24,9 @@ for devices and simulators. Simulator Debug must start automatically and return
 the app's accessibility tree through the matching CLI. Simulator Release must
 run without a server listener.
 
-The check also verifies that prebuilt frameworks are dynamic and weak-linked.
-Release must exclude every distributed framework and resource. Source Release
+The check also verifies that the prebuilt framework is dynamic, weak-linked,
+and contains its resources. Its only dynamic dependencies must be Apple libraries.
+Release must exclude the framework and its resources. Source Release
 must exclude the Debug loader symbols.
 
 The hosted CI lane runs these checks before simulator cleanup. Release CI

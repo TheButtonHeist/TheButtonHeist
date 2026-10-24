@@ -33,7 +33,7 @@ def verify_consumer(integration: str, archive: Path, cli: Path, simulator: str, 
         consumer = Path(temporary) / "Consumer"
         shutil.copytree(ROOT / f"tests/fixtures/insidejob-{integration}-consumer", consumer)
         (consumer / "Tuist").mkdir()
-        bundle = consumer / "TheInsideJob"
+        bundle = consumer / "TheInsideJob.xcframework"
         frameworks = []
         if integration == "binary":
             run(["ditto", "-x", "-k", str(archive), str(consumer)])
@@ -41,9 +41,7 @@ def verify_consumer(integration: str, archive: Path, cli: Path, simulator: str, 
             cli_version = subprocess.check_output([str(cli), "--version"], text=True).strip()
             if version != cli_version:
                 raise RuntimeError(f"CLI version {cli_version} does not match bundle {version}")
-            frameworks = sorted((bundle / "XCFrameworks").glob("*.xcframework"))
-            if not any(path.stem == "TheInsideJob" for path in frameworks):
-                raise RuntimeError("Bundle is missing TheInsideJob.xcframework")
+            frameworks = [bundle]
             for framework in frameworks:
                 with (framework / "Info.plist").open("rb") as metadata:
                     libraries = plistlib.load(metadata)["AvailableLibraries"]
@@ -52,6 +50,19 @@ def verify_consumer(integration: str, archive: Path, cli: Path, simulator: str, 
                     headers = subprocess.check_output(["otool", "-hv", str(executable)], text=True)
                     if "DYLIB" not in headers.split():
                         raise RuntimeError(f"Prebuilt framework must be dynamic: {executable}")
+                    dependencies = subprocess.check_output(["otool", "-L", str(executable)], text=True)
+                    for line in dependencies.splitlines():
+                        if not line.startswith("\t"):
+                            continue
+                        dependency = line.strip().split()[0]
+                        if dependency == "@rpath/TheInsideJob.framework/TheInsideJob":
+                            continue
+                        if not dependency.startswith(("/System/Library/", "/usr/lib/", "@rpath/libswift")):
+                            raise RuntimeError(f"Runtime has an external dependency: {dependency}")
+                    for module in ("AccessibilitySnapshotCore", "AccessibilitySnapshotModel"):
+                        resource = executable.parent / f"AccessibilitySnapshotBH_{module}.bundle"
+                        if not resource.is_dir():
+                            raise RuntimeError(f"Runtime is missing embedded resources: {resource}")
 
         run(["tuist", "generate", "--path", str(consumer), "--no-open", "--no-binary-cache"],
             env={**os.environ, "TUIST_BUTTONHEIST_SOURCE_PACKAGE_PATH": str(ROOT)})
@@ -85,9 +96,6 @@ def verify_consumer(integration: str, archive: Path, cli: Path, simulator: str, 
                     embedded = app / "Frameworks" / f"{framework.stem}.framework"
                     if embedded.exists() != (configuration == "Debug"):
                         raise RuntimeError(f"Incorrect {configuration} embedding: {embedded}")
-                for resource in (bundle / "Resources" / platform).glob("*.bundle"):
-                    if (app / resource.name).exists() != (configuration == "Debug"):
-                        raise RuntimeError(f"Incorrect {configuration} resource embedding: {resource.name}")
                 if integration == "source" and configuration == "Release":
                     for executable in executables:
                         symbols = subprocess.check_output(["nm", "-g", str(executable)], text=True)

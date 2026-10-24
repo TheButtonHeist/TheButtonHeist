@@ -135,7 +135,7 @@ the prebuilt Debug bundle. Both paths retain automatic startup. See
 [Install TheInsideJob](PREBUILT-IOS.md) for both examples.
 
 Release compilation excludes the source package's server code through
-`#if DEBUG`. Prebuilt consumers weak-link its dynamic XCFrameworks. Their final
+`#if DEBUG`. Prebuilt consumers weak-link its dynamic XCFramework. Their final
 integration build phase removes the bundle from every non-Debug configuration.
 The host's compile conditions cannot disable a precompiled Debug binary.
 

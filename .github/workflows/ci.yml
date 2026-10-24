@@ -60,6 +60,7 @@ jobs:
           scripts/tests/generate-project-test.sh
           scripts/tests/integrate-insidejob-test.sh
           scripts/tests/require-successful-ci-for-commit-test.sh
+          python3 scripts/tests/render-homebrew-formula-test.py
           python3 scripts/tests/select-ci-change-scopes-test.py
           python3 scripts/tests/select-ios-ci-simulator-test.py
           python3 scripts/tests/test-runner-test.py

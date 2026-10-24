@@ -216,7 +216,8 @@ jobs:
           - AccessibilitySnapshotBH: ${PARSER_TAG} (${PARSER_SHA})
 
           Prebuilt Debug iOS runtime: $(buttonheist_insidejob_archive_name "$VERSION")
-          Device and simulator XCFrameworks, dependencies, resources, and debug symbols (iOS 16+).
+          Optional Homebrew install: brew install TheButtonHeist/tap/theinsidejob
+          One TheInsideJob.xcframework with device and simulator slices, resources, and debug symbols (iOS 16+).
           Integration: https://github.com/${BUTTONHEIST_GITHUB_REPO}/blob/v${VERSION}/docs/PREBUILT-IOS.md
           EOF
           gh release create "v${VERSION}" \
@@ -239,26 +240,27 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           CLI_ARCHIVE=$(buttonheist_cli_archive_name "$VERSION")
           MCP_ARCHIVE=$(buttonheist_mcp_archive_name "$VERSION")
+          INSIDEJOB_ARCHIVE=$(buttonheist_insidejob_archive_name "$VERSION")
+          CLI_SHA=$(awk -v file="$CLI_ARCHIVE" '$2 == file { print $1 }' dist/checksums.txt)
+          MCP_SHA=$(awk -v file="$MCP_ARCHIVE" '$2 == file { print $1 }' dist/checksums.txt)
+          INSIDEJOB_SHA=$(awk -v file="$INSIDEJOB_ARCHIVE" '$2 == file { print $1 }' dist/checksums.txt)
 
-          # Extract checksums
-          CLI_SHA=$(grep -F "$CLI_ARCHIVE" dist/checksums.txt | awk '{print $1}')
-          MCP_SHA=$(grep -F "$MCP_ARCHIVE" dist/checksums.txt | awk '{print $1}')
+          FORMULAS="$RUNNER_TEMP/homebrew-formulae"
+          scripts/render-homebrew-formula.sh "$VERSION" "$CLI_SHA" "$MCP_SHA" "$INSIDEJOB_SHA" "$FORMULAS"
 
-          # Generate formula from the checked-in template and release contract.
-          scripts/render-homebrew-formula.sh "$VERSION" "$CLI_SHA" "$MCP_SHA" /tmp/buttonheist-final.rb
-
-          # Push to tap repo
           TAP_REPO="$BUTTONHEIST_TAP_REPO"
-          EXISTING_SHA=$(gh api "repos/${TAP_REPO}/contents/Formula/buttonheist.rb" --jq '.sha' 2>/dev/null || true)
-          SHA_ARG=()
-          if [[ -n "$EXISTING_SHA" ]]; then
-            SHA_ARG=(--field "sha=${EXISTING_SHA}")
-          fi
-          gh api "repos/${TAP_REPO}/contents/Formula/buttonheist.rb" \
-            --method PUT \
-            --field message="Update buttonheist to ${VERSION}" \
-            --field content="$(base64 -b 0 < /tmp/buttonheist-final.rb)" \
-            "${SHA_ARG[@]}"
+          for formula in buttonheist theinsidejob; do
+            EXISTING_SHA=$(gh api "repos/${TAP_REPO}/contents/Formula/${formula}.rb" --jq '.sha' 2>/dev/null || true)
+            SHA_ARG=()
+            if [[ -n "$EXISTING_SHA" ]]; then
+              SHA_ARG=(--field "sha=${EXISTING_SHA}")
+            fi
+            gh api "repos/${TAP_REPO}/contents/Formula/${formula}.rb" \
+              --method PUT \
+              --field message="Update ${formula} to ${VERSION}" \
+              --field content="$(base64 -b 0 < "$FORMULAS/${formula}.rb")" \
+              "${SHA_ARG[@]}"
+          done
 
       - name: Delete release simulator
         if: always() && env.SIM_NAME != ''

@@ -1,13 +1,4 @@
-import Foundation
 import ProjectDescription
-
-let bundlePath = "TheInsideJob"
-let frameworksURL = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent()
-    .appendingPathComponent("\(bundlePath)/XCFrameworks")
-let frameworks = try FileManager.default.contentsOfDirectory(atPath: frameworksURL.path)
-    .filter { $0.hasSuffix(".xcframework") }
-    .sorted()
 
 let project = Project(
     name: "BinaryConsumer",
@@ -22,14 +13,14 @@ let project = Project(
             sources: ["Sources/**"],
             scripts: [
                 .post(
-                    path: .relativeToManifest("\(bundlePath)/Scripts/integrate-insidejob.sh"),
+                    path: .relativeToManifest("TheInsideJob.xcframework/Scripts/integrate-insidejob.sh"),
                     name: "Integrate TheInsideJob",
                     basedOnDependencyAnalysis: false
                 ),
             ],
-            dependencies: frameworks.map {
-                .xcframework(path: .relativeToManifest("\(bundlePath)/XCFrameworks/\($0)"), status: .optional)
-            },
+            dependencies: [
+                .xcframework(path: "TheInsideJob.xcframework", status: .optional),
+            ],
             settings: .settings(base: [
                 "SWIFT_VERSION": "6",
                 "SWIFT_STRICT_CONCURRENCY": "complete",

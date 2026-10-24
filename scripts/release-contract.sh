@@ -6,9 +6,10 @@ BUTTONHEIST_GITHUB_REPO="TheButtonHeist/TheButtonHeist"
 BUTTONHEIST_TAP_REPO="TheButtonHeist/homebrew-tap"
 
 # TheScore owns the version. Release tags must match it, while the checked-in
-# Homebrew formula remains a versionless template rendered by the release job.
+# Homebrew formula templates are rendered by the release job.
 BUTTONHEIST_CODE_VERSION_FILE="ButtonHeist/Sources/TheScore/Wire/Messages.swift"
 BUTTONHEIST_FORMULA_TEMPLATE="Formula/buttonheist.rb"
+BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE="Formula/theinsidejob.rb"
 BUTTONHEIST_FORMULA_VERSION_PLACEHOLDER="RELEASE_VERSION"
 BUTTONHEIST_API_DOCS_FILE="docs/API.md"
 BUTTONHEIST_DEMO_VERSION_FILE="TestApp/Sources/DisclosureGroupingDemo.swift"

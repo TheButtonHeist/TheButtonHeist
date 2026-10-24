@@ -40,18 +40,30 @@ Consumers compile it with their app. Its Objective-C loader starts the Debug
 runtime automatically. Release compilation excludes the server and loader
 through `#if DEBUG`.
 
-The prebuilt iOS distribution packages the Debug runtime, its binary
-dependencies, resources, and symbols under one release version. Tuist consumers
-weak-link the XCFrameworks. The final integration build phase copies Debug
-resources and removes all distributed frameworks and resources from every other
-configuration. Runtime `#if DEBUG` is decided when the framework is compiled,
-so the host build owns production exclusion. See
-[Install TheInsideJob](PREBUILT-IOS.md).
+The prebuilt iOS distribution is one dynamic `TheInsideJob.xcframework`.
+Its private dependencies link statically inside the runtime. Each platform slice
+contains its resource bundles; the XCFramework also contains symbols and licenses.
+Tuist consumers weak-link this framework. The final integration build phase
+removes it from every configuration except `Debug`. Runtime `#if DEBUG` is
+fixed when the framework is compiled, so the host build owns production exclusion.
+See [Install TheInsideJob](PREBUILT-IOS.md).
 
-The prebuilt frameworks are dynamic libraries packaged as XCFrameworks for
-devices and simulators. The integration script can remove them from the app
-bundle. A prebuilt static library merges into the app executable and cannot
-use this removal step. The source package retains automatic linkage selection.
+Release CI packages the same zip for GitHub and the optional Homebrew
+`theinsidejob` formula. The normal `buttonheist` formula installs the CLI/MCP
+without the iOS runtime. The source package retains automatic linkage selection.
+
+```mermaid
+flowchart LR
+    Sources["Runtime + private dependencies"] --> Package["Debug distribution build"]
+    Package --> Framework["TheInsideJob.xcframework<br/>device + simulator + resources + symbols"]
+    Framework --> Zip["theinsidejob-version.zip"]
+    Zip --> GitHub["GitHub release"]
+    Zip --> Brew["Optional Homebrew formula"]
+    GitHub --> App["App weak-links one framework"]
+    Brew --> App
+    App --> Debug["Debug: auto-start"]
+    App --> Release["Other configurations: remove framework"]
+```
 
 The source and prebuilt consumer apps share one CI conformance check. Both
 verify automatic Debug startup and Release exclusion against the current

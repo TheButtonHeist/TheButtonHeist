@@ -4,12 +4,15 @@ import PackageDescription
 #if TUIST
 import ProjectDescription
 
+let insideJobDependencyProduct: ProjectDescription.Product = Environment.insidejobDistribution.getBoolean(default: false)
+    ? .staticFramework : .framework
+
 let accessibilitySnapshotProducts: [String: ProjectDescription.Product] = [
-    "AccessibilitySnapshotCore": .framework,
-    "AccessibilitySnapshotModel": .framework,
-    "AccessibilitySnapshotParser": .framework,
-    "AccessibilitySnapshotParser-ObjC": .framework,
-    "AccessibilitySnapshotPreviews": .framework,
+    "AccessibilitySnapshotCore": insideJobDependencyProduct,
+    "AccessibilitySnapshotModel": insideJobDependencyProduct,
+    "AccessibilitySnapshotParser": insideJobDependencyProduct,
+    "AccessibilitySnapshotParser-ObjC": insideJobDependencyProduct,
+    "AccessibilitySnapshotPreviews": insideJobDependencyProduct,
 ]
 
 let packageSettings = PackageSettings(

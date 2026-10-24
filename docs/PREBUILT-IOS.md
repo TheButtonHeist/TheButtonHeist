@@ -4,7 +4,7 @@ Choose one runtime for your app:
 
 | Install path | App build | Release behavior |
 |---|---|---|
-| Prebuilt XCFrameworks | Links compiled dynamic frameworks | The integration script removes them outside `Debug`. |
+| Prebuilt XCFramework | Links one compiled dynamic framework | The integration script removes it outside `Debug`. |
 | Swift package | Compiles the runtime sources | Release compilation excludes the server through `#if DEBUG`. |
 
 Both paths require iOS 16+. The runtime and CLI must use exactly the same release.
@@ -17,15 +17,22 @@ brew install TheButtonHeist/tap/buttonheist
 buttonheist --version
 ```
 
-Homebrew installs the CLI/MCP and plan compiler files. It does not install the
-iOS bundle. The Homebrew distribution requires an Apple Silicon Mac with
-macOS 14+.
+This formula installs the CLI/MCP and plan compiler files. It requires an
+Apple Silicon Mac with macOS 14+. Install the iOS runtime separately below.
 
 ## Use the prebuilt bundle
 
-### 1. Download the matching release
+### 1. Copy the runtime into your project
 
 Run these commands from your app's project directory:
+
+```bash
+brew install TheButtonHeist/tap/theinsidejob
+ditto "$(brew --prefix theinsidejob)/libexec/TheInsideJob.xcframework" ./TheInsideJob.xcframework
+```
+
+Use the same release as `buttonheist --version`. For a pinned download in CI,
+use the GitHub release:
 
 ```bash
 set -e
@@ -38,57 +45,39 @@ awk -v file="theinsidejob-$VERSION.zip" '$2 == file' checksums.txt | shasum -a 2
 ditto -x -k "theinsidejob-$VERSION.zip" .
 ```
 
-The zip extracts as `TheInsideJob/`. It contains device and simulator
-XCFrameworks, dependencies, resources, symbols, licenses, and the integration
-script. `VERSION` records the release. `XCODE_VERSION` records its compiler.
+Both paths provide `TheInsideJob.xcframework`. It contains device and simulator
+slices, statically linked dependencies, resources, symbols, licenses, and the
+integration script. `VERSION` records the release. `XCODE_VERSION` records its compiler.
 
 Pin the release and its SHA-256 checksum in your app's dependency setup.
 
-### 2. Add the bundle to Tuist
-
-Add this code before the project declaration in `Project.swift`:
-
-```swift
-import Foundation
-import ProjectDescription
-
-let bundlePath = "TheInsideJob"
-let frameworksURL = URL(fileURLWithPath: #filePath)
-    .deletingLastPathComponent()
-    .appendingPathComponent("\(bundlePath)/XCFrameworks")
-let frameworks = try FileManager.default.contentsOfDirectory(atPath: frameworksURL.path)
-    .filter { $0.hasSuffix(".xcframework") }
-    .sorted()
-```
+### 2. Add the framework to Tuist
 
 Merge these arguments into your app target:
 
 ```swift
 scripts: [
     .post(
-        path: .relativeToManifest("\(bundlePath)/Scripts/integrate-insidejob.sh"),
+        path: "TheInsideJob.xcframework/Scripts/integrate-insidejob.sh",
         name: "Integrate TheInsideJob",
         basedOnDependencyAnalysis: false
     ),
 ],
-dependencies: frameworks.map {
-    .xcframework(path: .relativeToManifest("\(bundlePath)/XCFrameworks/\($0)"), status: .optional)
-},
+dependencies: [
+    .xcframework(path: "TheInsideJob.xcframework", status: .optional),
+],
 settings: .settings(base: ["ENABLE_USER_SCRIPT_SANDBOXING": "NO"])
 ```
 
-Keep the integration script last, after all framework embedding. Use `.optional`
-for every framework in the bundle.
+Keep the integration script last, after framework embedding. Use `.optional`
+so Release can run without the framework.
 
 Generate the project with `tuist generate --no-open`. Build and run your app in
-`Debug`.
+`Debug`. The runtime starts automatically. No Swift import or startup call is required.
 
-The runtime starts automatically. The script copies Debug resources and removes
-all distributed frameworks and resources from every other build configuration.
-Optional linking lets those builds run without the runtime.
-
-For custom debug configurations, add their names to the script's configuration
-check. The default check accepts only `Debug`.
+The script removes `TheInsideJob.framework`, including its resources, from every
+other build configuration. For custom debug configurations, add their names to
+the script's configuration check. The default check accepts only `Debug`.
 
 [Complete prebuilt app](../tests/fixtures/insidejob-binary-consumer/Project.swift)
 
@@ -133,9 +122,9 @@ uses a local checkout so CI compiles the current commit.
 
 ## Verify Release behavior
 
-For a prebuilt install, verify that the final app archive excludes every
-distributed framework and resource. The host's `#if DEBUG` cannot disable code
-inside a precompiled Debug binary. The final build phase removes those binaries.
+For a prebuilt install, verify that the final app archive excludes
+`TheInsideJob.framework`. The host's `#if DEBUG` cannot disable code
+inside a precompiled Debug binary. The final build phase removes that framework.
 
 For a source install, build the package in Release with your app. The package's
 compile conditions exclude the server.
@@ -146,5 +135,5 @@ Both paths use the same runtime. Connection instructions are in
 
 The prebuilt path uses
 [Reveal's integration model](https://support.revealapp.com/article/39-integrating-reveal-via-linking).
-It supports automatic loading. Swift API imports across compiler versions
-remain outside the prebuilt contract. Use the source package for those imports.
+The prebuilt framework supports automatic loading. Use the source package
+when your app needs to import TheInsideJob's Swift API.
