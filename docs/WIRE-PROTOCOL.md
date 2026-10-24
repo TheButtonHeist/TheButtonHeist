@@ -11,14 +11,14 @@ Use live adapter surfaces for product command catalogs:
 ## Versioning
 
 There is no separate wire-protocol version. The wire contract is versioned by
-The Button Heist product SemVer carried in `buttonHeistVersion`. This document
-describes the exact `0.6.32` client, server, CLI, and MCP contract.
+The Button Heist product SemVer carried in `buttonHeistVersion`. The same rule
+applies to release tags and development builds.
 
 Admission is exact product-version lockstep:
 
 - the embedded iOS server, macOS framework, CLI, and MCP server must come from
-  product release `0.6.32`
-- client and server `buttonHeistVersion` must both equal `0.6.32` during the
+  the same product version
+- client and server `buttonHeistVersion` must be equal during the
   hello handshake
 - malformed semantic versions are rejected while decoding the envelope
 - major, minor, and patch differences are all incompatible on the wire
@@ -26,8 +26,10 @@ Admission is exact product-version lockstep:
 
 On mismatch, the server returns `protocolMismatch` with both observed product
 versions, then closes the connection before authentication or command dispatch.
-Wire-format changes ship with a product version bump, not a parallel protocol
-version.
+Command and wire-format changes require a product version bump in the same PR,
+including between releases. The required CI guard checks changes in contract
+owners against the exact base commit. See [Contract version guard](CI.md#contract-version-guard)
+for its scope and local commands. A version bump does not publish a release.
 
 ## Command Layers
 

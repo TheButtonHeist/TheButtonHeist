@@ -9,6 +9,43 @@ the `buttonheist` CLI/MCP build must be the same release. The wire handshake
 compares versions for exact equality and rejects mismatches, so pin the CLI to
 the release your app embeds rather than installing "latest" in CI.
 
+## Contract version guard
+
+The required `release-contract` job runs `scripts/check-contract-version.py`
+on pull requests and pushes to `main`. A contract change must increase
+`buttonHeistVersion` in the same change, including between releases.
+
+The guard watches these contract owners:
+
+- `TheScore` and `ThePlans` sources: shared wire values, results, and plan language.
+- `TheFence` sources: command admission, schemas, and response rendering.
+- CLI and MCP sources: public command adapters.
+- `TheVault/IdAssignment.swift`: stable heist ID synthesis.
+- `tests/fixtures/public-cli-mcp-command-contract.json`: the command contract fixture.
+
+This is a conservative source check. Comments and refactors in these owners
+also require a bump. The guard does not force a bump for other files.
+Behavioral contract changes outside these owners still require one.
+
+For pull requests, CI compares the exact base and head commits. For main pushes,
+it compares the previous and new main commits. Additions, deletions, and renames
+all count. The version must be greater numerically; another change's bump cannot
+cover your contract changes after main advances. Update your branch and run:
+
+```bash
+scripts/bump-version.sh <new-version>
+```
+
+A version bump does not publish a release. Several versions on main may remain
+unreleased. CI rejects missing or malformed versions and version decreases.
+
+To check two committed snapshots locally:
+
+```bash
+python3 scripts/check-contract-version.py origin/main HEAD
+python3 scripts/tests/check-contract-version-test.py
+```
+
 ## App integration conformance
 
 CI builds two small consumer apps:
