@@ -20,11 +20,6 @@ class Buttonheist < Formula
     sha256 "PLACEHOLDER"
   end
 
-  resource "insidejob" do
-    url "https://github.com/TheButtonHeist/TheButtonHeist/releases/download/v#{version}/theinsidejob-#{version}.zip"
-    sha256 "PLACEHOLDER"
-  end
-
   depends_on :macos
   on_macos do
     depends_on macos: :sonoma
@@ -35,17 +30,12 @@ class Buttonheist < Formula
     bin.install "buttonheist"
     lib.install "ThePlans" if (buildpath/"ThePlans").exist?
     resource("mcp").stage { bin.install "buttonheist-mcp" }
-    resource("insidejob").stage(libexec/"TheInsideJob")
   end
 
   def caveats
     <<~EOS
       MCP server is installed at:
         #{opt_bin}/buttonheist-mcp
-
-      Prebuilt Debug iOS runtime is installed at:
-        #{opt_libexec}/TheInsideJob
-      Follow its README.md to weak-link the XCFrameworks and remove them from non-Debug builds.
 
       Add to your project's .mcp.json:
         {
@@ -66,8 +56,5 @@ class Buttonheist < Formula
     assert_predicate lib/"ThePlans/arm64-apple-macosx/release/Modules/ThePlans.swiftinterface", :exist?
     refute_predicate lib/"ThePlans/arm64-apple-macosx/release/Modules/ThePlans.swiftmodule", :exist?
     assert_predicate lib/"ThePlans/arm64-apple-macosx/release/description.json", :exist?
-    assert_equal version.to_s, (libexec/"TheInsideJob/VERSION").read.strip
-    assert_predicate libexec/"TheInsideJob/XCFrameworks/TheInsideJob.xcframework/Info.plist", :exist?
-    assert_predicate libexec/"TheInsideJob/Scripts/integrate-insidejob.sh", :executable?
   end
 end

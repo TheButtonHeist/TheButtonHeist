@@ -239,15 +239,13 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           CLI_ARCHIVE=$(buttonheist_cli_archive_name "$VERSION")
           MCP_ARCHIVE=$(buttonheist_mcp_archive_name "$VERSION")
-          INSIDEJOB_ARCHIVE=$(buttonheist_insidejob_archive_name "$VERSION")
 
           # Extract checksums
           CLI_SHA=$(grep -F "$CLI_ARCHIVE" dist/checksums.txt | awk '{print $1}')
           MCP_SHA=$(grep -F "$MCP_ARCHIVE" dist/checksums.txt | awk '{print $1}')
-          INSIDEJOB_SHA=$(grep -F "$INSIDEJOB_ARCHIVE" dist/checksums.txt | awk '{print $1}')
 
           # Generate formula from the checked-in template and release contract.
-          scripts/render-homebrew-formula.sh "$VERSION" "$CLI_SHA" "$MCP_SHA" "$INSIDEJOB_SHA" /tmp/buttonheist-final.rb
+          scripts/render-homebrew-formula.sh "$VERSION" "$CLI_SHA" "$MCP_SHA" /tmp/buttonheist-final.rb
 
           # Push to tap repo
           TAP_REPO="$BUTTONHEIST_TAP_REPO"

@@ -13,16 +13,6 @@ Download the archive from the matching GitHub release, verify it against
 `checksums.txt`, and extract it into your project as `TheInsideJob/`. Pin the
 release URL and checksum in your dependency setup so CI uses the same binaries.
 
-Homebrew also installs the bundle with the CLI at:
-
-```sh
-$(brew --prefix buttonheist)/libexec/TheInsideJob
-```
-
-Copy that directory into your project's dependency directory before generating
-the project. A direct reference to Homebrew's active version changes when someone
-runs `brew upgrade`; it does not pin your app's dependency.
-
 ## Tuist integration
 
 Add every XCFramework under `TheInsideJob/XCFrameworks/` as an optional dependency:

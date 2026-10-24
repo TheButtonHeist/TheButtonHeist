@@ -10,10 +10,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/release-contract.sh"
 
 usage() {
-    echo "Usage: $0 <version> <cli-sha256> <mcp-sha256> <insidejob-sha256> [output]"
+    echo "Usage: $0 <version> <cli-sha256> <mcp-sha256> [output]"
 }
 
-if [[ $# -lt 4 || $# -gt 5 ]]; then
+if [[ $# -lt 3 || $# -gt 4 ]]; then
     usage
     exit 2
 fi
@@ -21,15 +21,12 @@ fi
 VERSION="$1"
 CLI_SHA="$2"
 MCP_SHA="$3"
-INSIDEJOB_SHA="$4"
-OUTPUT="${5:-}"
+OUTPUT="${4:-}"
 TEMPLATE="$REPO_ROOT/$BUTTONHEIST_FORMULA_TEMPLATE"
 CLI_URL="$(buttonheist_release_url "$VERSION")/$(buttonheist_cli_archive_name "$VERSION")"
 MCP_URL="$(buttonheist_release_url "$VERSION")/$(buttonheist_mcp_archive_name "$VERSION")"
 CLI_TEMPLATE_URL="$(buttonheist_release_url '#{version}')/$(buttonheist_cli_archive_name '#{version}')"
 MCP_TEMPLATE_URL="$(buttonheist_release_url '#{version}')/$(buttonheist_mcp_archive_name '#{version}')"
-INSIDEJOB_URL="$(buttonheist_release_url "$VERSION")/$(buttonheist_insidejob_archive_name "$VERSION")"
-INSIDEJOB_TEMPLATE_URL="$(buttonheist_release_url '#{version}')/$(buttonheist_insidejob_archive_name '#{version}')"
 
 RELEASE_VERSION_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
 SHA256_REGEX='^[0-9a-f]{64}$'
@@ -46,10 +43,6 @@ if ! [[ "$MCP_SHA" =~ $SHA256_REGEX ]]; then
     echo "Error: MCP checksum must be a lowercase SHA-256 hex digest"
     exit 1
 fi
-if ! [[ "$INSIDEJOB_SHA" =~ $SHA256_REGEX ]]; then
-    echo "Error: TheInsideJob checksum must be a lowercase SHA-256 hex digest"
-    exit 1
-fi
 if [[ ! -f "$TEMPLATE" ]]; then
     echo "Error: formula template not found: $BUTTONHEIST_FORMULA_TEMPLATE"
     exit 1
@@ -62,13 +55,10 @@ awk \
     -v version="$VERSION" \
     -v cli_sha="$CLI_SHA" \
     -v mcp_sha="$MCP_SHA" \
-    -v insidejob_sha="$INSIDEJOB_SHA" \
     -v cli_url="$CLI_URL" \
     -v mcp_url="$MCP_URL" \
-    -v insidejob_url="$INSIDEJOB_URL" \
     -v cli_template_url="$CLI_TEMPLATE_URL" \
-    -v mcp_template_url="$MCP_TEMPLATE_URL" \
-    -v insidejob_template_url="$INSIDEJOB_TEMPLATE_URL" '
+    -v mcp_template_url="$MCP_TEMPLATE_URL" '
     function fail(message) {
         print "Error: " message > "/dev/stderr"
         failed = 1
@@ -86,19 +76,14 @@ awk \
         if (url_value == mcp_template_url || url_value == mcp_url) {
             return "mcp"
         }
-        if (url_value == insidejob_template_url || url_value == insidejob_url) {
-            return "insidejob"
-        }
         return ""
     }
     BEGIN {
         version_count = 0
         cli_url_count = 0
         mcp_url_count = 0
-        insidejob_url_count = 0
         cli_sha_count = 0
         mcp_sha_count = 0
-        insidejob_sha_count = 0
         pending_sha_kind = ""
         failed = 0
     }
@@ -117,9 +102,6 @@ awk \
         } else if (current_url_kind == "mcp") {
             sub(/url "[^"]+"/, "url \"" mcp_url "\"")
             mcp_url_count += 1
-        } else if (current_url_kind == "insidejob") {
-            sub(/url "[^"]+"/, "url \"" insidejob_url "\"")
-            insidejob_url_count += 1
         } else {
             fail("formula url does not match release contract: " formula_url_value($0))
         }
@@ -132,9 +114,6 @@ awk \
         } else if (pending_sha_kind == "mcp") {
             sub(/sha256 "[^"]+"/, "sha256 \"" mcp_sha "\"")
             mcp_sha_count += 1
-        } else if (pending_sha_kind == "insidejob") {
-            sub(/sha256 "[^"]+"/, "sha256 \"" insidejob_sha "\"")
-            insidejob_sha_count += 1
         } else {
             fail("formula sha256 is not bound to a known archive url")
         }
@@ -167,10 +146,6 @@ awk \
         }
         if (mcp_sha_count != 1) {
             print "Error: expected exactly one MCP formula sha256 line, found " mcp_sha_count > "/dev/stderr"
-            exit 1
-        }
-        if (insidejob_url_count != 1 || insidejob_sha_count != 1) {
-            print "Error: expected exactly one TheInsideJob URL and checksum" > "/dev/stderr"
             exit 1
         }
     }
