@@ -16,7 +16,7 @@ CI builds two small consumer apps:
 - [SourceConsumer](../tests/fixtures/insidejob-source-consumer/Project.swift)
   compiles the current checkout through the `TheInsideJob` Swift package product.
 - [BinaryConsumer](../tests/fixtures/insidejob-binary-consumer/Project.swift)
-  uses only the prebuilt zip and its integration script.
+  uses only the prebuilt zip and Debug-only build settings.
 
 Neither app imports TheInsideJob or calls its startup API. One shared check,
 `scripts/check-insidejob-integration.py`, builds both apps in Debug and Release
@@ -24,9 +24,9 @@ for devices and simulators. Simulator Debug must start automatically and return
 the app's accessibility tree through the matching CLI. Simulator Release must
 run without a server listener.
 
-The check also verifies that the prebuilt framework is dynamic, weak-linked,
-and contains its resources. Its only dynamic dependencies must be Apple libraries.
-Release must exclude the framework and its resources. Source Release
+The check also verifies that the prebuilt framework is dynamic and contains its
+resources. Its only dynamic dependencies must be Apple libraries. Release and a
+custom Staging configuration must exclude the runtime from linking and embedding. Source Release
 must exclude the Debug loader symbols.
 
 The hosted CI lane runs these checks before simulator cleanup. Release CI

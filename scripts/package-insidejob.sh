@@ -58,9 +58,6 @@ xcodebuild -create-xcframework \
     -debug-symbols "$PRODUCTS/Debug-iphonesimulator/TheInsideJob.framework.dSYM" \
     -output "$BUNDLE"
 
-mkdir -p "$BUNDLE/Scripts"
-
-cp scripts/integrate-insidejob.sh "$BUNDLE/Scripts/"
 cp docs/PREBUILT-IOS.md "$BUNDLE/README.md"
 mkdir -p "$BUNDLE/Licenses"
 cp LICENSE "$BUNDLE/Licenses/ButtonHeist.txt"

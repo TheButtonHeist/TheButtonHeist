@@ -70,10 +70,13 @@ def verify_consumer(integration: str, archive: Path, cli: Path, simulator: str, 
              str(consumer / f"{target}.xcodeproj/project.pbxproj")])
 
         try:
-            for platform, configuration in (
+            builds = [
                 ("iphoneos", "Debug"), ("iphoneos", "Release"),
                 ("iphonesimulator", "Debug"), ("iphonesimulator", "Release"),
-            ):
+            ]
+            if integration == "binary":
+                builds.append(("iphonesimulator", "Staging"))
+            for platform, configuration in builds:
                 destination = ("generic/platform=iOS" if platform == "iphoneos"
                                else f"platform=iOS Simulator,id={simulator}")
                 run(["xcodebuild", "-project", str(consumer / f"{target}.xcodeproj"),
@@ -84,14 +87,11 @@ def verify_consumer(integration: str, archive: Path, cli: Path, simulator: str, 
                 executables = [app / target, *app.glob("*.dylib")]
                 framework_names = {framework.stem for framework in frameworks}
                 for executable in executables:
-                    load_command = ""
                     for line in subprocess.check_output(["otool", "-l", str(executable)], text=True).splitlines():
                         fields = line.split()
-                        if fields[:1] == ["cmd"]:
-                            load_command = fields[1]
-                        elif fields[:1] == ["name"] and load_command == "LC_LOAD_DYLIB":
-                            if Path(fields[1]).parent.stem in framework_names:
-                                raise RuntimeError(f"Runtime must be weak-linked: {fields[1]}")
+                        if (configuration != "Debug" and fields[:1] == ["name"]
+                                and Path(fields[1]).parent.stem in framework_names):
+                            raise RuntimeError(f"{configuration} app links the Debug runtime: {fields[1]}")
                 for framework in frameworks:
                     embedded = app / "Frameworks" / f"{framework.stem}.framework"
                     if embedded.exists() != (configuration == "Debug"):

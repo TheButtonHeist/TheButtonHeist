@@ -25,7 +25,7 @@ class Theinsidejob < Formula
         ditto "#{opt_libexec}/TheInsideJob.xcframework" ./TheInsideJob.xcframework
 
       Use the same version of the Button Heist CLI.
-      Add the copied bundle to your app with its integration script.
+      Add the copied framework to your app in Debug only.
       Installation: https://github.com/TheButtonHeist/TheButtonHeist/blob/v#{version}/docs/PREBUILT-IOS.md
     EOS
   end
@@ -34,7 +34,6 @@ class Theinsidejob < Formula
     runtime = libexec/"TheInsideJob.xcframework"
     assert_equal version.to_s, (runtime/"VERSION").read.strip
     assert_predicate runtime/"Info.plist", :file?
-    assert_predicate runtime/"Scripts/integrate-insidejob.sh", :executable?
     assert_predicate runtime/"XCODE_VERSION", :file?
     assert_predicate runtime/"Licenses/ButtonHeist.txt", :file?
   end

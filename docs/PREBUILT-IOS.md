@@ -4,7 +4,7 @@ Choose one runtime for your app:
 
 | Install path | App build | Release behavior |
 |---|---|---|
-| Prebuilt XCFramework | Links one compiled dynamic framework | The integration script removes it outside `Debug`. |
+| Prebuilt XCFramework | Links one compiled dynamic framework | Build settings exclude it outside `Debug`. |
 | Swift package | Compiles the runtime sources | Release compilation excludes the server through `#if DEBUG`. |
 
 Both paths require iOS 16+. The runtime and CLI must use exactly the same release.
@@ -46,8 +46,7 @@ ditto -x -k "theinsidejob-$VERSION.zip" .
 ```
 
 Both paths provide `TheInsideJob.xcframework`. It contains device and simulator
-slices, statically linked dependencies, resources, symbols, licenses, and the
-integration script. `VERSION` records the release. `XCODE_VERSION` records its compiler.
+slices, statically linked dependencies, resources, symbols, and licenses. `VERSION` records the release. `XCODE_VERSION` records its compiler.
 
 Pin the release and its SHA-256 checksum in your app's dependency setup.
 
@@ -56,28 +55,29 @@ Pin the release and its SHA-256 checksum in your app's dependency setup.
 Merge these arguments into your app target:
 
 ```swift
-scripts: [
-    .post(
-        path: "TheInsideJob.xcframework/Scripts/integrate-insidejob.sh",
-        name: "Integrate TheInsideJob",
-        basedOnDependencyAnalysis: false
-    ),
-],
 dependencies: [
-    .xcframework(path: "TheInsideJob.xcframework", status: .optional),
+    .xcframework(path: "TheInsideJob.xcframework"),
 ],
-settings: .settings(base: ["ENABLE_USER_SCRIPT_SANDBOXING": "NO"])
+settings: .settings(
+    base: ["EXCLUDED_SOURCE_FILE_NAMES": "$(inherited) TheInsideJob.*framework"],
+    configurations: [
+        .debug(name: "Debug", settings: [
+            "INCLUDED_SOURCE_FILE_NAMES": "$(inherited) TheInsideJob.*framework",
+        ]),
+        .release(name: "Release"),
+    ]
+)
 ```
 
-Keep the integration script last, after framework embedding. Use `.optional`
-so Release can run without the framework.
+These settings exclude the framework by default. The `Debug` configuration
+includes it through `INCLUDED_SOURCE_FILE_NAMES`. Keep your other configurations
+and existing exclusion patterns when you merge these settings.
 
 Generate the project with `tuist generate --no-open`. Build and run your app in
 `Debug`. The runtime starts automatically. No Swift import or startup call is required.
 
-The script removes `TheInsideJob.framework`, including its resources, from every
-other build configuration. For custom debug configurations, add their names to
-the script's configuration check. The default check accepts only `Debug`.
+Other configurations exclude the runtime from linking and embedding. For custom
+debug configurations, add the same `INCLUDED_SOURCE_FILE_NAMES` setting.
 
 [Complete prebuilt app](../tests/fixtures/insidejob-binary-consumer/Project.swift)
 
@@ -124,7 +124,7 @@ uses a local checkout so CI compiles the current commit.
 
 For a prebuilt install, verify that the final app archive excludes
 `TheInsideJob.framework`. The host's `#if DEBUG` cannot disable code
-inside a precompiled Debug binary. The final build phase removes that framework.
+inside a precompiled Debug binary. The build settings exclude that framework.
 
 For a source install, build the package in Release with your app. The package's
 compile conditions exclude the server.
@@ -133,7 +133,5 @@ Both paths use the same runtime. Connection instructions are in
 [API configuration](API.md#configuration) and
 [USB connectivity](USB_DEVICE_CONNECTIVITY.md).
 
-The prebuilt path uses
-[Reveal's integration model](https://support.revealapp.com/article/39-integrating-reveal-via-linking).
 The prebuilt framework supports automatic loading. Use the source package
 when your app needs to import TheInsideJob's Swift API.

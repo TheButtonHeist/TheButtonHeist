@@ -43,8 +43,9 @@ through `#if DEBUG`.
 The prebuilt iOS distribution is one dynamic `TheInsideJob.xcframework`.
 Its private dependencies link statically inside the runtime. Each platform slice
 contains its resource bundles; the XCFramework also contains symbols and licenses.
-Tuist consumers weak-link this framework. The final integration build phase
-removes it from every configuration except `Debug`. Runtime `#if DEBUG` is
+Tuist consumers exclude this framework by default with `EXCLUDED_SOURCE_FILE_NAMES`.
+Only Debug adds it through `INCLUDED_SOURCE_FILE_NAMES`, which overrides that exclusion.
+Other configurations exclude both linking and embedding. Runtime `#if DEBUG` is
 fixed when the framework is compiled, so the host build owns production exclusion.
 See [Install TheInsideJob](PREBUILT-IOS.md).
 
@@ -62,10 +63,10 @@ flowchart LR
     Framework --> Zip["theinsidejob-version.zip"]
     Zip --> GitHub["GitHub release"]
     Zip --> Brew["Optional Homebrew formula"]
-    GitHub --> App["App weak-links one framework"]
+    GitHub --> App["App includes framework only in Debug"]
     Brew --> App
     App --> Debug["Debug: auto-start"]
-    App --> Release["Other configurations: remove framework"]
+    App --> Release["Other configurations: exclude framework"]
 ```
 
 The source and prebuilt consumer apps share one CI conformance check. Both
