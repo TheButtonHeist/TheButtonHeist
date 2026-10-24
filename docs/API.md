@@ -130,11 +130,14 @@ it auto-starts through the ObjC load hook, reads environment and Info.plist
 configuration, starts a TLS TCP listener, and maintains event-driven
 accessibility captures.
 
-For Tuist apps that use a prebuilt runtime, each release includes a Debug bundle.
-Follow [Prebuilt iOS Runtime](PREBUILT-IOS.md)
-to weak-link its XCFrameworks and exclude them from every non-Debug build.
-The precompiled binary retains its Debug code regardless of the host's build
-configuration; production exclusion is owned by the integration build phase.
+Apps can compile the `TheInsideJob` Swift package product from source or use
+the prebuilt Debug bundle. Both paths retain automatic startup. See
+[Install TheInsideJob](PREBUILT-IOS.md) for both examples.
+
+Release compilation excludes the source package's server code through
+`#if DEBUG`. Prebuilt consumers weak-link its dynamic XCFrameworks. Their final
+integration build phase removes the bundle from every non-Debug configuration.
+The host's compile conditions cannot disable a precompiled Debug binary.
 
 ### Configuration
 

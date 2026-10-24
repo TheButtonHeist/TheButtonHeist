@@ -81,6 +81,22 @@ class CIWorkflowTests(unittest.TestCase):
             with self.subTest(job=name):
                 self.assertNotIn("git submodule update", blocks[name])
 
+    def test_app_integration_conformance_gates_ci_and_release(self) -> None:
+        hosted = job_blocks()["ios-hosted"]
+        release = (Path(__file__).resolve().parents[2] / ".github/workflows/release.yml").read_text()
+        for workflow in (hosted, release):
+            with self.subTest(workflow=workflow.splitlines()[0]):
+                self.assertIn("scripts/package-insidejob.sh", workflow)
+                self.assertIn("scripts/check-insidejob-integration.py", workflow)
+        self.assertLess(
+            hosted.index("scripts/check-insidejob-integration.py"),
+            hosted.index("name: Delete dedicated iOS simulator"),
+        )
+        self.assertLess(
+            release.index("scripts/check-insidejob-integration.py"),
+            release.index("gh release create"),
+        )
+
     def test_xcode_jobs_use_the_canonical_project_generator(self) -> None:
         blocks = job_blocks()
         for name in (

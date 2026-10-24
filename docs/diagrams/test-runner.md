@@ -93,7 +93,7 @@ flowchart LR
     PR["Pull request SHA"] --> Contracts["Release contracts"]
     PR --> Mac["macOS + CLI + MCP + plan compiler"]
     PR --> Core["Deterministic iOS core + demo smoke"]
-    PR --> Hosted["Hosted behavior canaries"]
+    PR --> Hosted["Hosted behavior canaries<br/>Source and prebuilt app conformance"]
     Contracts --> Merge{"All required lanes green"}
     Mac --> Merge
     Core --> Merge

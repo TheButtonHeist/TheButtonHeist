@@ -1,4 +1,5 @@
 #if canImport(UIKit)
+#if DEBUG
 import UIKit
 
 import TheScore
@@ -34,4 +35,5 @@ extension InterfaceTree {
     }
 }
 
+#endif // DEBUG
 #endif // canImport(UIKit)

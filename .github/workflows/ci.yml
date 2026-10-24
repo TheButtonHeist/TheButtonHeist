@@ -236,7 +236,7 @@ jobs:
     needs: ios-logic
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: macos-26
-    timeout-minutes: 80
+    timeout-minutes: 105
     env:
       BUTTONHEIST_RESULTS_MODE: failures
       BUTTONHEIST_TEST_ARTIFACTS_DIR: ${{ github.workspace }}/ci-artifacts/test-runs
@@ -297,6 +297,16 @@ jobs:
             --sim-udid "$SIM_UDID" \
             --app "$APP"
           echo "IOS_DEMO_RUN_END=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Check source and prebuilt app integration
+        timeout-minutes: 25
+        run: |
+          source scripts/release-contract.sh
+          VERSION=$(buttonheist_code_version)
+          scripts/package-insidejob.sh "$RUNNER_TEMP/insidejob-dist"
+          scripts/check-insidejob-integration.py \
+            "$RUNNER_TEMP/insidejob-dist/$(buttonheist_insidejob_archive_name "$VERSION")" \
+            ButtonHeistCLI/.build/debug/buttonheist "$SIM_UDID"
 
       - name: Delete dedicated iOS simulator
         if: always()

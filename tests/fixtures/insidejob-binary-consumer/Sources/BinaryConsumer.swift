@@ -4,7 +4,7 @@ import SwiftUI
 struct BinaryConsumer: App {
     var body: some Scene {
         WindowGroup {
-            Text("Prebuilt runtime consumer")
+            Text("InsideJob integration consumer")
         }
     }
 }

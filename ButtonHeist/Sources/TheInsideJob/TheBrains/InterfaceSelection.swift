@@ -1,4 +1,5 @@
 #if canImport(UIKit)
+#if DEBUG
 import Foundation
 
 import ThePlans
@@ -135,4 +136,5 @@ private func subtreeSummary(_ kind: String, fields: [(String, String?)], flags: 
         .joined(separator: " ")
 }
 
-#endif
+#endif // DEBUG
+#endif // canImport(UIKit)

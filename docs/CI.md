@@ -9,6 +9,29 @@ the `buttonheist` CLI/MCP build must be the same release. The wire handshake
 compares versions for exact equality and rejects mismatches, so pin the CLI to
 the release your app embeds rather than installing "latest" in CI.
 
+## App integration conformance
+
+CI builds two small consumer apps:
+
+- [SourceConsumer](../tests/fixtures/insidejob-source-consumer/Project.swift)
+  compiles the current checkout through the `TheInsideJob` Swift package product.
+- [BinaryConsumer](../tests/fixtures/insidejob-binary-consumer/Project.swift)
+  uses only the prebuilt zip and its integration script.
+
+Neither app imports TheInsideJob or calls its startup API. One shared check,
+`scripts/check-insidejob-integration.py`, builds both apps in Debug and Release
+for devices and simulators. Simulator Debug must start automatically and return
+the app's accessibility tree through the matching CLI. Simulator Release must
+run without a server listener.
+
+The check also verifies that prebuilt frameworks are dynamic and weak-linked.
+Release must exclude every distributed framework and resource. Source Release
+must exclude the Debug loader symbols.
+
+The hosted CI lane runs these checks before simulator cleanup. Release CI
+repeats them before publication. Device builds use unsigned apps. Physical-device
+execution remains a separate check.
+
 ## Result artifact contract
 
 CI result capture uses the repository's existing wrapper, collector, and

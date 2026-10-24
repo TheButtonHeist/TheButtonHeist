@@ -17,7 +17,7 @@ permissions:
 jobs:
   build-and-release:
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 75
     env:
       HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
 
@@ -135,11 +135,11 @@ jobs:
       - name: Package prebuilt Debug iOS runtime
         run: scripts/package-insidejob.sh dist
 
-      - name: Smoke prebuilt runtime in an external Tuist app
+      - name: Check source and prebuilt app integration
         run: |
           source scripts/release-contract.sh
           VERSION="${{ steps.version.outputs.version }}"
-          scripts/smoke-insidejob-bundle.py \
+          scripts/check-insidejob-integration.py \
             "dist/$(buttonheist_insidejob_archive_name "$VERSION")" \
             ButtonHeistCLI/.build/buttonheist "$SIM_UDID"
 

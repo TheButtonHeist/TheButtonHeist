@@ -33,7 +33,12 @@ the same pull request.
 
 ## Product Contracts
 
-### Prebuilt iOS Integration
+### iOS Integration
+
+The source distribution remains the `TheInsideJob` Swift package product.
+Consumers compile it with their app. Its Objective-C loader starts the Debug
+runtime automatically. Release compilation excludes the server and loader
+through `#if DEBUG`.
 
 The prebuilt iOS distribution packages the Debug runtime, its binary
 dependencies, resources, and symbols under one release version. Tuist consumers
@@ -41,7 +46,16 @@ weak-link the XCFrameworks. The final integration build phase copies Debug
 resources and removes all distributed frameworks and resources from every other
 configuration. Runtime `#if DEBUG` is decided when the framework is compiled,
 so the host build owns production exclusion. See
-[Prebuilt iOS Runtime](PREBUILT-IOS.md).
+[Install TheInsideJob](PREBUILT-IOS.md).
+
+The prebuilt frameworks are dynamic libraries packaged as XCFrameworks for
+devices and simulators. The integration script can remove them from the app
+bundle. A prebuilt static library merges into the app executable and cannot
+use this removal step. The source package retains automatic linkage selection.
+
+The source and prebuilt consumer apps share one CI conformance check. Both
+verify automatic Debug startup and Release exclusion against the current
+release version. See [App integration conformance](CI.md#app-integration-conformance).
 
 ### Strings Only at Edges
 
