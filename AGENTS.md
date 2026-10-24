@@ -586,17 +586,27 @@ The contract is locked by `SynthesisDeterminismTests` (property test across 200+
 
 There is one version: `buttonHeistVersion` in `ButtonHeist/Sources/TheScore/Wire/Messages.swift`. It uses SemVer (`MAJOR.MINOR.PATCH`), and CLI, MCP, and the iOS server all read it via TheScore. There is no separate "wire protocol version" — the handshake compares the server's and the client's `buttonHeistVersion` for exact equality and rejects on any mismatch. Inside (iOS server) and outside (CLI/MCP) must always be the same release; wire-format changes do not get their own version bump.
 
-`buttonHeistVersion` is bumped only by `scripts/release.sh`. Commits between releases are not releases — the version constant stays put. Treat any temptation to bump the version mid-feature as a sign you're working around the release flow rather than with it. From a clean `main`, the script validates and bumps the source version, builds CLI and MCP, commits and pushes the release source, waits for CI on that exact commit, then tags it. Pushing the tag triggers `.github/workflows/release.yml`, which builds the release artifacts, creates the GitHub release, and updates the Homebrew tap. `scripts/release-readiness.sh` owns optional local preflight; exact-commit main CI is the release gate.
+`scripts/bump-version.sh` prepares the canonical version change. From a clean `main` at `origin/main`, `scripts/release.sh` requires a GitHub-verified commit signature and the existing successful exact-commit main CI suite. If the current version is already published, it runs the bump script for the next patch and stops. Explicit versions, `--minor`, and `--major` also prepare a bump and stop. Merge that change as a signed commit and let normal main CI pass before running the release script again. Release preparation never commits or pushes source changes.
+
+When main has an unreleased version, `release.sh` tags that exact admitted SHA. The tag workflow rechecks its signature and existing CI, then builds and verifies the release artifacts. It does not trigger another source CI run. Publication uploads a draft, verifies the uploaded files, and publishes it before updating both Homebrew formulas in one commit. Retries reuse published assets; failures preserve the tag and published release. `scripts/release-readiness.sh` owns optional local preflight.
 
 ```bash
-./scripts/release.sh               # Patch bump: 0.6.28 -> 0.6.29
-./scripts/release.sh --minor       # Minor bump: 0.6.29 -> 0.7.0
-./scripts/release.sh --major       # Major bump: 0.7.0 -> 1.0.0
-./scripts/release.sh 0.7.1         # Explicit version
-./scripts/release.sh --tag-current # Publish an already-bumped source version
+./scripts/release.sh               # Publish unreleased main, or prepare the next patch
+./scripts/release.sh --minor       # Prepare the next minor version for review
+./scripts/release.sh --major       # Prepare the next major version for review
+./scripts/release.sh 0.7.1         # Prepare this version, or publish if main already has it
+./scripts/release.sh --tag-current # Publish current main; never prepare a bump
 ./scripts/release.sh --dry-run     # Preview only
 ./scripts/release-readiness.sh     # Run optional local preflight
 ```
+
+To retry publication, use the command printed after a workflow failure. For example:
+
+```bash
+gh workflow run release.yml --repo TheButtonHeist/TheButtonHeist --ref v0.7.1 -f tag=v0.7.1
+```
+
+Do not delete or move a release tag to recover from a publishing failure.
 
 ## Callback Isolation Discipline
 

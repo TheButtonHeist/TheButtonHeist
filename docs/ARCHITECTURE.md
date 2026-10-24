@@ -33,6 +33,59 @@ the same pull request.
 
 ## Product Contracts
 
+### iOS Integration
+
+The source distribution remains the `TheInsideJob` Swift package product.
+Consumers compile it with their app. Its Objective-C loader starts the Debug
+runtime automatically. Release compilation excludes the server and loader
+through `#if DEBUG`.
+
+The prebuilt iOS distribution is one dynamic `TheInsideJob.xcframework`.
+Its private dependencies link statically inside the runtime. Each platform slice
+contains its resource bundles; the XCFramework also contains symbols and licenses.
+Tuist consumers exclude this framework by default with `EXCLUDED_SOURCE_FILE_NAMES`.
+Only Debug adds it through `INCLUDED_SOURCE_FILE_NAMES`, which overrides that exclusion.
+Other configurations exclude both linking and embedding. Runtime `#if DEBUG` is
+fixed when the framework is compiled, so the host build owns production exclusion.
+See [Install TheInsideJob](PREBUILT-IOS.md).
+
+Release CI packages the same zip for GitHub and the optional Homebrew
+`theinsidejob` formula. The normal `buttonheist` formula installs the CLI/MCP
+without the iOS runtime. The source package retains automatic linkage selection.
+
+Local release readiness verifies both Homebrew formulas. After publication,
+`release.sh` upgrades the formulas already installed and verifies their versions.
+
+Release admission requires a GitHub-verified signature and the existing green
+main CI suite for the exact source commit. If a version bump is needed,
+`release.sh` prepares it with `bump-version.sh` and stops for review and merge.
+Otherwise it tags the admitted main SHA. Release builds use that exact commit
+and reuse its CI result.
+
+`publish-release.py` uploads a draft and verifies the uploaded checksums before
+publication. It then updates both Homebrew formulas through one Git commit and
+one non-forced branch update. Retries use published assets and leave matching
+formulas unchanged. Failures preserve published files and tags.
+
+```mermaid
+flowchart LR
+    Main["Signed main commit + existing green CI"] --> Sources["Runtime + private dependencies"]
+    Sources --> Package["Debug distribution build"]
+    Package --> Framework["TheInsideJob.xcframework<br/>device + simulator + resources + symbols"]
+    Framework --> Zip["theinsidejob-version.zip"]
+    Zip --> Draft["Draft: upload and verify"]
+    Draft --> GitHub["Published GitHub release"]
+    GitHub --> Brew["Both Homebrew formulas in one commit"]
+    GitHub --> App["App includes framework only in Debug"]
+    Brew --> App
+    App --> Debug["Debug: auto-start"]
+    App --> Release["Other configurations: exclude framework"]
+```
+
+The source and prebuilt consumer apps share one CI conformance check. Both
+verify automatic Debug startup and Release exclusion against the current
+release version. See [App integration conformance](CI.md#app-integration-conformance).
+
 ### Strings Only at Edges
 
 There is one product command contract: `TheFence.Command`. CLI arguments, MCP

@@ -4,14 +4,22 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-GUARD="$REPO_ROOT/scripts/require-successful-ci-for-commit.sh"
+GUARD="$REPO_ROOT/scripts/require-release-commit.sh"
 COMMIT="0123456789abcdef0123456789abcdef01234567"
+GH_VERIFICATION_JSON=$(jq -cn --arg sha "$COMMIT" \
+    '{sha: $sha, commit: {verification: {verified: true, reason: "valid"}}}')
+export GH_VERIFICATION_JSON
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 cat > "$TMP_DIR/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${1:-}" == "api" ]]; then
+    [[ "${GH_SIGNATURE_API_OK:-true}" == true ]] || exit 1
+    printf '%s\n' "$GH_VERIFICATION_JSON"
+    exit 0
+fi
 if [[ "${1:-} ${2:-}" == "run list" ]]; then
     printf '%s\n' "$GH_RUNS_JSON"
     exit 0
@@ -102,6 +110,19 @@ successful_manifest=$(jq -cn --arg sha "$COMMIT" '{
 }')
 
 expect_success "complete exact-SHA aggregate" "$successful_run" "$successful_suite" "$successful_manifest"
+
+for reason in unsigned bad_email expired_key unknown_key; do
+    GH_VERIFICATION_JSON=$(jq -cn --arg sha "$COMMIT" --arg reason "$reason" \
+        '{sha: $sha, commit: {verification: {verified: false, reason: $reason}}}') \
+        expect_failure "signature $reason" "$successful_run" "$successful_suite" \
+            "$successful_manifest" "must have a GitHub-verified commit signature"
+done
+GH_VERIFICATION_JSON=$(jq -c '.sha = "wrong-commit"' <<< "$GH_VERIFICATION_JSON") \
+    expect_failure "signature from wrong SHA" "$successful_run" "$successful_suite" \
+        "$successful_manifest" "must have a GitHub-verified commit signature"
+GH_SIGNATURE_API_OK=false \
+    expect_failure "signature lookup failure" "$successful_run" "$successful_suite" \
+        "$successful_manifest" "must have a GitHub-verified commit signature"
 
 for conclusion in failure cancelled timed_out action_required startup_failure stale; do
     rejected_manifest=$(jq -c --arg conclusion "$conclusion" \
@@ -204,4 +225,4 @@ pull_request_run=$(jq -cn --arg sha "$COMMIT" '[{
 }]')
 expect_failure "pull request result" "$pull_request_run" "$successful_suite" "$successful_manifest"
 
-echo "PASS: release admission requires the successful exact-SHA aggregate"
+echo "PASS: release admission requires a verified signature and the successful exact-SHA aggregate"

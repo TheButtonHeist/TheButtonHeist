@@ -14,26 +14,27 @@ permissions:
   actions: read
   contents: write
 
+concurrency:
+  group: release-publication
+  cancel-in-progress: false
+
 jobs:
   build-and-release:
     runs-on: macos-26
-    timeout-minutes: 45
-    env:
-      HAS_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
-
+    timeout-minutes: 75
     steps:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
-      - name: Verify CI passed on exact release commit
+      - name: Verify signature and CI on exact release commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG_REF="${{ github.event.inputs.tag || github.ref_name }}"
           TAG_SHA=$(git rev-parse "${TAG_REF}^{}")
-          scripts/require-successful-ci-for-commit.sh \
+          scripts/require-release-commit.sh \
             --repo "${{ github.repository }}" \
             "$TAG_SHA" \
             "tagged release commit"
@@ -132,6 +133,17 @@ jobs:
           echo "SIM_UDID=$SIM_UDID" >> "$GITHUB_ENV"
           echo "Built: $APP_PATH (${APP_SIZE_KB}KB)"
 
+      - name: Package prebuilt Debug iOS runtime
+        run: scripts/package-insidejob.sh dist
+
+      - name: Check source and prebuilt app integration
+        run: |
+          source scripts/release-contract.sh
+          VERSION="${{ steps.version.outputs.version }}"
+          scripts/check-insidejob-integration.py \
+            "dist/$(buttonheist_insidejob_archive_name "$VERSION")" \
+            ButtonHeistCLI/.build/buttonheist "$SIM_UDID"
+
       - name: Package binaries and scripts
         run: |
           source scripts/release-contract.sh
@@ -188,9 +200,10 @@ jobs:
             --expected-version "$VERSION" \
             --require-installed
 
-      - name: Create GitHub Release
+      - name: Publish release and Homebrew formulas
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           source scripts/release-contract.sh
           VERSION="${{ steps.version.outputs.version }}"
@@ -203,43 +216,14 @@ jobs:
           cat > "$RELEASE_NOTES" <<EOF
           Parser contract:
           - AccessibilitySnapshotBH: ${PARSER_TAG} (${PARSER_SHA})
+
+          Prebuilt Debug iOS runtime: $(buttonheist_insidejob_archive_name "$VERSION")
+          Optional Homebrew install: brew install TheButtonHeist/tap/theinsidejob
+          One TheInsideJob.xcframework with device and simulator slices, resources, and debug symbols (iOS 16+).
+          Integration: https://github.com/${BUTTONHEIST_GITHUB_REPO}/blob/v${VERSION}/docs/PREBUILT-IOS.md
           EOF
-          gh release create "v${VERSION}" \
-            --title "Button Heist ${VERSION}" \
-            --generate-notes \
-            --notes-file "$RELEASE_NOTES" \
-            --verify-tag \
-            "dist/$(buttonheist_cli_archive_name "$VERSION")" \
-            "dist/$(buttonheist_mcp_archive_name "$VERSION")" \
-            "dist/$(buttonheist_demo_archive_name "$VERSION")" \
-            dist/checksums.txt
+          python3 scripts/publish-release.py "$VERSION" dist "$RELEASE_NOTES"
 
-      - name: Update Homebrew tap
-        if: env.HAS_TAP_TOKEN == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          source scripts/release-contract.sh
-          VERSION="${{ steps.version.outputs.version }}"
-          CLI_ARCHIVE=$(buttonheist_cli_archive_name "$VERSION")
-          MCP_ARCHIVE=$(buttonheist_mcp_archive_name "$VERSION")
-
-          # Extract checksums
-          CLI_SHA=$(grep -F "$CLI_ARCHIVE" dist/checksums.txt | awk '{print $1}')
-          MCP_SHA=$(grep -F "$MCP_ARCHIVE" dist/checksums.txt | awk '{print $1}')
-
-          # Generate formula from the checked-in template and release contract.
-          scripts/render-homebrew-formula.sh "$VERSION" "$CLI_SHA" "$MCP_SHA" /tmp/buttonheist-final.rb
-
-          # Push to tap repo
-          TAP_REPO="$BUTTONHEIST_TAP_REPO"
-          EXISTING_SHA=$(gh api "repos/${TAP_REPO}/contents/Formula/buttonheist.rb" --jq '.sha' 2>/dev/null || true)
-          SHA_ARG=()
-          if [[ -n "$EXISTING_SHA" ]]; then
-            SHA_ARG=(--field "sha=${EXISTING_SHA}")
-          fi
-          gh api "repos/${TAP_REPO}/contents/Formula/buttonheist.rb" \
-            --method PUT \
-            --field message="Update buttonheist to ${VERSION}" \
-            --field content="$(base64 -b 0 < /tmp/buttonheist-final.rb)" \
-            "${SHA_ARG[@]}"
+      - name: Delete release simulator
+        if: always() && env.SIM_NAME != ''
+        run: scripts/test-runner.py cleanup --simulator-name "$SIM_NAME"

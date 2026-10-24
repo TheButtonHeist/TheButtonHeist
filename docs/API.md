@@ -130,6 +130,15 @@ it auto-starts through the ObjC load hook, reads environment and Info.plist
 configuration, starts a TLS TCP listener, and maintains event-driven
 accessibility captures.
 
+Apps can compile the `TheInsideJob` Swift package product from source or use
+the prebuilt Debug bundle. Both paths retain automatic startup. See
+[Install TheInsideJob](PREBUILT-IOS.md) for both examples.
+
+Release compilation excludes the source package's server code through
+`#if DEBUG`. Prebuilt consumers include its dynamic XCFramework only in Debug.
+Build settings exclude it from linking and embedding in other configurations.
+The host's compile conditions cannot disable a precompiled Debug binary.
+
 ### Configuration
 
 Environment variables take precedence over Info.plist values.

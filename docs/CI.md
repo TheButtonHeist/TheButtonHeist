@@ -9,6 +9,30 @@ the `buttonheist` CLI/MCP build must be the same release. The wire handshake
 compares versions for exact equality and rejects mismatches, so pin the CLI to
 the release your app embeds rather than installing "latest" in CI.
 
+## App integration conformance
+
+CI builds two small consumer apps:
+
+- [SourceConsumer](../tests/fixtures/insidejob-source-consumer/Project.swift)
+  compiles the current checkout through the `TheInsideJob` Swift package product.
+- [BinaryConsumer](../tests/fixtures/insidejob-binary-consumer/Project.swift)
+  uses only the prebuilt zip and Debug-only build settings.
+
+Neither app imports TheInsideJob or calls its startup API. One shared check,
+`scripts/check-insidejob-integration.py`, builds both apps in Debug and Release
+for devices and simulators. Simulator Debug must start automatically and return
+the app's accessibility tree through the matching CLI. Simulator Release must
+run without a server listener.
+
+The check also verifies that the prebuilt framework is dynamic and contains its
+resources. Its only dynamic dependencies must be Apple libraries. Release and a
+custom Staging configuration must exclude the runtime from linking and embedding. Source Release
+must exclude the Debug loader symbols.
+
+The hosted CI lane runs these checks before simulator cleanup. Release CI
+repeats them before publication. Device builds use unsigned apps. Physical-device
+execution remains a separate check.
+
 ## Result artifact contract
 
 CI result capture uses the repository's existing wrapper, collector, and
@@ -147,7 +171,10 @@ CI budgets macOS capacity explicitly:
   lane, keeping macOS concurrency at three.
 - A final `exact-sha-suite` job records the commit, workflow revision, run ID,
   and every required suite conclusion in `buttonheist-exact-sha-suite`. Release
-  admission accepts only that successful aggregate and validates its manifest.
+  admission requires a GitHub-verified commit signature, accepts only that
+  successful aggregate, and validates its manifest. Tagging the same commit
+  reuses this record; it does not start another source CI run. Release packaging
+  still builds and verifies the artifacts from that exact SHA.
 - Successful jobs publish timing summaries. Recorded heist results and Xcode
   result bundles are retained only when a job fails; the release admission
   manifest is retained for every main run.
