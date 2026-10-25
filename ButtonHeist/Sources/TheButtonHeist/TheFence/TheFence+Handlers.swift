@@ -14,9 +14,9 @@ extension TheFence {
     }
 
     func handleGetInterface(_ request: GetInterfaceRequest, timeout: TimeInterval) async throws -> FenceResponse {
-        let interface = try await sendAndAwaitInterface(
-            .requestInterface(request.query),
-            timeout: timeout
+        let interface = try await captureInterface(
+            request.query,
+            timeout: HeistTimeout(validatingSeconds: timeout)
         )
         return .interface(interface, detail: request.detail)
     }

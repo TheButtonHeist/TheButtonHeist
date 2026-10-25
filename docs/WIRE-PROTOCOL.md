@@ -373,8 +373,11 @@ Canonical container roles are `none`, `semanticGroup`, `list`, `landmark`,
 checks; a roleless parser scroll container has role `none` and `scrollable=true`.
 Target resolution always walks the canonical delivered tree, including for
 `exists`, `missing`, and subtree queries.
-`InterfaceQuery` contains only optional `subtree`, `maxScrollsPerContainer`,
-and `maxScrollsPerDiscovery` fields. Filtering is expressed only by the
+`InterfaceQuery` contains optional `mode`, `subtree`, `maxScrollsPerContainer`,
+and `maxScrollsPerDiscovery` fields. Omitted `mode` selects `discovery`.
+`mode=current` refreshes the current viewport without discovery scrolling and
+rejects discovery limits. The graph can retain offscreen nodes without current
+screen-frame evidence. Filtering is expressed only by the
 canonical `AccessibilityTarget` in `subtree`; there is no separate interface
 matcher or top-level `checks` adapter.
 The string predicate fields may carry one StringMatch value or an array of

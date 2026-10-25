@@ -391,6 +391,61 @@ unprefixed name wins when it is valid.
 | `BH_SCROLL_SUBTREE_ELEMENT_BUDGET` | `300` | `0...1000` | Per-scroll-container public projection budget. |
 | `BH_TOTAL_NODE_BUDGET` | `5000` | `0...5000` | Whole-interface public projection budget. |
 
+## Swift client (macOS)
+
+Add the `ButtonHeist` Swift package product to the Mac app.
+Add `TheInsideJob` to the iOS app through one of the [runtime install paths](PREBUILT-IOS.md).
+Use the same product version on both sides.
+
+`import ButtonHeist` includes the authoring DSL. Import `TheScore` for named interface and result types.
+
+```swift
+import ButtonHeist
+import TheScore
+
+let session = try EnvironmentConfig.resolve(
+    deviceFilter: "localhost:27182",
+    token: token,
+    autoReconnect: false
+)
+
+try await ButtonHeist.withSession(session) { heist in
+    let before: Interface = try await heist.captureInterface()
+    let result: HeistResult = try await heist.run {
+        oneFingerTap(.label("Record"))
+        WaitFor(.exists(.label("Recorded")))
+    }
+    let after = try await heist.captureInterface()
+}
+```
+
+Replace the endpoint and token with the iOS app's connection values.
+The session connects once and disconnects after the closure exits, including after errors or cancellation.
+The closure receives the existing `TheFence` owner. It requires no tooling SPI.
+The public operations use `ButtonHeistActor`; UI callers cross that actor through `await`.
+
+For one complete plan, use the scoped convenience:
+
+```swift
+let result = try await ButtonHeist.run(configuration: session) {
+    oneFingerTap(.label("Record"))
+    WaitFor(.exists(.label("Recorded")))
+}
+```
+
+Both forms also accept a prebuilt `HeistPlan`, a root `argument`, and a whole-plan `timeout`.
+Each call returns the original `HeistResult`, including step timing, outcome, and evidence.
+A completed failed heist returns `isFailure == true`. Admission, connection, protocol, and cancellation failures throw.
+The caller maps device execution timing to its own recording clock.
+
+`captureInterface()` refreshes the current viewport without discovery scrolling.
+The committed graph can retain offscreen nodes; those nodes have no current screen-frame evidence.
+For bounded discovery, pass `InterfaceQuery(maxScrollsPerContainer: 5, maxScrollsPerDiscovery: 20)`.
+Discovery can move the viewport before restoration. Use it before a video take.
+The CLI equivalent for current-view capture is `buttonheist get_interface --mode current`.
+
+If the Mac app uses App Sandbox, enable outgoing network connections for its client transport.
+
 ## TheFence
 
 **Import**: `import ButtonHeist`

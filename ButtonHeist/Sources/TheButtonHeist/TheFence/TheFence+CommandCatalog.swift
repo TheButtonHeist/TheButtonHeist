@@ -260,6 +260,7 @@ extension TheFence.Command {
                 parameters: [
                     FenceParameterBlocks.interfaceSubtree,
                     FenceParameters.interfaceDetail.spec,
+                    FenceParameters.interfaceMode.spec,
                     FenceParameters.maxScrollsPerContainer.spec,
                     FenceParameters.maxScrollsPerDiscovery.spec,
                 ],
@@ -426,6 +427,8 @@ extension TheFence.Command {
 
     private static let getInterfaceDescription = """
         Read the app accessibility hierarchy, optionally scoped to a subtree.
+        Use `mode=current` to refresh the current viewport without discovery scrolling.
+        The default `mode=discovery` explores scroll containers and restores the viewport.
 
         Build DSL targets from returned accessibility language: `.label("Pay")`,
         `.identifier("pay_button")`, `.value("Milk")`, `.element(.label("Pay"),

@@ -32,9 +32,11 @@ for platform in iphoneos iphonesimulator; do
         iphoneos) destination='generic/platform=iOS' ;;
         iphonesimulator) destination='generic/platform=iOS Simulator' ;;
     esac
+    # Tuist's generated resource bundles do not inherit package target deployment settings.
     xcodebuild -workspace ButtonHeist.xcworkspace -scheme TheInsideJob \
         -configuration Debug -destination "$destination" \
         -derivedDataPath "$STAGING/DerivedData" \
+        IPHONEOS_DEPLOYMENT_TARGET=16.0 \
         SKIP_INSTALL=NO \
         CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO \
         DEBUG_INFORMATION_FORMAT=dwarf-with-dsym \

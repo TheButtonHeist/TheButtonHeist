@@ -42,9 +42,9 @@
     },
     {
       "cliExposure" : "directCommand",
-      "description" : "Read the app accessibility hierarchy, optionally scoped to a subtree.\n\nBuild DSL targets from returned accessibility language: `.label(\"Pay\")`,\n`.identifier(\"pay_button\")`, `.value(\"Milk\")`, `.element(.label(\"Pay\"),\n.traits([.button]))`, or `.target(..., ordinal: n)` for duplicates.\nPass `subtree` a canonical accessibility target. Element target checks use\n`{ \"kind\": \"label|identifier|value|hint|customContent\", \"match\": ... }`,\n`{ \"kind\": \"traits|actions|rotors\", \"values\": [...] }`, or\n`{ \"kind\": \"exclude\", \"check\": { ... } }`.\nCustom actions use `{ \"custom\": \"Sub\" }`.\n`containerName` is for inspection and viewport/debug commands only; it is\nnot a semantic target or durable heist selector.\n`maxScrollsPerContainer` and `maxScrollsPerDiscovery` bound the command-owned\ninterface discovery pass; omit them to use Inside Job runtime defaults.",
+      "description" : "Read the app accessibility hierarchy, optionally scoped to a subtree.\nUse `mode=current` to refresh the current viewport without discovery scrolling.\nThe default `mode=discovery` explores scroll containers and restores the viewport.\n\nBuild DSL targets from returned accessibility language: `.label(\"Pay\")`,\n`.identifier(\"pay_button\")`, `.value(\"Milk\")`, `.element(.label(\"Pay\"),\n.traits([.button]))`, or `.target(..., ordinal: n)` for duplicates.\nPass `subtree` a canonical accessibility target. Element target checks use\n`{ \"kind\": \"label|identifier|value|hint|customContent\", \"match\": ... }`,\n`{ \"kind\": \"traits|actions|rotors\", \"values\": [...] }`, or\n`{ \"kind\": \"exclude\", \"check\": { ... } }`.\nCustom actions use `{ \"custom\": \"Sub\" }`.\n`containerName` is for inspection and viewport/debug commands only; it is\nnot a semantic target or durable heist selector.\n`maxScrollsPerContainer` and `maxScrollsPerDiscovery` bound the command-owned\ninterface discovery pass; omit them to use Inside Job runtime defaults.",
       "family" : "observation",
-      "inputSchemaSHA256" : "e20e6a12a40cdf38185b517a8dcf97c38fc1ef60933f1dfc66b798992dd5e40d",
+      "inputSchemaSHA256" : "8de5a2a8d6ce43b73181f3ae54f6220ec88ba21c535b7b1de53a59faa58b598d",
       "mcpAnnotations" : {
         "idempotentHint" : true,
         "readOnlyHint" : true

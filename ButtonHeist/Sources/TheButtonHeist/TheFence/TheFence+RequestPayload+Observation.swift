@@ -21,22 +21,22 @@ extension TheFence {
     }
 
     func makeGetInterfaceRequest(_ arguments: CommandArgumentEnvelope) throws -> GetInterfaceRequest {
+        let mode = try arguments.value(FenceParameters.interfaceMode, defaultFrom: Command.getInterface.descriptor)
+        let perContainer = try interfaceDiscoveryLimit(arguments, FenceParameters.maxScrollsPerContainer)
+        let perDiscovery = try interfaceDiscoveryLimit(arguments, FenceParameters.maxScrollsPerDiscovery)
+        let capture: InterfaceQuery.Capture
+        switch mode {
+        case .current:
+            guard perContainer == nil, perDiscovery == nil else {
+                throw FenceError.invalidRequest("current interface capture does not accept discovery limits")
+            }
+            capture = .current
+        case .discovery:
+            capture = .discovery(maxScrollsPerContainer: perContainer, maxScrollsPerDiscovery: perDiscovery)
+        }
         return GetInterfaceRequest(
-            detail: try arguments.value(
-                FenceParameters.interfaceDetail,
-                defaultFrom: Command.getInterface.descriptor
-            ),
-            query: InterfaceQuery(
-                subtree: try decodeInterfaceSubtreeTarget(arguments),
-                maxScrollsPerContainer: try interfaceDiscoveryLimit(
-                    arguments,
-                    FenceParameters.maxScrollsPerContainer
-                ),
-                maxScrollsPerDiscovery: try interfaceDiscoveryLimit(
-                    arguments,
-                    FenceParameters.maxScrollsPerDiscovery
-                )
-            )
+            detail: try arguments.value(FenceParameters.interfaceDetail, defaultFrom: Command.getInterface.descriptor),
+            query: InterfaceQuery(capture: capture, subtree: try decodeInterfaceSubtreeTarget(arguments))
         )
     }
 

@@ -113,7 +113,6 @@ build_fixture() {
 
     CLANG_MODULE_CACHE_PATH="$SWIFT_CACHE_PATH/clang" \
         swift build \
-        --quiet \
         --disable-sandbox \
         --cache-path "$SWIFT_CACHE_PATH/swiftpm" \
         --package-path "$fixture_dir" \
@@ -218,7 +217,7 @@ EOF
 negative_probe() {
     local probe_dir="$1"
     local target="$2"
-    local expected_diagnostic="$3"
+    local expected_pattern="$3"
     local failure="$4"
     local output
 
@@ -226,21 +225,21 @@ negative_probe() {
         [[ -z "$output" ]] || printf '%s\n' "$output" >&2
         fail "$failure"
     fi
-    if ! grep -Fq "$expected_diagnostic" <<< "$output"; then
+    if ! grep -Eq "$expected_pattern" <<< "$output"; then
         printf '%s\n' "$output" >&2
-        fail "$target failed without the expected diagnostic: $expected_diagnostic"
+        fail "$target failed without the expected diagnostic: $expected_pattern"
     fi
 }
 
 negative_probe \
     "$NEGATIVE_BUTTONHEIST_PROBE_DIR" \
     "ButtonHeistNegativeTheInsideJobImportProbe" \
-    "no such module 'TheInsideJob'" \
+    "(no such module|unable to resolve module dependency:) 'TheInsideJob'" \
     "ButtonHeist exposed disallowed import TheInsideJob"
 negative_probe \
     "$NEGATIVE_BUTTONHEIST_PROBE_DIR" \
     "ButtonHeistNegativeTestingImportProbe" \
-    "no such module 'ButtonHeistTesting'" \
+    "(no such module|unable to resolve module dependency:) 'ButtonHeistTesting'" \
     "ButtonHeist exposed disallowed import ButtonHeistTesting"
 negative_probe \
     "$NEGATIVE_BUTTONHEIST_PROBE_DIR" \
@@ -250,5 +249,5 @@ negative_probe \
 negative_probe \
     "$NEGATIVE_THEPLANS_PROBE_DIR" \
     "ThePlansNegativeTheScoreImportProbe" \
-    "no such module 'TheScore'" \
+    "(no such module|unable to resolve module dependency:) 'TheScore'" \
     "ThePlans exposed disallowed import TheScore"

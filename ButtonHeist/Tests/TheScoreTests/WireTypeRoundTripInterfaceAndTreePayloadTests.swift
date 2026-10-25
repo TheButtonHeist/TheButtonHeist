@@ -44,6 +44,18 @@ extension WireTypeRoundTripTests {
 
     // MARK: - InterfaceQuery
 
+    func testCurrentInterfaceQueryRoundTripsAndRejectsDiscoveryLimits() throws {
+        let query = InterfaceQuery(capture: .current, subtree: .label("Editor"))
+        let data = try encoder.encode(query)
+
+        XCTAssertEqual(try decoder.decode(InterfaceQuery.self, from: data), query)
+        XCTAssertEqual(try JSONProbe(data: data).string("mode"), "current")
+        XCTAssertThrowsError(try decoder.decode(
+            InterfaceQuery.self,
+            from: Data(#"{"mode":"current","maxScrollsPerDiscovery":2}"#.utf8)
+        ))
+    }
+
     func testInterfaceQueryDiscoveryLimitsRoundTrip() throws {
         let query = InterfaceQuery(maxScrollsPerContainer: 1, maxScrollsPerDiscovery: 2_000)
         let data = try encoder.encode(query)

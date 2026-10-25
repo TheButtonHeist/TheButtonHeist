@@ -10,6 +10,25 @@ import UIKit
 @MainActor
 extension TheBrainsScrollTests {
 
+    func testCurrentInterfaceCaptureNeverExploresTheViewport() async throws {
+        let fixture = try await explorationViewport()
+        defer { fixture.close() }
+        fixture.scrollView.contentInsetAdjustmentBehavior = .never
+        fixture.rootView.layoutIfNeeded()
+        let initialOffset = fixture.scrollView.contentOffset
+        let initialRequests = fixture.scrollView.requestedContentOffsets
+        publishVerticalOffsetObservations(from: fixture.scrollView)
+
+        let result = await brains.observeInterface(InterfaceQuery(capture: .current))
+
+        guard case .success(let interface) = result else {
+            return XCTFail("Expected current interface capture, got \(result)")
+        }
+        XCTAssertTrue(interface.projectedElements.contains { $0.semantics.assertable.label == "Origin" })
+        XCTAssertEqual(fixture.scrollView.requestedContentOffsets, initialRequests)
+        XCTAssertEqual(fixture.scrollView.contentOffset, initialOffset)
+    }
+
     func testOrdinalOnlyKnownTargetFailsBeforeViewportScan() async throws {
         let duplicate = makeElement(label: "Review PR", traits: .button)
         await installScreenWithOffViewportEntry(
