@@ -38,12 +38,10 @@ final class SemanticObservationLease<Value> {
         stream = nil
     }
 
-    deinit {
-        MainActor.assumeIsolated {
-            guard !isCancelled else { return }
-            if let stream {
-                release(stream)
-            }
+    isolated deinit {
+        guard !isCancelled else { return }
+        if let stream {
+            release(stream)
         }
     }
 }

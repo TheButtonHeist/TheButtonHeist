@@ -139,13 +139,12 @@ package enum HeistCompilerProcess {
         }
     }
 
-    package actor Runner {
+    package struct Runner: Sendable {
         package static let shared = Runner()
-
-        private var activeProcessGroups: Set<pid_t> = []
 
         package init() {}
 
+        @concurrent
         package func execute(
             _ command: Command,
             purpose: Purpose,
@@ -157,8 +156,6 @@ package enum HeistCompilerProcess {
             }
 
             let process = try spawn(command)
-            activeProcessGroups.insert(process.processGroup)
-            defer { activeProcessGroups.remove(process.processGroup) }
             processStarted?(process.pid)
 
             let stdoutDrain = OutputDrain(
@@ -358,7 +355,7 @@ package enum HeistCompilerProcess {
             return errno == EPERM
         }
 
-        nonisolated private func spawn(_ command: Command) throws -> SpawnedProcess {
+        private func spawn(_ command: Command) throws -> SpawnedProcess {
             let stdoutPipe = try makePipe()
             let stderrPipe: ProcessPipe
             do {
@@ -466,7 +463,7 @@ package enum HeistCompilerProcess {
             }
         }
 
-        nonisolated private func configure(
+        private func configure(
             _ actions: inout posix_spawn_file_actions_t?,
             stdoutPipe: ProcessPipe,
             stderrPipe: ProcessPipe
@@ -484,7 +481,7 @@ package enum HeistCompilerProcess {
             }
         }
 
-        nonisolated private func makePipe() throws -> ProcessPipe {
+        private func makePipe() throws -> ProcessPipe {
             var fileDescriptors = [Int32](repeating: -1, count: 2)
             guard pipe(&fileDescriptors) == 0 else {
                 throw LaunchError(operation: .pipeCreation, code: errno)
@@ -495,19 +492,19 @@ package enum HeistCompilerProcess {
             )
         }
 
-        nonisolated private func setNonblocking(_ fileDescriptor: Int32) throws {
+        private func setNonblocking(_ fileDescriptor: Int32) throws {
             let flags = fcntl(fileDescriptor, F_GETFL)
             guard flags >= 0, fcntl(fileDescriptor, F_SETFL, flags | O_NONBLOCK) == 0 else {
                 throw LaunchError(operation: .nonblockingPipeConfiguration, code: errno)
             }
         }
 
-        nonisolated private func closePipe(_ pipe: ProcessPipe) {
+        private func closePipe(_ pipe: ProcessPipe) {
             close(pipe.readFileDescriptor)
             close(pipe.writeFileDescriptor)
         }
 
-        nonisolated private func requirePOSIXSuccess(
+        private func requirePOSIXSuccess(
             _ result: Int32,
             operation: Operation
         ) throws {
@@ -516,7 +513,7 @@ package enum HeistCompilerProcess {
             }
         }
 
-        nonisolated private func withCStringArray<Result>(
+        private func withCStringArray<Result>(
             _ strings: [String],
             body: (UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> Result
         ) -> Result {

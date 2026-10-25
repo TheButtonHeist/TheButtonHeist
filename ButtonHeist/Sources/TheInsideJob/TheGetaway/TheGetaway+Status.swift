@@ -58,15 +58,7 @@ extension TheGetaway {
             buttonHeistVersion: buttonHeistVersion
         )
 
-        let isActive = await muscle.isSessionActive
-        let connectionCount = await muscle.activeSessionConnectionCount
-        let activeDriverId = await muscle.exposedDriverId
-        let session = StatusSession(
-            active: isActive,
-            watchersAllowed: false,
-            activeConnections: connectionCount,
-            activeDriverId: activeDriverId
-        )
+        let session = await muscle.sessionStatus
 
         return StatusPayload(identity: identity, session: session)
     }

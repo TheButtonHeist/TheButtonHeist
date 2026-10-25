@@ -163,7 +163,7 @@ private func runHeistSynchronously(
                     argument: command.argument,
                     timeout: timeout
                 )
-                try recordResultIfRequested(
+                try await recordResultIfRequested(
                     heist.result,
                     plan: command.plan,
                     policy: recordResult,
@@ -172,7 +172,7 @@ private func runHeistSynchronously(
                 return heist
             } catch let failure as Heist.Failure {
                 do {
-                    try recordResultIfRequested(
+                    try await recordResultIfRequested(
                         failure.result,
                         plan: command.plan,
                         policy: recordResult,
@@ -295,11 +295,11 @@ private func recordResultIfRequested(
     plan: HeistPlan,
     policy: HeistTestResultRecording,
     resultDirectory: URL?
-) throws {
+) async throws {
     guard let mode = policy.explicitRecorderMode else { return }
     let rootDirectory = resultDirectory ?? FileManager.default.temporaryDirectory
         .appendingPathComponent("buttonheist-results", isDirectory: true)
-    _ = try HeistResultRecording.write(
+    _ = try await HeistResultRecording.write(
         result,
         plan: plan,
         configuration: HeistResultRecordingConfiguration(

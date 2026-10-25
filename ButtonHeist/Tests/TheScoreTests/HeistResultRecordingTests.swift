@@ -6,11 +6,12 @@ import Testing
 
 @Suite(.serialized) struct HeistResultRecordingTests {
 
-    @Test func `recording remains self contained after move and rename`() throws {
-        try withTemporaryDirectory(prefix: "heist-result-recorder") { directory in
+    @MainActor
+    @Test func `recording remains self contained after move and rename`() async throws {
+        try await withTemporaryDirectory(prefix: "heist-result-recorder") { directory in
             let plan = try samplePlan()
             let result = failedResult()
-            let originalURL = try #require(try HeistResultRecording.write(
+            let originalURL = try #require(try await HeistResultRecording.write(
                 result,
                 plan: plan,
                 configuration: HeistResultRecordingConfiguration(rootDirectory: directory, mode: .failures)
@@ -30,17 +31,17 @@ import Testing
         }
     }
 
-    @Test func `skip passing result unless mode records passing`() throws {
-        try withTemporaryDirectory(prefix: "heist-result-recorder") { directory in
+    @Test func `skip passing result unless mode records passing`() async throws {
+        try await withTemporaryDirectory(prefix: "heist-result-recorder") { directory in
             let plan = try samplePlan()
             let result = passedResult()
 
-            let skipped = try HeistResultRecording.write(
+            let skipped = try await HeistResultRecording.write(
                 result,
                 plan: plan,
                 configuration: HeistResultRecordingConfiguration(rootDirectory: directory, mode: .failures)
             )
-            let recording = try #require(try HeistResultRecording.write(
+            let recording = try #require(try await HeistResultRecording.write(
                 result,
                 plan: plan,
                 configuration: HeistResultRecordingConfiguration(rootDirectory: directory, mode: .all)
@@ -153,14 +154,14 @@ import Testing
                 setEnvironment(EnvironmentKey.buttonheistResultsMode.rawValue, previousMode)
             }
 
-            let before = HeistResultRecording.recordIfEnabled(
+            let before = await HeistResultRecording.recordIfEnabled(
                 failedResult(),
                 plan: try samplePlan()
             )
             let skipped = try await HeistResultRecording.withEnvironmentRecording(false) {
-                HeistResultRecording.recordIfEnabled(failedResult(), plan: try samplePlan())
+                await HeistResultRecording.recordIfEnabled(failedResult(), plan: try samplePlan())
             }
-            let after = HeistResultRecording.recordIfEnabled(
+            let after = await HeistResultRecording.recordIfEnabled(
                 failedResult(),
                 plan: try samplePlan()
             )

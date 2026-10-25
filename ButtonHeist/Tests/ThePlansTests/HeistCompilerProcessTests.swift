@@ -81,7 +81,7 @@ struct HeistCompilerProcessTests {
     }
 
     @Test
-    func `task cancellation terminates and reaps the active process`() async throws {
+    func `task cancellation reaps its process while a sibling execution succeeds`() async throws {
         let temp = try ProcessTestTemporaryDirectory()
         let ready = try temp.makeReadinessFIFO()
         let command = shell(
@@ -94,8 +94,9 @@ struct HeistCompilerProcessTests {
         let (processes, processContinuation) = AsyncStream<pid_t>.makeStream(
             bufferingPolicy: .bufferingNewest(1)
         )
+        let runner = HeistCompilerProcess.Runner()
         let task = Task {
-            try await HeistCompilerProcess.Runner().execute(
+            try await runner.execute(
                 command,
                 purpose: .execution,
                 limits: limits(
@@ -112,6 +113,13 @@ struct HeistCompilerProcessTests {
 
         let processPID = try #require(await processes.first { _ in true })
         processContinuation.finish()
+        let sibling = try await runner.execute(
+            shell("printf 'sibling'"),
+            purpose: .execution,
+            limits: limits()
+        )
+        #expect(sibling == .succeeded(.init(stdout: Data("sibling".utf8), stderr: Data())))
+        #expect(!processExited(processPID))
         task.cancel()
         let outcome = try await task.value
 

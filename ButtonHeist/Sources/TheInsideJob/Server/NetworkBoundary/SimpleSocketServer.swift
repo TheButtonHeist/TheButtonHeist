@@ -20,6 +20,7 @@ actor SimpleSocketServer {
     struct Dependencies: Sendable {
         let sendContent: SocketSendContent
         let listenerProvider: SocketListenerProvider
+        let listenerReadiness: @Sendable (isolated SocketListenerRuntime) async -> Bool
 
         init(
             sendContent: @escaping SocketSendContent = { connection, content, completion in
@@ -27,10 +28,14 @@ actor SimpleSocketServer {
             },
             listenerProvider: @escaping SocketListenerProvider = { parameters in
                 try NetworkSocketListener(parameters: parameters)
+            },
+            listenerReadiness: @escaping @Sendable (isolated SocketListenerRuntime) async -> Bool = { runtime in
+                runtime.isAcceptingConnections()
             }
         ) {
             self.sendContent = sendContent
             self.listenerProvider = listenerProvider
+            self.listenerReadiness = listenerReadiness
         }
     }
 
@@ -126,8 +131,8 @@ actor SimpleSocketServer {
                 queue: queue
             )
 
-            guard currentListener == generation,
-                  await runtime.isAcceptingConnections()
+            guard await dependencies.listenerReadiness(runtime),
+                  currentListener == generation
             else {
                 throw CancellationError()
             }
