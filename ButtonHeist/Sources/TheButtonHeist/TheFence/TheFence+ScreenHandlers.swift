@@ -38,7 +38,7 @@ extension TheFence {
             case .inlineData:
                 .automaticPrivateArtifact
             }
-            let url = try screenshotArtifacts.writeScreenshot(
+            let url = try await screenshotArtifacts.writeScreenshot(
                 base64Data: screen.pngData,
                 destination: destination,
                 command: .getScreen

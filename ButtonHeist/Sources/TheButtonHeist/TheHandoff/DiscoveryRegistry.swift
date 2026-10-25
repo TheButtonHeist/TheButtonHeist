@@ -14,7 +14,7 @@ enum DiscoveryMutation: Equatable {
 /// events and this is the dedup state that turns them into a stable device list.
 /// See `docs/ARCHITECTURE.md#state-has-one-owner`.
 struct DiscoveryRegistry {
-    struct Advertisement {
+    struct Advertisement: Sendable {
         let deviceID: DiscoveryDeviceID
         let device: DiscoveredDevice
         let identity: DiscoveryIdentity
@@ -25,11 +25,14 @@ struct DiscoveryRegistry {
     private var visibleDeviceIDByIdentity: [DiscoveryIdentity: DiscoveryDeviceID] = [:]
     private var nextSequence: UInt64 = 0
 
-    var devices: [DiscoveredDevice] {
+    var visibleAdvertisements: [Advertisement] {
         visibleDeviceIDByIdentity.values
             .compactMap { advertisementsByDeviceID[$0] }
             .sorted { lhs, rhs in lhs.sequence > rhs.sequence }
-            .map(\.device)
+    }
+
+    var devices: [DiscoveredDevice] {
+        visibleAdvertisements.map(\.device)
     }
 
     mutating func recordFound(_ device: DiscoveredDevice) -> [DiscoveryMutation] {
@@ -79,6 +82,13 @@ struct DiscoveryRegistry {
 
         visibleDeviceIDByIdentity.removeValue(forKey: identity)
         return [.lost(removed.device)]
+    }
+
+    mutating func recordLost(_ advertisement: Advertisement) -> [DiscoveryMutation] {
+        guard advertisementsByDeviceID[advertisement.deviceID]?.sequence == advertisement.sequence else {
+            return []
+        }
+        return recordLost(advertisement.deviceID)
     }
 
     private func newestAdvertisement(for identity: DiscoveryIdentity) -> Advertisement? {

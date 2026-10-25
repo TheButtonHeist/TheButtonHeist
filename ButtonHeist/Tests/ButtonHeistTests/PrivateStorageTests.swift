@@ -61,6 +61,30 @@ final class PrivateStorageTests: XCTestCase {
         }
     }
 
+    func testConcurrentScreenshotWritesLeaveOneCompleteArtifact() async throws {
+        try await withTemporaryDirectory(prefix: "screenshot-storage") { directory in
+            let writer = ScreenshotArtifactWriter(baseDirectory: directory)
+            let output = directory.appendingPathComponent("screen.png")
+            let first = Data(repeating: 0x55, count: 4_194_304)
+            let second = Data(repeating: 0xAA, count: 2_097_152)
+
+            async let firstWrite = writer.writeScreenshot(
+                base64Data: first.base64EncodedString(),
+                destination: .userExplicitOutputPath(output.path),
+                command: .getScreen
+            )
+            async let secondWrite = writer.writeScreenshot(
+                base64Data: second.base64EncodedString(),
+                destination: .userExplicitOutputPath(output.path),
+                command: .getScreen
+            )
+            _ = try await (firstWrite, secondWrite)
+
+            let data = try Data(contentsOf: output)
+            XCTAssertTrue(data == first || data == second)
+        }
+    }
+
     private func environment(_ values: [StorageEnvironmentKey: String]) -> StorageEnvironment {
         StorageEnvironment(testValues: values)
     }

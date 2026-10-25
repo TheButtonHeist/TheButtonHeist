@@ -2,10 +2,9 @@ import Foundation
 
 import TheScore
 
-@ButtonHeistActor
-final class ScreenshotArtifactWriter {
+final class ScreenshotArtifactWriter: Sendable {
 
-    enum Destination {
+    enum Destination: Sendable {
         case automaticPrivateArtifact
         case userExplicitOutputPath(String)
     }
@@ -16,11 +15,12 @@ final class ScreenshotArtifactWriter {
         self.baseDirectory = baseDirectory ?? PrivateStorage.resolveBaseDirectory()
     }
 
+    @concurrent
     func writeScreenshot(
         base64Data: String,
         destination: Destination,
         command: TheFence.Command
-    ) throws -> URL {
+    ) async throws -> URL {
         let data = try decodeScreenshotData(base64Data)
         switch destination {
         case .automaticPrivateArtifact:
@@ -34,7 +34,7 @@ final class ScreenshotArtifactWriter {
         guard let resolvedURL = outputPath.validatedOutputURL() else {
             throw StorageError.unsafePath(outputPath)
         }
-        try data.write(to: resolvedURL)
+        try data.write(to: resolvedURL, options: .atomic)
         return resolvedURL
     }
 

@@ -83,7 +83,7 @@ public struct Heist: Sendable {
             argument: argument,
             timeout: timeout
         )
-        HeistResultRecording.recordIfEnabled(result, plan: plan)
+        await HeistResultRecording.recordIfEnabled(result, plan: plan)
         guard !result.isFailure else {
             throw Failure(result)
         }
