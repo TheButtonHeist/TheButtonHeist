@@ -104,7 +104,7 @@ package extension TimedOneShot {
     ) async -> Value {
         let result = await withTaskCancellationHandler(
             operation: {
-                await withCheckedContinuation(isolation: isolation) { (continuation: CheckedContinuation<Value, Never>) in
+                let registerContinuation = { (continuation: CheckedContinuation<Value, Never>) in
                     if Task.isCancelled {
                         continuation.resume(returning: cancellationValue())
                         return
@@ -115,6 +115,12 @@ package extension TimedOneShot {
                     }
                     onRegistered(self)
                 }
+                // Older Swift needs explicit isolation; Swift 6.4 deprecates that overload.
+                #if compiler(>=6.4)
+                return await withCheckedContinuation(registerContinuation)
+                #else
+                return await withCheckedContinuation(isolation: isolation, registerContinuation)
+                #endif // compiler(>=6.4)
             },
             onCancel: {
                 _ = resolve(returning: cancellationValue())

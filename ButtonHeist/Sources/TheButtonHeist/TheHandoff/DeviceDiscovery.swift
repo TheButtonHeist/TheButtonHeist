@@ -340,35 +340,26 @@ final class DeviceDiscovery: DeviceDiscovering {
     }
 
     private func handleResults(_ changes: Set<NWBrowser.Result.Change>) {
-        guard case .active(var session) = state else { return }
         for change in changes {
             switch change {
             case .added(let result):
                 if let device = makeDevice(from: result) {
-                    let mutations = session.registry.recordFound(device)
-                    state = .active(session)
-                    apply(mutations)
+                    recordFound(device)
                 }
             case .removed(let result):
                 if case let .service(name, _, _, _) = result.endpoint,
                    let deviceID = try? DiscoveryDeviceID(validating: name) {
-                    let mutations = session.registry.recordLost(deviceID)
-                    state = .active(session)
-                    apply(mutations)
+                    recordLost(deviceID)
                 }
             case .changed(let old, let new, _):
                 if case let .service(oldName, _, _, _) = old.endpoint,
                    case let .service(newName, _, _, _) = new.endpoint,
                    oldName != newName,
                    let oldDeviceID = try? DiscoveryDeviceID(validating: oldName) {
-                    let mutations = session.registry.recordLost(oldDeviceID)
-                    state = .active(session)
-                    apply(mutations)
+                    recordLost(oldDeviceID)
                 }
                 if let device = makeDevice(from: new) {
-                    let mutations = session.registry.recordFound(device)
-                    state = .active(session)
-                    apply(mutations)
+                    recordFound(device)
                 }
             case .identical:
                 break
@@ -376,6 +367,20 @@ final class DeviceDiscovery: DeviceDiscovering {
                 logger.warning("Unknown change type")
             }
         }
+    }
+
+    func recordFound(_ device: DiscoveredDevice) {
+        guard case .active(var session) = state else { return }
+        let mutations = session.registry.recordFound(device)
+        state = .active(session)
+        apply(mutations)
+    }
+
+    private func recordLost(_ deviceID: DiscoveryDeviceID) {
+        guard case .active(var session) = state else { return }
+        let mutations = session.registry.recordLost(deviceID)
+        state = .active(session)
+        apply(mutations)
     }
 
     private func apply(_ mutations: [DiscoveryMutation]) {
@@ -394,47 +399,50 @@ final class DeviceDiscovery: DeviceDiscovering {
               session.id == sessionID,
               session.browserPhase == .ready else { return }
         session.reachabilityTask?.cancel()
-        let task = Task { [weak self, sessionID] in
+        let task = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
                 guard await Task.cancellableSleep(for: .seconds(self.reachabilityValidationInterval)) else { return }
                 guard !Task.isCancelled else { return }
-                await self.validateVisibleDevicesReachability(sessionID: sessionID)
+                await self.validateVisibleDevicesReachability()
             }
         }
         session.reachabilityTask = task
         state = .active(session)
     }
 
-    private func validateVisibleDevicesReachability(sessionID: UUID) async {
-        guard case .active(let session) = state,
-              session.id == sessionID,
+    func validateVisibleDevicesReachability() async {
+        guard !Task.isCancelled,
+              case .active(let session) = state,
               session.browserPhase == .ready else { return }
-        let visibleDevices = session.registry.devices
-        guard !visibleDevices.isEmpty else { return }
+        let sessionID = session.id
+        let advertisements = session.registry.visibleAdvertisements
+        guard !advertisements.isEmpty else { return }
 
-        let unreachableDeviceIDs = await withTaskGroup(of: DiscoveryDeviceID?.self) { group in
-            for device in visibleDevices {
+        let unreachableAdvertisements = await withTaskGroup(of: DiscoveryRegistry.Advertisement?.self) { group in
+            for advertisement in advertisements {
                 group.addTask {
-                    await device.isReachable(timeout: 0.75) ? nil : device.id
+                    await advertisement.device.isReachable(timeout: 0.75) ? nil : advertisement
                 }
             }
 
-            var unreachable: [DiscoveryDeviceID] = []
-            for await deviceID in group {
-                if let deviceID {
-                    unreachable.append(deviceID)
+            var unreachable: [DiscoveryRegistry.Advertisement] = []
+            for await advertisement in group {
+                if let advertisement {
+                    unreachable.append(advertisement)
                 }
             }
             return unreachable
         }
 
-        guard case .active(var session) = state,
-              session.id == sessionID else {
-            return
-        }
-        for deviceID in unreachableDeviceIDs {
-            let mutations = session.registry.recordLost(deviceID)
+        for advertisement in unreachableAdvertisements {
+            guard !Task.isCancelled,
+                  case .active(var session) = state,
+                  session.id == sessionID,
+                  session.browserPhase == .ready else {
+                return
+            }
+            let mutations = session.registry.recordLost(advertisement)
             state = .active(session)
             apply(mutations)
         }

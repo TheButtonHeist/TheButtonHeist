@@ -5,6 +5,32 @@ import TheScore
 
 @MainActor
 final class TheMuscleSessionLifecycleTests: TheMuscleTestCase {
+    func testStatusSnapshotFollowsSessionLifecycle() async throws {
+        let idle = await muscle.sessionStatus
+        XCTAssertFalse(idle.active)
+        XCTAssertEqual(idle.activeConnections, 0)
+        XCTAssertNil(idle.activeDriverId)
+
+        try await authenticate(clientId: 1, token: "test-token", driverId: "driver-a", respond: respondSink())
+        let active = await muscle.sessionStatus
+        XCTAssertTrue(active.active)
+        XCTAssertEqual(active.activeConnections, 1)
+        XCTAssertEqual(active.activeDriverId, "driver-a")
+        XCTAssertFalse(active.watchersAllowed)
+
+        await muscle.handleClientDisconnected(1, delivery: delivery)
+        let draining = await muscle.sessionStatus
+        XCTAssertTrue(draining.active)
+        XCTAssertEqual(draining.activeConnections, 0)
+        XCTAssertEqual(draining.activeDriverId, "driver-a")
+
+        await muscle.tearDown()
+        let stopped = await muscle.sessionStatus
+        XCTAssertFalse(stopped.active)
+        XCTAssertEqual(stopped.activeConnections, 0)
+        XCTAssertNil(stopped.activeDriverId)
+    }
+
     func testNoSessionValidTokenAcquires() async throws {
         try await authenticate(clientId: 1, token: "test-token", respond: respondSink())
 

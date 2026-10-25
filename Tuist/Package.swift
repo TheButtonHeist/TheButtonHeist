@@ -18,7 +18,10 @@ let accessibilitySnapshotProducts: [String: ProjectDescription.Product] = [
 let packageSettings = PackageSettings(
     productTypes: accessibilitySnapshotProducts,
     targetSettings: accessibilitySnapshotProducts.mapValues { _ in
-        Settings.settings(base: ["IPHONEOS_DEPLOYMENT_TARGET": "16.0"])
+        Settings.settings(base: [
+            "IPHONEOS_DEPLOYMENT_TARGET": "16.0",
+            "MACOSX_DEPLOYMENT_TARGET": "14.0",
+        ])
     }
 )
 #endif

@@ -25,6 +25,7 @@ follow the part of the pipeline you are changing:
 | Current truth and ordered change | [Observation pipeline](diagrams/observation-pipeline.md) |
 | Target resolution and viewport exploration | [Element inflation](diagrams/element-inflation.md) |
 | Transport admission and main-thread liveness | [Transport control plane](diagrams/transport-control-plane.md) |
+| Actor ownership and background execution | [Actor isolation](diagrams/actor-isolation.md) |
 | Test orchestration and simulator admission | [Test runner](diagrams/test-runner.md) |
 
 These are architectural contracts, not review snapshots. A responsibility,
@@ -749,6 +750,14 @@ replacement or teardown. Suspended or buffered work must present that exact
 capability to `TheMuscle`, which rejects work after invalidation. Actor identity
 therefore supplies the stale-work boundary without a parallel generation
 counter, callback-installation phase, or retained tombstone.
+
+Actor boundaries and persistence execution are mapped in
+[Actor isolation](diagrams/actor-isolation.md). Listener startup validates its
+generation after its final readiness await. Session status crosses from
+TheMuscle as one `StatusSession` value. Reachability failures apply only to the
+advertisement sequence that was probed, while its session and task remain
+active. Result compression and artifact writes run through explicit
+`@concurrent` operations; UIKit evidence stays on `MainActor`.
 
 The implementation owners for the bounded coordination and projection
 pipelines are explicit:

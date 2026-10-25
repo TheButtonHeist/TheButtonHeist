@@ -126,9 +126,14 @@ actor TheMuscle {
         session.isSessionActive
     }
 
-    /// Number of active connections participating in the session.
-    var activeSessionConnectionCount: Int {
-        session.activeSessionConnectionCount
+    /// Session status sampled in one actor turn.
+    var sessionStatus: StatusSession {
+        StatusSession(
+            active: session.isSessionActive,
+            watchersAllowed: false,
+            activeConnections: session.activeSessionConnectionCount,
+            activeDriverId: session.exposedDriverId
+        )
     }
 
     // MARK: - Public API

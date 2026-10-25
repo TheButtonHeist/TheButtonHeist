@@ -39,6 +39,32 @@ final class SemanticObservationStreamTests: XCTestCase {
         XCTAssertEqual(source.captureCount, 0)
     }
 
+    func testLeaseFinalReleaseFromBackgroundPreservesMainActorCleanup() async {
+        let stream = vault.semanticObservationStream
+        for cancelBeforeRelease in [false, true] {
+            let releaseCount = ObservationLeaseReleaseCounter()
+            let destruction = AsyncStream<Void>.makeStream()
+            await Task { @concurrent in
+                let lease = await SemanticObservationLease(
+                    value: ObservationLeaseLifetime {
+                        destruction.continuation.yield(())
+                        destruction.continuation.finish()
+                    },
+                    stream: stream,
+                    release: { _ in
+                        MainActor.preconditionIsolated()
+                        releaseCount.value += 1
+                    }
+                )
+                if cancelBeforeRelease { await lease.cancel() }
+                withExtendedLifetime(lease) {}
+            }.value
+            for await _ in destruction.stream { break }
+
+            XCTAssertEqual(releaseCount.value, 1)
+        }
+    }
+
     func testExplicitPulseDeliveryCommitsOneObservationCycleWithoutReadingLiveSignal() async {
         let source = VisibleObservationSourceFixture(observation: .empty)
         let tripwire = TheTripwire()
@@ -147,6 +173,21 @@ final class SemanticObservationStreamTests: XCTestCase {
             accessibilityNotificationSequence: sequence
         )
     }
+}
+
+@MainActor
+private final class ObservationLeaseReleaseCounter {
+    var value = 0
+}
+
+private final class ObservationLeaseLifetime: Sendable {
+    private let onRelease: @Sendable () -> Void
+
+    init(onRelease: @escaping @Sendable () -> Void) {
+        self.onRelease = onRelease
+    }
+
+    deinit { onRelease() }
 }
 #endif // DEBUG
 #endif // canImport(UIKit)

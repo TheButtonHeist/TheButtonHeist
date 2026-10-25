@@ -8,6 +8,35 @@ import ButtonHeistSupport
 
 @MainActor
 final class SocketListenerRuntimeLifecycleTests: XCTestCase {
+    func testStopAfterReadinessReplyPreventsStalePortCommit() async {
+        let readinessSampled = CompletionSignal()
+        let releaseReadiness = CompletionSignal()
+        let listeners = TestSocketListenerProvider(port: 2468)
+        let server = SimpleSocketServer(dependencies: .init(
+            listenerProvider: listeners.listenerProvider,
+            listenerReadiness: { runtime in
+                let isReady = runtime.isAcceptingConnections()
+                readinessSampled.finish()
+                await releaseReadiness.wait()
+                return isReady
+            }
+        ))
+        let startup = Task { try await server.startPlaintext(addressFamily: .ipv4) }
+        await readinessSampled.wait()
+
+        await server.stop()
+        releaseReadiness.finish()
+
+        do {
+            _ = try await startup.value
+            XCTFail("Stopped startup must reject its readiness reply")
+        } catch is CancellationError {
+            XCTAssertEqual(server.listeningPort, 0)
+        } catch {
+            XCTFail("Expected cancellation, got \(error)")
+        }
+    }
+
     func testRuntimeOwnsListenerLifecycle() async throws {
         let runtime = SocketListenerRuntime()
         let gate = ListenerRuntimeGate()

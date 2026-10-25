@@ -48,7 +48,7 @@ extension TheFence {
             argument: argument,
             budget: budget
         )
-        HeistResultRecording.recordIfEnabled(result, plan: plan)
+        await HeistResultRecording.recordIfEnabled(result, plan: plan)
         return .heistExecution(
             plan: plan,
             report: HeistReport.project(result: result)

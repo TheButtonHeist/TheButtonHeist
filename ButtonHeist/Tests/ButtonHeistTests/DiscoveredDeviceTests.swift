@@ -374,6 +374,120 @@ final class DiscoveredDeviceTests: XCTestCase {
         XCTAssertEqual(registry.devices, [device])
     }
 
+    func testStaleReachabilityFailureCannotRemoveRefreshedAdvertisement() throws {
+        let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
+        var registry = DiscoveryRegistry()
+        _ = registry.recordFound(device)
+        let probedAdvertisement = try XCTUnwrap(registry.visibleAdvertisements.first)
+
+        _ = registry.recordFound(device)
+
+        XCTAssertEqual(registry.recordLost(probedAdvertisement), [])
+        XCTAssertEqual(registry.devices, [device])
+        let currentAdvertisement = try XCTUnwrap(registry.visibleAdvertisements.first)
+        XCTAssertEqual(registry.recordLost(currentAdvertisement), [.lost(device)])
+        XCTAssertEqual(registry.devices, [])
+    }
+
+    @ButtonHeistActor
+    func testReachabilityCompletionIgnoresCancellationAndWaitingBrowser() async {
+        let previousProvider = makeReachabilityConnection
+        defer { makeReachabilityConnection = previousProvider }
+        for cancelValidation in [true, false] {
+            let browser = FakeDiscoveryBrowser()
+            let discovery = DeviceDiscovery(reachabilityValidationInterval: 60, makeBrowser: { browser })
+            defer { discovery.stop() }
+            let ready = HandoffTestSignal()
+            let waiting = HandoffTestSignal()
+            discovery.onEvent = { event in
+                guard case .stateChanged(let isReady) = event else { return }
+                if isReady { ready.signal() } else { waiting.signal() }
+            }
+            discovery.start()
+            browser.emit(.ready)
+            await ready.wait()
+            let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
+            discovery.recordFound(device)
+            let probe = PendingReachabilityProbeConnection()
+            makeReachabilityConnection = { _ in probe }
+            let validation = Task { await discovery.validateVisibleDevicesReachability() }
+            await probe.started.wait()
+
+            if cancelValidation {
+                validation.cancel()
+            } else {
+                browser.emit(.waiting)
+                await waiting.wait()
+                probe.onEvent?(.disconnected(.localDisconnect))
+            }
+            await validation.value
+
+            XCTAssertEqual(discovery.discoveredDevices, [device])
+        }
+    }
+
+    @ButtonHeistActor
+    func testReachabilityFailureIgnoresAdvertisementRefreshedWhileProbing() async {
+        let browser = FakeDiscoveryBrowser()
+        let discovery = DeviceDiscovery(reachabilityValidationInterval: 60, makeBrowser: { browser })
+        defer { discovery.stop() }
+        let ready = HandoffTestSignal()
+        discovery.onEvent = { event in
+            if case .stateChanged(isReady: true) = event { ready.signal() }
+        }
+        discovery.start()
+        browser.emit(.ready)
+        await ready.wait()
+        let device = DiscoveredDevice(host: "127.0.0.1", port: 1234)
+        discovery.recordFound(device)
+        let probe = PendingReachabilityProbeConnection()
+        let previousProvider = makeReachabilityConnection
+        makeReachabilityConnection = { _ in probe }
+        defer { makeReachabilityConnection = previousProvider }
+        let validation = Task { await discovery.validateVisibleDevicesReachability() }
+        await probe.started.wait()
+
+        discovery.recordFound(device)
+        probe.onEvent?(.disconnected(.localDisconnect))
+        await validation.value
+
+        XCTAssertEqual(discovery.discoveredDevices, [device])
+    }
+
+    @ButtonHeistActor
+    func testReachabilityLossCallbacksCannotRestoreStoppedSession() async {
+        let browser = FakeDiscoveryBrowser()
+        let discovery = DeviceDiscovery(reachabilityValidationInterval: 60, makeBrowser: { browser })
+        defer { discovery.stop() }
+        let ready = HandoffTestSignal()
+        discovery.onEvent = { [weak discovery] event in
+            if case .stateChanged(isReady: true) = event { ready.signal() }
+            if case .lost = event { discovery?.stop() }
+        }
+        discovery.start()
+        browser.emit(.ready)
+        await ready.wait()
+        let first = DiscoveredDevice(host: "127.0.0.1", port: 1234)
+        let second = DiscoveredDevice(host: "127.0.0.1", port: 1235)
+        discovery.recordFound(first)
+        discovery.recordFound(second)
+        let firstProbe = PendingReachabilityProbeConnection()
+        let secondProbe = PendingReachabilityProbeConnection()
+        let previousProvider = makeReachabilityConnection
+        makeReachabilityConnection = { $0.id == first.id ? firstProbe : secondProbe }
+        defer { makeReachabilityConnection = previousProvider }
+        let validation = Task { await discovery.validateVisibleDevicesReachability() }
+        await firstProbe.started.wait()
+        await secondProbe.started.wait()
+
+        firstProbe.onEvent?(.disconnected(.localDisconnect))
+        secondProbe.onEvent?(.disconnected(.localDisconnect))
+        await validation.value
+
+        XCTAssertFalse(discovery.isActive)
+        XCTAssertEqual(discovery.discoveredDevices, [])
+    }
+
     func testDiscoveryRegistryDedupesSimulatorRelaunches() {
         let oldDevice = DiscoveredDevice(
             id: "AccessibilityTestApp#a18032ae",
@@ -550,6 +664,16 @@ final class DiscoveredDeviceTests: XCTestCase {
         }
         XCTAssertNil(weakProbe, "Reachability probe connection should deallocate after completion")
     }
+}
+
+@ButtonHeistActor
+private final class PendingReachabilityProbeConnection: TransportReachabilityConnecting {
+    var onEvent: (@ButtonHeistActor (ConnectionEvent) -> Void)?
+    var onTransportReady: (@ButtonHeistActor () -> Void)?
+    let started = HandoffTestSignal()
+
+    func connect() { started.signal() }
+    func disconnect() {}
 }
 
 @ButtonHeistActor

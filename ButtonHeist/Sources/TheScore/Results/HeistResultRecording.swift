@@ -167,14 +167,14 @@ extension HeistResultRecording {
     package static func recordIfEnabled(
         _ result: HeistResult,
         plan: HeistPlan
-    ) -> URL? {
+    ) async -> URL? {
         guard environmentRecordingEnabled,
               let configuration = HeistResultRecordingConfiguration.environment
         else {
             return nil
         }
         do {
-            return try write(result, plan: plan, configuration: configuration)
+            return try await write(result, plan: plan, configuration: configuration)
         } catch {
             heistResultLogger.warning("Failed to record heist result: \(error.localizedDescription)")
             return nil
@@ -182,11 +182,12 @@ extension HeistResultRecording {
     }
 
     @discardableResult
+    @concurrent
     package static func write(
         _ result: HeistResult,
         plan: HeistPlan,
         configuration: HeistResultRecordingConfiguration
-    ) throws -> URL? {
+    ) async throws -> URL? {
         guard configuration.mode.shouldRecord(result) else {
             return nil
         }
