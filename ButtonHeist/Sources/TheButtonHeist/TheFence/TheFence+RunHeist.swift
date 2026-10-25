@@ -38,21 +38,31 @@ extension TheFence {
         argument: HeistArgument = .none,
         timeoutSource: HeistExecutionBudget.TimeoutSource
     ) async throws -> FenceResponse {
+        let result = try await executeHeistPlan(plan, argument: argument, timeoutSource: timeoutSource)
+        return .heistExecution(plan: plan, report: HeistReport.project(result: result))
+    }
+
+    /// Execute through the shared admission, transport, and recording pipeline.
+    func executeHeistPlan(
+        _ plan: HeistPlan,
+        argument: HeistArgument,
+        timeoutSource: HeistExecutionBudget.TimeoutSource
+    ) async throws -> HeistResult {
+        try HeistArgumentAdmission.validateRootArgument(argument, for: plan)
         let budget = try HeistExecutionBudget.project(
             plan: plan,
             timeoutSource: timeoutSource,
             configuration: config
         )
+        try Task.checkCancellation()
+        try await start()
         let result = try await sendAndAwaitHeistExecution(
             plan,
             argument: argument,
             budget: budget
         )
         await HeistResultRecording.recordIfEnabled(result, plan: plan)
-        return .heistExecution(
-            plan: plan,
-            report: HeistReport.project(result: result)
-        )
+        return result
     }
 
     // MARK: - Durable Action Execution

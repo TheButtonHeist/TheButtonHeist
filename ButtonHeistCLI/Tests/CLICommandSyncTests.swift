@@ -50,6 +50,12 @@ final class CLICommandSyncTests: XCTestCase {
         XCTAssertEqual(arguments.value(for: "maxScrollsPerDiscovery"), .int(40))
     }
 
+    func testGetInterfacePassesCurrentModeToFenceAdmission() throws {
+        let command = try GetInterfaceCommand.parse(["--mode", "current"])
+
+        XCTAssertEqual(try command.requestArguments().value(for: "mode"), .string("current"))
+    }
+
     func testGetInterfaceEncodesCanonicalTargetUnderSubtree() throws {
         let command = try GetInterfaceCommand.parse([
             "--label", "Checkout",

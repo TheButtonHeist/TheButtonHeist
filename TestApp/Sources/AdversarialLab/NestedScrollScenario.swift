@@ -284,6 +284,7 @@ private final class NestedScrollViewController: UIViewController {
         super.viewDidAppear(animated)
         outerScrollView.beginEvidenceTracking()
         innerScrollView.beginEvidenceTracking()
+        restorationStateLabel.accessibilityValue = "Tracking"
         recordEvidence()
     }
 

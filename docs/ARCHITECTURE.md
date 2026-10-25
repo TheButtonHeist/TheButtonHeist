@@ -34,6 +34,15 @@ the same pull request.
 
 ## Product Contracts
 
+### Swift Client
+
+Mac apps consume the `ButtonHeist` Swift package library, with automatic linkage
+selection and build caching through SwiftPM. `ButtonHeist.withSession(session)` scopes
+one existing Fence connection for typed interface captures and plan execution.
+`ButtonHeist.run` scopes one plan. Both use `ButtonHeistActor`, the existing
+transport, and canonical `HeistResult` values. No client wrapper owns parallel
+state. See the [Swift client contract](API.md#swift-client-macos).
+
 ### iOS Integration
 
 The source distribution remains the `TheInsideJob` Swift package product.
@@ -48,7 +57,9 @@ Tuist consumers exclude this framework by default with `EXCLUDED_SOURCE_FILE_NAM
 Only Debug adds it through `INCLUDED_SOURCE_FILE_NAMES`, which overrides that exclusion.
 Other configurations exclude both linking and embedding. Runtime `#if DEBUG` is
 fixed when the framework is compiled, so the host build owns production exclusion.
-See [Install TheInsideJob](PREBUILT-IOS.md).
+A development tool can also copy a runtime slice into an unlinked app and load
+it through `DYLD_INSERT_LIBRARIES`. The Objective-C loader owns startup for
+both linked and injected copies. See [Install TheInsideJob](PREBUILT-IOS.md).
 
 Release CI packages the same zip for GitHub and the optional Homebrew
 `theinsidejob` formula. The normal `buttonheist` formula installs the CLI/MCP

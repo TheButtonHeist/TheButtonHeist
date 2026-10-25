@@ -7,6 +7,18 @@ import ButtonHeistSupport
 @_spi(ButtonHeistInternals) import TheScore
 
 extension TheFenceHandlerTests {
+
+    @ButtonHeistActor
+    func testCurrentInterfaceModeRejectsDiscoveryLimitsAtAdmission() async throws {
+        let (fence, _) = makeConnectedFence()
+        let request = try fence.makeGetInterfaceRequest(.init(values: ["mode": .string("current")]))
+
+        XCTAssertEqual(request.query, InterfaceQuery(capture: .current))
+        XCTAssertThrowsError(try fence.makeGetInterfaceRequest(.init(values: [
+            "mode": .string("current"),
+            "maxScrollsPerDiscovery": .int(2),
+        ])))
+    }
     // MARK: - Connect
 
     @ButtonHeistActor

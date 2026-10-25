@@ -66,6 +66,19 @@ resources. Its only dynamic dependencies must be Apple libraries. Release and a
 custom Staging configuration must exclude the runtime from linking and embedding. Source Release
 must exclude the Debug loader symbols.
 
+The same check compiles an external Mac Swift package consumer of `ButtonHeist`
+and `TheScore`. It runs the public client against source-linked, prebuilt-linked,
+and injected runtimes. Each path must capture current geometry, select a subtree,
+tap a button, wait for changed UI, return failed-heist evidence, continue after
+that failure, and reconnect through both `ButtonHeist.run` overloads.
+Injection uses an unlinked Release host and the same XCFramework slices.
+
+`SwiftClientTests` in `MacFrameworkTests` cover connection rejection, cancellation
+before and during connection, server errors, wrong reply types, send failures,
+response deadlines, and overlapping request identities through mocked transport.
+Window tests prove that current capture refreshes geometry and removes vanished
+visible elements without discovery scrolling.
+
 The hosted CI lane runs these checks before simulator cleanup. Release CI
 repeats them before publication. Device builds use unsigned apps. Physical-device
 execution remains a separate check.

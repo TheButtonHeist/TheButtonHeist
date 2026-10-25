@@ -2,9 +2,15 @@ import SwiftUI
 
 @main
 struct SourceConsumer: App {
+    @State private var recorded = false
+
     var body: some Scene {
         WindowGroup {
-            Text("InsideJob integration consumer")
+            VStack {
+                Text("InsideJob integration consumer")
+                Button("Record") { recorded = true }
+                if recorded { Text("Recorded") }
+            }
         }
     }
 }

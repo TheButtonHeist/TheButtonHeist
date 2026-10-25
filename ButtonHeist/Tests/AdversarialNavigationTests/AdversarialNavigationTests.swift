@@ -101,6 +101,9 @@ final class AdversarialNavigationTests: XCTestCase {
 
     func testNestedScrollCancellationRestoresBothOriginalOffsetsBeforeReturningResult() async throws {
         try await AdversarialLabRoute.open(.nestedScroll)
+        _ = try await runHeist("AdversarialNestedScroll.awaitTracking") {
+            WaitFor(.exists(.element(.label("Nested restoration state"), .value("Tracking"))))
+        }
 
         let job = TheInsideJob.shared
         let brains = job.brains

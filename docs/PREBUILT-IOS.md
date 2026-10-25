@@ -135,3 +135,37 @@ Both paths use the same runtime. Connection instructions are in
 
 The prebuilt framework supports automatic loading. Use the source package
 when your app needs to import TheInsideJob's Swift API.
+
+## Inject into a development app
+
+Injection supports tools that install and launch an app without changes to its project.
+The runtime still comes from the same published `TheInsideJob.xcframework`.
+
+1. Select the `ios-arm64` device slice from the XCFramework's `Info.plist`.
+2. Copy its `TheInsideJob.framework` into the built app's `Frameworks` directory.
+3. Sign the framework with the app's development identity.
+4. Sign the app with its existing identity, profile, and entitlements.
+5. Install the app on the device.
+6. Launch the app with this environment:
+
+```text
+DYLD_INSERT_LIBRARIES=@executable_path/Frameworks/TheInsideJob.framework/TheInsideJob
+INSIDEJOB_PORT=27182
+INSIDEJOB_TOKEN=your-token
+INSIDEJOB_ID=your-session
+INSIDEJOB_SCOPE=usb
+INSIDEJOB_FINGERPRINTS=false
+```
+
+The port and token above are examples. Supply values for your session.
+For a simulator, select its slice and use `INSIDEJOB_SCOPE=simulator`.
+Pass simulator launch variables through `SIMCTL_CHILD_`, including `SIMCTL_CHILD_DYLD_INSERT_LIBRARIES`.
+
+The Objective-C loader starts the runtime. The host executable requires no link or import.
+A normal launch without `DYLD_INSERT_LIBRARIES` leaves the copied framework unloaded.
+The framework contains its dependencies and resource bundles; keep that directory intact.
+Use one runtime copy per app. An app that already links TheInsideJob requires no injected copy.
+
+The host's compile conditions cannot disable an injected Debug framework.
+Use development app copies for injection and exclude that framework from distribution archives.
+The integration check covers an unlinked host, launch-time injection, and public Swift interaction.

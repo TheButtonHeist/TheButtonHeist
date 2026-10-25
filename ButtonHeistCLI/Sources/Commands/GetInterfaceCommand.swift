@@ -17,10 +17,14 @@ struct GetInterfaceCommand: ConnectedOneShotCLICommand {
 
     @OptionGroup var discoveryLimits: InterfaceDiscoveryLimitOptions
 
+    @Option(name: .long, help: "Interface read mode: current or discovery (default).")
+    var mode: String?
+
     var runnerStatusMessage: String? { "Reading interface..." }
 
     func requestArguments() throws -> TheFence.CommandArgumentEnvelope {
         return Self.fenceArguments(
+            CommandArgumentFields.optional("mode", mode),
             CommandArgumentFields.optionalEncoded("subtree", try subtree.parsedTarget()),
             CommandArgumentFields.optional(
                 "maxScrollsPerContainer",

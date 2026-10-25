@@ -23,6 +23,7 @@ import TheScore
     public static let inlineData = FenceParameter<Bool>.boolean("inlineData", defaultValue: false)
     public static let inlinePlan = FenceParameter<String>.string("plan")
     public static let interfaceDetail = FenceParameter<InterfaceDetail>.enumValue("detail", defaultValue: .summary)
+    public static let interfaceMode = FenceParameter<InterfaceQuery.Mode>.enumValue("mode", defaultValue: .discovery)
     public static let maxScrollsPerContainer = FenceParameter<Int>.integer(
         "maxScrollsPerContainer",
         minimum: Double(InterfaceDiscoveryLimit.allowedRange.lowerBound),

@@ -136,7 +136,7 @@ jobs:
       - name: Package prebuilt Debug iOS runtime
         run: scripts/package-insidejob.sh dist
 
-      - name: Check source and prebuilt app integration
+      - name: Check public Swift client and app integration
         run: |
           source scripts/release-contract.sh
           VERSION="${{ steps.version.outputs.version }}"
@@ -216,6 +216,9 @@ jobs:
           cat > "$RELEASE_NOTES" <<EOF
           Parser contract:
           - AccessibilitySnapshotBH: ${PARSER_TAG} (${PARSER_SHA})
+
+          Mac Swift client: add the ButtonHeist package product at exact version ${VERSION}.
+          Client setup: https://github.com/${BUTTONHEIST_GITHUB_REPO}/blob/v${VERSION}/docs/API.md#swift-client-macos
 
           Prebuilt Debug iOS runtime: $(buttonheist_insidejob_archive_name "$VERSION")
           Optional Homebrew install: brew install TheButtonHeist/tap/theinsidejob

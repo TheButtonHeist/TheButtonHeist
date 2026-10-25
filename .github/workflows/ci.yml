@@ -308,7 +308,7 @@ jobs:
             --app "$APP"
           echo "IOS_DEMO_RUN_END=$(date +%s)" >> "$GITHUB_ENV"
 
-      - name: Check source and prebuilt app integration
+      - name: Check public Swift client and app integration
         timeout-minutes: 35
         run: |
           source scripts/release-contract.sh

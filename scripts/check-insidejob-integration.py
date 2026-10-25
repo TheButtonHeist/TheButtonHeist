@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify source and prebuilt app integration in Debug and Release."""
+"""Verify linked, source, and injected runtimes through CLI and public Swift calls."""
 
 from __future__ import annotations
 
@@ -22,7 +22,63 @@ def run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str
     return subprocess.run(command, check=True, text=True, **kwargs)
 
 
-def verify_consumer(integration: str, archive: Path, cli: Path, simulator: str, token: str) -> None:
+def verify_capture(cli: Path, swift_client: Path, port: int, token: str) -> None:
+    deadline = time.monotonic() + 60
+    while True:
+        response = subprocess.run(
+            [str(cli), "get_interface", "--format", "json", "--quiet", "--connect-timeout", "3"],
+            env={**os.environ, "BUTTONHEIST_DEVICE": f"127.0.0.1:{port}",
+                 "BUTTONHEIST_TOKEN": token, "BUTTONHEIST_DRIVER_ID": token},
+            capture_output=True, text=True, timeout=15,
+        )
+        if response.returncode == 0 and "InsideJob integration consumer" in response.stdout:
+            payload = json.loads(response.stdout)
+            if payload.get("status") == "ok":
+                break
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"Debug runtime capture failed: {response.stdout}\n{response.stderr}")
+    # The consumer deliberately fails a heist to verify returned failure evidence.
+    run([str(swift_client), f"127.0.0.1:{port}", token], timeout=60,
+        env={**os.environ, "BUTTONHEIST_RESULTS_MODE": "off"})
+
+
+def verify_no_listener(port: int) -> None:
+    try:
+        connection = socket.create_connection(("127.0.0.1", port), timeout=1)
+    except OSError:
+        return
+    connection.close()
+    raise RuntimeError("Uninstrumented app has a running Debug listener")
+
+
+def verify_injection(
+    app: Path, bundle: Path, cli: Path, swift_client: Path,
+    simulator: str, app_id: str, environment: dict[str, str], port: int, token: str,
+) -> None:
+    with (bundle / "Info.plist").open("rb") as metadata:
+        libraries = plistlib.load(metadata)["AvailableLibraries"]
+    library = next(item for item in libraries if item.get("SupportedPlatformVariant") == "simulator")
+    framework = bundle / library["LibraryIdentifier"] / library["LibraryPath"]
+    destination = app / "Frameworks" / framework.name
+    destination.parent.mkdir(exist_ok=True)
+    shutil.copytree(framework, destination)
+    run(["xcrun", "simctl", "install", simulator, str(app)])
+    run(["xcrun", "simctl", "launch", simulator, app_id], env=environment)
+    verify_no_listener(port)
+    run(["xcrun", "simctl", "terminate", simulator, app_id])
+
+    run(["xcrun", "simctl", "launch", simulator, app_id], env={
+        **environment,
+        "SIMCTL_CHILD_DYLD_INSERT_LIBRARIES": "@executable_path/Frameworks/TheInsideJob.framework/TheInsideJob",
+    })
+    verify_capture(cli, swift_client, port, token)
+    run(["xcrun", "simctl", "terminate", simulator, app_id])
+    print("PASS: injected runtime auto-starts and responds to the public Swift client", flush=True)
+
+
+def verify_consumer(
+    integration: str, archive: Path, cli: Path, swift_client: Path, simulator: str, token: str,
+) -> None:
     target = f"{integration.title()}Consumer"
     app_id = f"com.buttonheist.{integration}-consumer"
     with socket.socket() as reservation:
@@ -108,29 +164,12 @@ def verify_consumer(integration: str, archive: Path, cli: Path, simulator: str, 
                                "SIMCTL_CHILD_INSIDEJOB_TOKEN": token, "SIMCTL_CHILD_INSIDEJOB_ID": token}
                 run(["xcrun", "simctl", "launch", simulator, app_id], env=environment)
                 if configuration == "Debug":
-                    deadline = time.monotonic() + 60
-                    while True:
-                        response = subprocess.run(
-                            [str(cli), "get_interface", "--format", "json", "--quiet", "--connect-timeout", "3"],
-                            env={**os.environ, "BUTTONHEIST_DEVICE": f"127.0.0.1:{port}",
-                                 "BUTTONHEIST_TOKEN": token, "BUTTONHEIST_DRIVER_ID": token},
-                            capture_output=True, text=True, timeout=15,
-                        )
-                        if response.returncode == 0 and "InsideJob integration consumer" in response.stdout:
-                            payload = json.loads(response.stdout)
-                            if payload.get("status") == "ok":
-                                break
-                        if time.monotonic() >= deadline:
-                            raise RuntimeError(f"Debug runtime capture failed: {response.stdout}\n{response.stderr}")
+                    verify_capture(cli, swift_client, port, token)
                 else:
-                    try:
-                        connection = socket.create_connection(("127.0.0.1", port), timeout=1)
-                    except OSError:
-                        pass
-                    else:
-                        connection.close()
-                        raise RuntimeError("Release app has a running Debug listener")
+                    verify_no_listener(port)
                 run(["xcrun", "simctl", "terminate", simulator, app_id])
+                if integration == "binary" and configuration == "Release":
+                    verify_injection(app, bundle, cli, swift_client, simulator, app_id, environment, port, token)
         finally:
             subprocess.run(["xcrun", "simctl", "terminate", simulator, app_id], capture_output=True)
             subprocess.run(["xcrun", "simctl", "uninstall", simulator, app_id], capture_output=True)
@@ -146,8 +185,14 @@ def main() -> None:
     devices = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "-j"]))
     token = next(device["name"] for group in devices["devices"].values()
                  for device in group if device["udid"] == args.simulator)
-    for integration in ("binary", "source"):
-        verify_consumer(integration, args.archive.resolve(), args.cli.resolve(), args.simulator, token)
+    with tempfile.TemporaryDirectory(prefix="insidejob-swift-client-") as temporary:
+        scratch = Path(temporary)
+        run(["swift", "build", "--package-path",
+             str(ROOT / "tests/fixtures/buttonheist-public-products-import-contract"),
+             "--scratch-path", str(scratch)])
+        swift_client = scratch / "debug/buttonheist-public-products-import-contract"
+        for integration in ("binary", "source"):
+            verify_consumer(integration, args.archive.resolve(), args.cli.resolve(), swift_client, args.simulator, token)
 
 
 if __name__ == "__main__":

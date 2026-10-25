@@ -112,32 +112,39 @@ final class TheBrains {
         guard semanticObservationIsActive else {
             return .failure(.inactiveRuntime)
         }
-        // Require visible semantic truth before exploration starts fresh.
-        let deadline = SemanticObservationDeadline(
-            start: RuntimeElapsed.now,
-            timeoutSeconds: 2
-        )
-        guard await vault.semanticObservationStream.admittedVisibleObservation(
-            boundary: .externalDeadline(deadline)
-        ) != nil,
-              let exploration = await navigation.fullGraph(
-                deadline: deadline,
-                observationBoundary: .externalDeadline(deadline),
-                maxScrollsPerContainer: query.maxScrollsPerContainer?.value,
-                maxScrollsPerDiscovery: query.maxScrollsPerDiscovery?.value
-              ) else {
-            return .failure(.rootViewUnavailable)
+        let deadline = SemanticObservationDeadline(start: RuntimeElapsed.now, timeoutSeconds: 2)
+        let boundary = SemanticObservationWaitBoundary.externalDeadline(deadline)
+        let exploration: Navigation.InterfaceExplorationResult?
+        switch query.capture {
+        case .current:
+            guard case .committed = await vault.semanticObservationStream.refreshedVisibleObservation(
+                boundary: boundary
+            ) else {
+                return .failure(.rootViewUnavailable)
+            }
+            exploration = nil
+        case .discovery(let perContainer, let perDiscovery):
+            guard await vault.semanticObservationStream.admittedVisibleObservation(boundary: boundary) != nil,
+                  let discovered = await navigation.fullGraph(
+                    deadline: deadline,
+                    observationBoundary: boundary,
+                    maxScrollsPerContainer: perContainer?.value,
+                    maxScrollsPerDiscovery: perDiscovery?.value
+                  ) else {
+                return .failure(.rootViewUnavailable)
+            }
+            exploration = discovered
         }
 
         do {
-            let interface = try vault.selectInterface(query)
-            let diagnostics = exploration.progress.interfaceDiagnostics(
-                for: vault.interfaceTree,
-                includedElementCount: interface.projectedElements.count
-            )
-            return .success(interface
-                .withDiagnostics(diagnostics)
-                .withScreenActions(actions.availableScreenActions()))
+            var interface = try vault.selectInterface(query)
+            if let exploration {
+                interface = interface.withDiagnostics(exploration.progress.interfaceDiagnostics(
+                    for: vault.interfaceTree,
+                    includedElementCount: interface.projectedElements.count
+                ))
+            }
+            return .success(interface.withScreenActions(actions.availableScreenActions()))
         } catch {
             return .failure(.selection(error))
         }
