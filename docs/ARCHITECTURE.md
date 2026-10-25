@@ -36,7 +36,8 @@ the same pull request.
 
 ### Swift Client
 
-Mac apps link the `ButtonHeist` product. `ButtonHeist.withSession(session)` scopes
+Mac apps consume the `ButtonHeist` Swift package library, with automatic linkage
+selection and build caching through SwiftPM. `ButtonHeist.withSession(session)` scopes
 one existing Fence connection for typed interface captures and plan execution.
 `ButtonHeist.run` scopes one plan. Both use `ButtonHeistActor`, the existing
 transport, and canonical `HeistResult` values. No client wrapper owns parallel

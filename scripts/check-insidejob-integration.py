@@ -37,7 +37,9 @@ def verify_capture(cli: Path, swift_client: Path, port: int, token: str) -> None
                 break
         if time.monotonic() >= deadline:
             raise RuntimeError(f"Debug runtime capture failed: {response.stdout}\n{response.stderr}")
-    run([str(swift_client), f"127.0.0.1:{port}", token], timeout=60)
+    # The consumer deliberately fails a heist to verify returned failure evidence.
+    run([str(swift_client), f"127.0.0.1:{port}", token], timeout=60,
+        env={**os.environ, "BUTTONHEIST_RESULTS_MODE": "off"})
 
 
 def verify_no_listener(port: int) -> None:

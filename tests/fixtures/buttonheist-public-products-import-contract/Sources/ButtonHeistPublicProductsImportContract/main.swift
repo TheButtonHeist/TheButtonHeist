@@ -25,9 +25,17 @@ struct ButtonHeistPublicProductsImportContract {
 
     @MainActor
     static func verifyClient(configuration: EnvironmentConfig) async throws {
+        let plan = try HeistPlan(parameter: "label") { label in
+            WaitFor(.exists(.label(label)))
+        }
         try await ButtonHeist.withSession(configuration) { heist in
             let before: Interface = try await heist.captureInterface()
             guard before.projectedElements.contains(where: { $0.semantics.assertable.label == "InsideJob integration consumer" }) else {
+                throw ConsumerFailure.missingInterface
+            }
+            let selection = try await heist.captureInterface(InterfaceQuery(capture: .current, subtree: .label("Record")))
+            guard selection.projectedElements.count == 1,
+                  selection.projectedElements.first?.semantics.assertable.label == "Record" else {
                 throw ConsumerFailure.missingInterface
             }
             let result: HeistResult = try await heist.run {
@@ -43,12 +51,23 @@ struct ButtonHeistPublicProductsImportContract {
                   frame.rect != nil else {
                 throw ConsumerFailure.missingInterface
             }
+            let failed = try await heist.run { Fail("Expected client conformance failure") }
+            guard failed.isFailure, failed.steps.first?.status == .failed,
+                  failed.steps.first?.kind == .fail,
+                  failed.steps.first?.failure?.category == .explicitFailure,
+                  failed.steps.first?.failure?.observed == "Expected client conformance failure" else {
+                throw ConsumerFailure.executionFailed
+            }
+            let recovered = try await heist.run(plan, argument: .string("Recorded"))
+            guard !recovered.isFailure else { throw ConsumerFailure.executionFailed }
         }
         let result = try await ButtonHeist.run(configuration: configuration) {
             WaitFor(.exists(.label("Recorded")))
         }
         guard !result.isFailure else { throw ConsumerFailure.executionFailed }
-        print("PASS: public Swift client captured, tapped, waited, and disconnected")
+        let prebuilt = try await ButtonHeist.run(plan, configuration: configuration, argument: .string("Recorded"))
+        guard !prebuilt.isFailure else { throw ConsumerFailure.executionFailed }
+        print("PASS: public Swift client captured, selected, tapped, waited, preserved failure evidence, and reconnected")
     }
 }
 

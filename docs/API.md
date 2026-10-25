@@ -393,9 +393,27 @@ unprefixed name wins when it is valid.
 
 ## Swift client (macOS)
 
-Add the `ButtonHeist` Swift package product to the Mac app.
+The Mac client is a Swift package library. SwiftPM builds and caches it for your app.
+In Xcode, add `https://github.com/TheButtonHeist/TheButtonHeist` at the exact runtime version.
+Select the `ButtonHeist` product, plus `TheScore` when naming interface or result types.
 Add `TheInsideJob` to the iOS app through one of the [runtime install paths](PREBUILT-IOS.md).
 Use the same product version on both sides.
+
+For a `Package.swift` consumer, add this package dependency:
+
+```swift
+.package(url: "https://github.com/TheButtonHeist/TheButtonHeist", exact: "<VERSION>"),
+```
+
+Replace `<VERSION>` with the release used by the iOS runtime.
+Add these products to your Mac target's dependencies:
+
+```swift
+.product(name: "ButtonHeist", package: "thebuttonheist"),
+.product(name: "TheScore", package: "thebuttonheist"),
+```
+
+[Complete Swift package consumer](../tests/fixtures/buttonheist-public-products-import-contract/Package.swift)
 
 `import ButtonHeist` includes the authoring DSL. Import `TheScore` for named interface and result types.
 
