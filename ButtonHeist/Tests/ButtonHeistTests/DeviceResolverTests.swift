@@ -5,7 +5,7 @@ import TheScore
 
 final class DeviceResolverTests: XCTestCase {
 
-    // MARK: - directConnectTarget fast path
+    // MARK: - Explicit Endpoint Resolution
 
     @ButtonHeistActor
     func testResolveDirectConnectSkipsDiscovery() async throws {
@@ -25,30 +25,22 @@ final class DeviceResolverTests: XCTestCase {
     }
 
     @ButtonHeistActor
-    func testResolveNonLoopbackFilterDoesNotShortCircuit() async {
-        var discoveryCallCount = 0
-        let resolver = DeviceResolver(
-            filter: "192.168.1.100:5555",
-            discoveryTimeout: 0,
-            getDiscoveredDevices: {
-                discoveryCallCount += 1
-                return []
-            }
-        )
-        guard case .query(let query) = resolver.target.kind else {
-            return XCTFail("Expected non-loopback endpoint to remain a discovery query")
+    func testResolveNonLoopbackEndpointsSkipsDiscovery() async throws {
+        for address in ["192.168.1.100:5555", "[fd9a:6190:eed7::1]:7331", "example.com:8080"] {
+            var discoveryCallCount = 0
+            let resolver = DeviceResolver(
+                filter: address,
+                discoveryTimeout: 0,
+                getDiscoveredDevices: {
+                    discoveryCallCount += 1
+                    return []
+                }
+            )
+            let expected = try XCTUnwrap(DiscoveredDevice.fromHostPort(address))
+            let device = try await resolver.resolve()
+            XCTAssertEqual(device.endpoint, expected.endpoint)
+            XCTAssertEqual(discoveryCallCount, 0)
         }
-        XCTAssertEqual(query.rawValue, "192.168.1.100:5555")
-
-        do {
-            _ = try await resolver.resolve()
-            XCTFail("Expected error for no devices found")
-        } catch let error as HandoffConnectionError {
-            XCTAssertEqual(error, .noDeviceFound)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
-        XCTAssertGreaterThan(discoveryCallCount, 0)
     }
 
     @ButtonHeistActor

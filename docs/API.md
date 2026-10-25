@@ -453,6 +453,10 @@ TheHandoff owns client-side connection lifecycle: discovery, direct/named
 target resolution, TLS trust, authentication, session state, keepalive, and
 bounded reconnect.
 
+Explicit `host:port` and `[IPv6]:port` targets bypass discovery. CLI flags,
+environment variables, and named target configuration use the same endpoint
+parser. Values without an endpoint remain discovery queries.
+
 Connection diagnostics are exposed as product-level failures: transport
 failure, auth failure, session lock, protocol version mismatch, missing token,
 backlog
@@ -501,7 +505,7 @@ Environment variables:
 
 | Variable | Description |
 |----------|-------------|
-| `BUTTONHEIST_DEVICE` | Default device filter or named target |
+| `BUTTONHEIST_DEVICE` | Default device filter, explicit endpoint, or named target |
 | `BUTTONHEIST_TOKEN` | Auth token |
 | `BUTTONHEIST_DRIVER_ID` | Driver identity for session locking |
 | `BUTTONHEIST_SESSION_TIMEOUT` | MCP idle disconnect timeout (`0` disables it) |
@@ -519,7 +523,7 @@ Common environment variables:
 
 | Variable | Description |
 |----------|-------------|
-| `BUTTONHEIST_DEVICE` | Default device filter or named target |
+| `BUTTONHEIST_DEVICE` | Default device filter, explicit endpoint, or named target |
 | `BUTTONHEIST_TOKEN` | Auth token |
 | `BUTTONHEIST_DRIVER_ID` | Driver identity for session locking |
 | `BUTTONHEIST_SESSION_TIMEOUT` | Default idle timeout for `buttonheist json_lines` (`0` disables it) |

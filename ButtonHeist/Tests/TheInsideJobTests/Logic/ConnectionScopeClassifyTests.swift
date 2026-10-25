@@ -104,4 +104,46 @@ struct ConnectionScopeClassifyTests {
         #expect(ConnectionScope.classify(host: .ipv4(.loopback), interfaceNames: ["anpi0"]) == .simulator)
         #expect(ConnectionScope.classify(host: .ipv6(.loopback), interfaceNames: ["anpi0"]) == .simulator)
     }
+
+    @Test func `the CoreDevice endpoint pair on the observed iPhone tunnel is USB`() {
+        let evidence = ConnectionPathEvidence(
+            host: NWEndpoint.Host("fd9a:6190:eed7::2"),
+            localHost: NWEndpoint.Host("fd9a:6190:eed7::1"),
+            interfaceNames: ["utun4"]
+        )
+
+        #expect(evidence.path == .usb(.coreDeviceTunnel(name: "utun4")))
+        #expect(ConnectionScope.classify(evidence) == .usb)
+    }
+
+    @Test func `the CoreDevice pair without a tunnel interface remains network scoped`() {
+        #expect(ConnectionScope.classify(
+            host: NWEndpoint.Host("fd9a:6190:eed7::2"),
+            localHost: NWEndpoint.Host("fd9a:6190:eed7::1"),
+            interfaceNames: ["en0"]
+        ) == .network)
+    }
+
+    @Test func `tunnel interface alone does not prove a CoreDevice connection`() {
+        #expect(ConnectionScope.classify(
+            host: NWEndpoint.Host("fd9a:6190:eed7::2"),
+            interfaceNames: ["utun4"]
+        ) == .network)
+    }
+
+    @Test func `other tunnel endpoint pairs remain network scoped`() {
+        for (remote, local) in [
+            ("fd9a:6190:eed7::3", "fd9a:6190:eed7::1"),
+            ("fd9a:6190:eed7::2", "fd9a:6190:eed7::3"),
+            ("fd9a:6190:eed8::2", "fd9a:6190:eed7::1"),
+            ("2001:db8::2", "2001:db8::1"),
+            ("192.168.1.2", "192.168.1.1"),
+        ] {
+            #expect(ConnectionScope.classify(
+                host: NWEndpoint.Host(remote),
+                localHost: NWEndpoint.Host(local),
+                interfaceNames: ["utun4"]
+            ) == .network)
+        }
+    }
 }

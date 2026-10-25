@@ -468,17 +468,38 @@ final class DiscoveredDeviceTests: XCTestCase {
         XCTAssertNil(device.simulatorUDID)
     }
 
-    func testDirectConnectTargetParsesLoopbackFilters() {
-        let ipv4 = DiscoveredDevice.directConnectTarget(from: "127.0.0.1:8080")
-        XCTAssertEqual(ipv4?.id, "127.0.0.1:8080")
-
-        let ipv6 = DiscoveredDevice.directConnectTarget(from: "[::1]:9090")
-        XCTAssertEqual(ipv6?.id, "::1:9090")
+    func testExplicitEndpointsUseTheSameParserAsNamedTargets() {
+        for address in [
+            "127.0.0.1:8080",
+            "[::1]:9090",
+            "192.168.1.100:5555",
+            "[fd9a:6190:eed7::1]:7331",
+            " \t[fd9a:6190:eed7::1]:7331 \n",
+            "example.com:8080",
+            "QA:1",
+        ] {
+            let explicit = DeviceResolutionTarget(filter: address)
+            let named = DeviceResolutionTarget(
+                config: TargetConfig(device: address, token: "accra-usb-connections"),
+                named: TargetName(rawValue: "usb")
+            )
+            guard case .direct(let explicitDevice) = explicit.kind,
+                  case .direct(let namedDevice) = named.kind else {
+                XCTFail("Expected both paths to admit an explicit endpoint: \(address)")
+                continue
+            }
+            XCTAssertEqual(explicitDevice.endpoint, namedDevice.endpoint)
+        }
     }
 
-    func testDirectConnectTargetRejectsNonLoopbackHostFilters() {
-        XCTAssertNil(DiscoveredDevice.directConnectTarget(from: "example.com:8080"))
-        XCTAssertNil(DiscoveredDevice.directConnectTarget(from: "QA:1"))
+    func testInvalidEndpointPortsAreNotAdmittedAsDirectTargets() {
+        for address in ["192.168.1.100:0", "[fd9a:6190:eed7::1]:65536", "example.com:invalid"] {
+            let target = DeviceResolutionTarget(filter: address)
+            guard case .query = target.kind else {
+                XCTFail("Invalid endpoint must not be admitted for direct connection: \(address)")
+                continue
+            }
+        }
     }
 
     @ButtonHeistActor

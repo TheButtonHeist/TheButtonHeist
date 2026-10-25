@@ -31,8 +31,14 @@ extension SimpleSocketServer {
                 )
                 return .rejected
             }
-            let interfaceNameList = (connection.currentPath?.availableInterfaces ?? []).map { $0.name }
-            let scope = ConnectionScope.classify(host: host, interfaceNames: interfaceNameList)
+            let path = connection.currentPath
+            let interfaceNameList = (path?.availableInterfaces ?? []).map { $0.name }
+            let localHost: NWEndpoint.Host? = if case .hostPort(let local, _) = path?.localEndpoint {
+                local
+            } else {
+                nil
+            }
+            let scope = ConnectionScope.classify(host: host, localHost: localHost, interfaceNames: interfaceNameList)
             if !scopeFilter.contains(scope) {
                 let message: ServerErrorMessage
                 do {
