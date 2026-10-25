@@ -4,7 +4,7 @@ import ButtonHeistSupport
 /// Requested device target for resolution.
 ///
 /// This is the one value `DeviceResolver` answers. It may be automatic
-/// selection, an advertised-device query, or a direct loopback endpoint.
+/// selection, an advertised-device query, or a direct host:port endpoint.
 struct DeviceResolutionTarget: Equatable, Sendable {
     enum Kind: Equatable, Sendable {
         case automatic
@@ -29,7 +29,7 @@ struct DeviceResolutionTarget: Equatable, Sendable {
             return
         }
 
-        if let directDevice = DiscoveredDevice.directConnectTarget(from: query.rawValue) {
+        if let directDevice = DiscoveredDevice.fromHostPort(query.rawValue) {
             self.kind = .direct(directDevice)
             return
         }

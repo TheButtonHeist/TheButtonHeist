@@ -1,7 +1,7 @@
 import ArgumentParser
 
 struct ConnectionOptions: ParsableArguments {
-    @Option(name: .long, help: "Target device by name, ID prefix, or index from 'list'")
+    @Option(name: .long, help: "Target by name, ID prefix, host:port, or [IPv6]:port")
     var device: String?
 
     @Option(name: .long, help: "Auth token from a previous connection")

@@ -709,7 +709,9 @@ The approved long-lived owners are:
   the app.
 - `TheHandoff`: external connection phase and discovery state outside the app.
   One `DeviceResolutionTarget` enters the handoff, selects direct lookup or
-  discovery once, and remains the reconnect target. `EnvironmentConfig` does
+  discovery once, and remains the reconnect target. Explicit filters and named
+  targets share the host-and-port parser; IPv4, IPv6, and hostname endpoints
+  bypass discovery. `EnvironmentConfig` does
   not retain a parallel filter or re-read process environment after admission.
 - `PendingRequestRegistry`: typed `RequestID` to continuation correlation,
   removed on resolve, timeout, or cancellation.
@@ -718,6 +720,11 @@ The approved long-lived owners are:
   when observation coverage is incomplete; report interpretation never
   discards an admitted terminal result.
 - Artifact stores: `.heist` package files and screenshot bytes on disk.
+
+Connection scope admission consumes immutable `ConnectionPathEvidence` with
+local/remote endpoint and interface facts. CoreDevice tunnel recognition
+requires the `utun` interface and matching private IPv6 device/host pair;
+unknown tunnel paths remain network-scoped.
 
 The Vault's current semantic truth has one phase: vacant with an optional
 replacement requirement, committed with a snapshot, `InterfaceObservation`,

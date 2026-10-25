@@ -115,17 +115,6 @@ public struct DiscoveredDevice: Identifiable, Hashable, Sendable {
         )
     }
 
-    /// Parse a direct loopback connection target from a filter string.
-    /// Accepts `localhost`, `127.x.x.x`, and IPv6 loopback forms with a port.
-    static func directConnectTarget(from filter: String?) -> DiscoveredDevice? {
-        guard let filter else { return nil }
-        let trimmed = filter.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let target = parseHostPort(from: trimmed), isLoopbackHost(target.host) else {
-            return nil
-        }
-        return DiscoveredDevice(host: target.host, port: target.port)
-    }
-
     public func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
@@ -135,6 +124,7 @@ public struct DiscoveredDevice: Identifiable, Hashable, Sendable {
     }
 
     private static func parseHostPort(from value: String) -> DiscoveryHostPortTarget? {
+        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !value.isEmpty else { return nil }
 
         if value.hasPrefix("["),
@@ -155,15 +145,6 @@ public struct DiscoveredDevice: Identifiable, Hashable, Sendable {
         let portString = String(value[value.index(after: separator)...]).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !host.isEmpty, let port = UInt16(portString), port > 0 else { return nil }
         return DiscoveryHostPortTarget(host: host, port: port)
-    }
-
-    private static func isLoopbackHost(_ host: String) -> Bool {
-        let normalized = host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        // Only trust IP addresses, not hostnames like "localhost" (spoofable via /etc/hosts).
-        // Use 127.0.0.1 or ::1 instead.
-        return normalized == "::1" ||
-            normalized == "0:0:0:0:0:0:0:1" ||
-            normalized.hasPrefix("127.")
     }
 
     private static func inferConnectionType(simulatorUDID: SimulatorUDID?) -> ConnectionScope {

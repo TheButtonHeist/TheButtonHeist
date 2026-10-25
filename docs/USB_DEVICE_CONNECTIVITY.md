@@ -4,7 +4,9 @@ Connecting to iOS devices over USB via CoreDevice IPv6 tunnels, bypassing WiFi/m
 
 ## Overview
 
-When WiFi is unreliable (VPN interference, network segmentation, mDNS issues), The Button Heist can connect to physical devices over the CoreDevice USB IPv6 tunnel. USB traffic is allowed by the default `simulator,usb` scope, while WiFi/LAN traffic remains opt-in.
+When WiFi is unreliable, Button Heist can connect to physical devices over the
+CoreDevice IPv6 tunnel. The default `simulator,usb` scope allows recognized
+developer-tunnel traffic. Direct LAN traffic requires `network` scope.
 
 USB uses the same TLS wire protocol as other transports. The difference is how the endpoint is found: direct/named target configuration for USB, Bonjour only when `network` scope is explicitly enabled.
 
@@ -23,22 +25,30 @@ When an iOS device is connected via USB and recognized by Xcode/CoreDevice:
 ### Endpoint Configuration
 
 Button Heist does not auto-discover CoreDevice tunnels. Use a fixed
-`INSIDEJOB_PORT` / `InsideJobPort`, find the device tunnel address, and store
-the resulting `[IPv6]:port` endpoint as a named target. This keeps USB on the
-same direct-target connection path as every other explicitly configured
-endpoint.
+`INSIDEJOB_PORT` / `InsideJobPort` and find the device tunnel address. Pass the
+resulting `[IPv6]:port` endpoint through `--device`, `BUTTONHEIST_DEVICE`, or a
+named target. All three use the same direct-target connection path.
 
 ### Requirements
 
 1. **Device must be "connected"** in devicectl (USB cable attached, trusted)
 2. **TheInsideJob must use IPv6 dual-stack** (enabled by default)
 3. **App must be running** on the device with TheInsideJob started
-4. **A fixed InsideJob port and named target** configured for the tunnel endpoint
+4. **A fixed InsideJob port and explicit endpoint or named target** for the tunnel
 5. **Xcode command line tools** installed (`xcrun` must be available)
 
 ## Usage
 
 ### CLI
+
+Connect to the tunnel endpoint directly:
+
+```bash
+buttonheist connect --device '[fd9a:6190:eed7::1]:7331' --token my-token
+```
+
+Use the current tunnel address and the port and token configured in the app.
+To reuse this endpoint, store it as a named target:
 
 ```bash
 # List configured targets and connect to the default target
@@ -124,8 +134,12 @@ Test Phone 15 Pro     Test-Phone-15-Pro.coredevice.local    ...   connected   iP
 ### Find the IPv6 Tunnel Address
 
 ```bash
-lsof -i -P -n | grep CoreDev | grep -oE '\[fd[0-9a-f:]+::[12]\]' | head -1
+xcrun devicectl device info details --device "Your Device Name"
 ```
+
+Read the tunnel IP address from the connection details. Confirm that the
+transport is wired. The address can change when CoreDevice reconnects; refresh
+it after launching the app.
 
 ### Manual Connection (for debugging)
 
@@ -210,7 +224,8 @@ Common issues that USB bypasses:
 
 ## Connection Scopes
 
-By default, TheInsideJob only accepts connections from simulators (loopback) and USB devices. Network/WiFi connections are rejected unless explicitly allowed via the `INSIDEJOB_SCOPE` environment variable:
+By default, TheInsideJob only accepts loopback and recognized developer-tunnel
+connections. Direct LAN connections require `network` in `INSIDEJOB_SCOPE`:
 
 ```bash
 # Default: simulator and USB only
@@ -219,14 +234,24 @@ INSIDEJOB_SCOPE=simulator,usb
 # Also allow WiFi/LAN connections
 INSIDEJOB_SCOPE=simulator,usb,network
 
-# USB only (reject simulator and WiFi)
+# Developer tunnel only (reject simulator and direct LAN)
 INSIDEJOB_SCOPE=usb
 ```
 
-The scope filter classifies connections once they reach the `.ready` state, using typed `NWEndpoint.Host` values and interface detection:
-- **simulator**: Loopback (`::1`, `127.0.0.1`)
-- **usb**: `anpi` interface (Apple Network Private Interface — CoreDevice USB tunnel)
-- **network**: Everything else (WiFi, LAN, public)
+The scope filter classifies connections once they reach the `.ready` state,
+using the connection's remote host, local host, and interface evidence:
+
+- **simulator**: Loopback address or loopback interface.
+- **usb**: An `anpi` interface, or a `utun` interface with matching CoreDevice
+  endpoints: device `::1` and Mac `::2` in the same private `fd00::/8` `/64`.
+- **network**: All other paths, including tunnel interfaces without matching
+  endpoint evidence.
+
+The `utun` rule matches the path observed on an iPhone 15 Pro running iOS
+26.2.1 and the [CoreDevice tunnel address convention](https://github.com/doronz88/pymobiledevice3/blob/master/misc/RemoteXPC.md).
+It is a platform heuristic, not authentication or proof of a physical USB
+cable. CoreDevice can also carry a developer tunnel over paired Wi-Fi.
+Every connection still requires the configured TLS pre-shared token.
 
 Connections from disallowed scopes are rejected at the `.ready` state, before authentication.
 

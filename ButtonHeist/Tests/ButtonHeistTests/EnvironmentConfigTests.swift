@@ -40,6 +40,17 @@ final class EnvironmentConfigTests: XCTestCase {
         XCTAssertEqual(config.token, "explicit-token")
     }
 
+    func testExplicitAndEnvironmentEndpointsBypassDiscovery() throws {
+        for address in ["192.168.1.100:5555", "[fd9a:6190:eed7::1]:7331"] {
+            let expected = try XCTUnwrap(DiscoveredDevice.fromHostPort(address))
+            let explicit = try resolve(deviceFilter: address, env: .empty)
+            let fromEnvironment = try resolve(env: ButtonHeistEnvironment(device: address))
+
+            XCTAssertEqual(explicit.connectionTarget.kind, .direct(expected))
+            XCTAssertEqual(fromEnvironment.connectionTarget.kind, .direct(expected))
+        }
+    }
+
     func testDefaultConfigTargetUsesEnvironmentToken() throws {
         let name = TargetName(rawValue: "sim")
         let target = TargetConfig(device: "127.0.0.1:1455", token: "config-token")

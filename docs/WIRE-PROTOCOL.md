@@ -96,6 +96,11 @@ integrity protection.
 USB uses the CoreDevice IPv6 tunnel. It is classified as `usb` scope and uses
 the same TLS wire protocol as other non-loopback transports.
 
+The server recognizes CoreDevice paths from interface and local/remote endpoint
+evidence. This is a platform heuristic; it does not attest the physical cable.
+See [Connection Scopes](USB_DEVICE_CONNECTIVITY.md#connection-scopes) for the
+recognized address convention and its limits.
+
 ## Handshake
 
 ```mermaid
