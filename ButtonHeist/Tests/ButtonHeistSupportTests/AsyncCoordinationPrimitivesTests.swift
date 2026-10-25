@@ -146,6 +146,7 @@ private actor WaiterHarness {
         return await oneShot.wait(
             cancellationValue: Self.cancelledValue,
             onRegistered: { oneShot in
+                self.preconditionIsolated()
                 waiters.insert(oneShot, for: key)
                 if let timeout {
                     oneShot.armTimeout(after: timeout) { [weak self] in
@@ -154,6 +155,7 @@ private actor WaiterHarness {
                 }
             },
             onFinished: {
+                self.preconditionIsolated()
                 waiters.resolve(key, returning: Self.cancelledValue)
             }
         )
@@ -164,10 +166,12 @@ private actor WaiterHarness {
         return await oneShot.wait(
             cancellationValue: Self.cancelledValue,
             onRegistered: { oneShot in
+                self.preconditionIsolated()
                 waiters.insert(oneShot, for: key)
                 oneShot.resolve(returning: value)
             },
             onFinished: {
+                self.preconditionIsolated()
                 waiters.resolve(key, returning: Self.cancelledValue)
             }
         )
