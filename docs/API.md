@@ -559,6 +559,10 @@ when the file is discovered from a default config path.
 
 **Binary**: `buttonheist-mcp`
 
+`buttonheist-mcp --version` prints the product version and exits before reading
+configuration or starting the server. MCP initialization reports the same value
+in `serverInfo.version`.
+
 ButtonHeistMCP exposes MCP tools projected from `TheFence.Command`. The live
 MCP `tools/list` response is the source of truth for tools and schemas.
 

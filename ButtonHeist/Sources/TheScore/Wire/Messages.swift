@@ -13,7 +13,7 @@ public let buttonHeistServiceType = "_buttonheist._tcp"
 /// the server's and the client's `buttonHeistVersion`. Update this constant
 /// only via `scripts/bump-version.sh`; merge it before publication. See `docs/WIRE-PROTOCOL.md` and
 /// `VERSIONING.md` in bh-infra.
-public let buttonHeistVersion: ButtonHeistVersion = "0.7.3"
+public let buttonHeistVersion: ButtonHeistVersion = "0.7.4"
 
 /// Shared socket wire-framing limits.
 public enum WireFrameLimits {

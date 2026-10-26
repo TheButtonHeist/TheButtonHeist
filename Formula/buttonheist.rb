@@ -51,6 +51,7 @@ class Buttonheist < Formula
 
   test do
     assert_match version.to_s, shell_output("#{bin}/buttonheist --version")
+    assert_match version.to_s, shell_output("#{bin}/buttonheist-mcp --version")
     assert_predicate bin/"buttonheist-mcp", :exist?
     assert_predicate bin/"buttonheist-mcp", :executable?
     assert_predicate lib/"ThePlans/arm64-apple-macosx/release/Modules/ThePlans.swiftinterface", :exist?
