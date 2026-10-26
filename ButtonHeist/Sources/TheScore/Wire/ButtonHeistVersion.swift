@@ -54,9 +54,9 @@ public struct ButtonHeistVersion: Codable, Sendable, Equatable, Hashable,
         let components = value.split(separator: "-", omittingEmptySubsequences: false)
         guard components.count == 1 || components.count == 2 else { return false }
         if components.count == 2 {
-            let hash = components[1].utf8
-            guard hash.count == 12,
-                  hash.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {
+            let hash = components[1]
+            guard hash.utf8.count == 12,
+                  hash.allSatisfy({ "0123456789abcdef".contains($0) }) else {
                 return false
             }
         }
@@ -67,6 +67,6 @@ public struct ButtonHeistVersion: Codable, Sendable, Equatable, Hashable,
     }
 
     private static func isNumeric(_ value: Substring) -> Bool {
-        !value.isEmpty && value.unicodeScalars.allSatisfy { (48...57).contains($0.value) }
+        !value.isEmpty && value.allSatisfy { "0123456789".contains($0) }
     }
 }
