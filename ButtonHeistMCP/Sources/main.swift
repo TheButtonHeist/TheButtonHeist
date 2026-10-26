@@ -8,6 +8,10 @@ struct ButtonHeistMCPServer {
     typealias JSONResponseRenderer = (FenceResponse) throws -> PublicJSONRendering
 
     static func main() async throws {
+        if CommandLine.arguments.dropFirst().contains("--version") {
+            print(buttonHeistVersion)
+            return
+        }
         let context = try await setUp()
 
         let server = Server(
