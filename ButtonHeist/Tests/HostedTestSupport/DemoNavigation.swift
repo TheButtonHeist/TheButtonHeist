@@ -41,21 +41,30 @@ package enum DemoNavigation {
     }
 
     private static let backOneLevelIfNeeded = HeistDef<Void>("DemoNavigation.backOneLevelIfNeeded") {
-        try reanchorLongListIfNeeded()
+        let reanchor = try reanchorLongListIfNeeded()
+        let chromeWait = WaitFor(
+            .exists(.predicate(rootBackTarget)),
+            timeout: try .seconds(backChromeSettleTimeout)
+        ).else {}
 
-        WaitFor(.exists(.predicate(rootBackTarget)), timeout: try .seconds(backChromeSettleTimeout))
-            .else {}
-
+        // Outgoing Back chrome can remain observable after the root title appears.
         If {
-            Case(.exists(.predicate(rootBackTarget))) {
-                Activate(.predicate(rootBackTarget))
-                    .expect(.screenChanged, timeout: 8)
+            Case(.missing(.predicate(rootTitle))) {
+                reanchor
+                chromeWait
+
+                If {
+                    Case(.exists(.predicate(rootBackTarget))) {
+                        Activate(.predicate(rootBackTarget))
+                            .expect(.screenChanged, timeout: 8)
+                    }
+                    Case(.exists(.predicate(anyBackTarget))) {
+                        Activate(.predicate(anyBackTarget))
+                            .expect(.screenChanged, timeout: 8)
+                    }
+                    Else {}
+                }
             }
-            Case(.exists(.predicate(anyBackTarget))) {
-                Activate(.predicate(anyBackTarget))
-                    .expect(.screenChanged, timeout: 8)
-            }
-            Else {}
         }
     }
 

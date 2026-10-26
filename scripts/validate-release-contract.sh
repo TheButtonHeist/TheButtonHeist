@@ -15,7 +15,6 @@ fail() {
     exit 1
 }
 
-SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
 SEMVER_GREP='[0-9]+\.[0-9]+\.[0-9]+'
 
 extract_formula_version() {
@@ -23,8 +22,10 @@ extract_formula_version() {
         | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
-CANONICAL_VERSION=$(buttonheist_code_version)
-[[ "$CANONICAL_VERSION" =~ $SEMVER_REGEX ]] || fail "$BUTTONHEIST_CODE_VERSION_FILE ($CANONICAL_VERSION) is not MAJOR.MINOR.PATCH"
+BUILD_VERSION=$(buttonheist_code_version)
+[[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-f]{12})?$ ]] \
+    || fail "$BUTTONHEIST_CODE_VERSION_FILE ($BUILD_VERSION) is not a release or development version"
+CANONICAL_VERSION=${BUILD_VERSION%%-*}
 for template in "$BUTTONHEIST_FORMULA_TEMPLATE" "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE"; do
     FORMULA_TEMPLATE_VERSION=$(extract_formula_version "$template" || true)
     FORMULA_VERSION_COUNT=$(printf '%s\n' "$FORMULA_TEMPLATE_VERSION" | sed '/^$/d' | wc -l | tr -d '[:space:]')

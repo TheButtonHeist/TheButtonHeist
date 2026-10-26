@@ -486,8 +486,8 @@ mkdir -p "$SMOKE_HOME" "$PLAN_TMP"
 version_output="$(run_with_timeout 10 "$BUTTONHEIST" --version 2>&1)" \
     || fail "buttonheist --version failed: $version_output"
 version="$(printf '%s\n' "$version_output" | sed -n '1p' | tr -d '[:space:]')"
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
-    || fail "buttonheist --version did not print MAJOR.MINOR.PATCH: $version_output"
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-f]{12})?$ ]] \
+    || fail "buttonheist --version did not print a release or development version: $version_output"
 if [[ -n "$EXPECTED_VERSION" && "$version" != "$EXPECTED_VERSION" ]]; then
     fail "buttonheist --version printed $version, expected $EXPECTED_VERSION"
 fi

@@ -54,7 +54,7 @@ module map and the wire boundary are drawn in the
 | `.heist` artifact format | Public generated artifact | `<name>.heist/manifest.json` and `plan.json` | [Heist Format](HEIST-FORMAT.md) | Generated package artifact. Do not hand-author it; regenerate artifacts when the plan or manifest contract changes. |
 | Plan DSL/source | Public authoring source | Swift DSL files, canonical ButtonHeist source strings, `buttonheist plan compile`, `run_heist --plan`, MCP `run_heist(plan:)` | [Swift Heist Authoring](SWIFT-HEIST-AUTHORING.md) and [Heist Format](HEIST-FORMAT.md) | Source must compile to canonical `HeistPlan` IR. MCP and JSON-lines should pass source or paths, not raw IR fields. |
 | Config and environment keys | Public runtime configuration | `.buttonheist.json`, `~/.config/buttonheist/config.json`, `BUTTONHEIST_*`, `INSIDEJOB_*` | This document, [Authentication](AUTH.md), and command help | Explicit flags and target config win over environment values where command-specific precedence applies. Unknown keys must fail or be ignored only as documented. |
-| Wire compatibility policy | Public transport contract | TheScore newline-delimited TLS JSON | [Wire Protocol](WIRE-PROTOCOL.md) | Exact product-version lockstep. Client and server `buttonHeistVersion` must match exactly; mismatch returns `protocolMismatch` and closes the connection. |
+| Wire compatibility policy | Public transport contract | TheScore newline-delimited TLS JSON | [Wire Protocol](WIRE-PROTOCOL.md) | Exact version lockstep, including the contract hash on development builds. Client and server `buttonHeistVersion` must match exactly; mismatch returns `protocolMismatch` and closes the connection. |
 
 ## Swift API Breakage
 
@@ -394,10 +394,13 @@ unprefixed name wins when it is valid.
 ## Swift client (macOS)
 
 The Mac client is a Swift package library. SwiftPM builds and caches it for your app.
-In Xcode, add `https://github.com/TheButtonHeist/TheButtonHeist` at the exact runtime version.
+For releases, add `https://github.com/TheButtonHeist/TheButtonHeist` in Xcode at the exact runtime version.
 Select the `ButtonHeist` product, plus `TheScore` when naming interface or result types.
 Add `TheInsideJob` to the iOS app through one of the [runtime install paths](PREBUILT-IOS.md).
 Use the same product version on both sides.
+
+For development, build both sides from the same checkout or revision.
+Development contract hashes have no package tags.
 
 For a `Package.swift` consumer, add this package dependency:
 

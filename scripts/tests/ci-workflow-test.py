@@ -57,12 +57,12 @@ class CIWorkflowTests(unittest.TestCase):
 
     def test_contract_version_guard_checks_pr_and_push_snapshots(self) -> None:
         release = job_blocks()["release-contract"]
-        guard = release.split("      - name: Require version bumps for contract changes\n", 1)[1]
+        guard = release.split("      - name: Verify the checked-in contract version\n", 1)[1]
         guard = guard.split("      - name:", 1)[0]
         self.assertNotIn("if:", guard)
         self.assertIn("BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}", guard)
         self.assertIn("HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}", guard)
-        self.assertIn('git fetch --no-tags --depth=1 origin "$BASE_SHA"', guard)
+        self.assertIn('git fetch --tags --depth=1 origin "$BASE_SHA"', guard)
         self.assertIn('python3 scripts/check-contract-version.py "$BASE_SHA" "$HEAD_SHA"', guard)
         self.assertIn("python3 scripts/tests/check-contract-version-test.py", release)
         self.assertLess(release.index("scripts/check-contract-version.py"), release.index("Classify integration changes"))

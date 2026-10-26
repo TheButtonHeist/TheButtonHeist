@@ -83,7 +83,7 @@ debug configurations, add the same `INCLUDED_SOURCE_FILE_NAMES` setting.
 
 ## Compile from source
 
-In Xcode, add this package at the exact version from `buttonheist --version`:
+For releases, add this package in Xcode at the published version from `buttonheist --version`:
 
 ```text
 https://github.com/TheButtonHeist/TheButtonHeist
@@ -102,7 +102,9 @@ packages: [
 ],
 ```
 
-Replace `0.7.0` with the exact version from `buttonheist --version`.
+Replace `0.7.0` with the published release version from `buttonheist --version`.
+For development, use the same checkout or revision for the app and client.
+Development contract hashes have no package tags or published bundles.
 
 Add the product to your app target's `dependencies` argument:
 

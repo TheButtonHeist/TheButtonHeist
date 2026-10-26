@@ -7,7 +7,7 @@ public struct ButtonHeistVersion: Codable, Sendable, Equatable, Hashable,
         case invalid(String)
 
         public var description: String {
-            "Button Heist version must be a MAJOR.MINOR.PATCH semantic version"
+            "Button Heist version must be a MAJOR.MINOR.PATCH semantic version, optionally followed by a 12-character lowercase contract hash"
         }
     }
 
@@ -51,7 +51,16 @@ public struct ButtonHeistVersion: Codable, Sendable, Equatable, Hashable,
     }
 
     private static func isValidSemanticVersion(_ value: String) -> Bool {
-        let identifiers = value.split(separator: ".", omittingEmptySubsequences: false)
+        let components = value.split(separator: "-", omittingEmptySubsequences: false)
+        guard components.count == 1 || components.count == 2 else { return false }
+        if components.count == 2 {
+            let hash = components[1].utf8
+            guard hash.count == 12,
+                  hash.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else {
+                return false
+            }
+        }
+        let identifiers = components[0].split(separator: ".", omittingEmptySubsequences: false)
         return identifiers.count == 3 && identifiers.allSatisfy { identifier in
             isNumeric(identifier) && (identifier == "0" || identifier.first != "0")
         }

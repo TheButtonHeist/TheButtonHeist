@@ -68,6 +68,12 @@ without the iOS runtime. The source package retains automatic linkage selection.
 Local release readiness verifies both Homebrew formulas. After publication,
 `release.sh` upgrades the formulas already installed and verifies their versions.
 
+TheScore owns one version string for every component. Development builds append
+a checked-in hash of TheScore and ThePlans sources to the last release number.
+CI verifies this hash against committed sources. The existing handshake compares
+the complete string. Release preparation advances the release number and clears
+the hash. Development identities are never release tags or published versions.
+
 Release admission requires a GitHub-verified signature and the existing green
 main CI suite for the exact source commit. If a version bump is needed,
 `release.sh` prepares it with `bump-version.sh` and stops for review and merge.

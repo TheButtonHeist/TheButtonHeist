@@ -53,6 +53,10 @@ jobs:
           source scripts/release-contract.sh
           TAG_VERSION="${{ steps.version.outputs.version }}"
           CODE_VERSION=$(buttonheist_code_version)
+          if ! [[ "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Development versions cannot be released"
+            exit 1
+          fi
           TAG_SHA=$(git rev-parse "v${TAG_VERSION}^{}")
           HEAD_SHA=$(git rev-parse HEAD)
 
