@@ -11,8 +11,9 @@ Use live adapter surfaces for product command catalogs:
 ## Versioning
 
 There is no separate wire-protocol version. The wire contract is versioned by
-The Button Heist product SemVer carried in `buttonHeistVersion`. The same rule
-applies to release tags and development builds.
+The Button Heist product identity carried in `buttonHeistVersion`. Releases use
+`MAJOR.MINOR.PATCH`. Development builds append a 12-character lowercase contract
+hash: `MAJOR.MINOR.PATCH-<hash>`.
 
 Admission is exact product-version lockstep:
 
@@ -20,16 +21,16 @@ Admission is exact product-version lockstep:
   the same product version
 - client and server `buttonHeistVersion` must be equal during the
   hello handshake
-- malformed semantic versions are rejected while decoding the envelope
-- major, minor, and patch differences are all incompatible on the wire
+- malformed release versions and contract hashes are rejected while decoding
+- release-number and contract-hash differences are all incompatible on the wire
 - there is no downgrade, feature negotiation, or best-effort compatibility mode
 
 On mismatch, the server returns `protocolMismatch` with both observed product
 versions, then closes the connection before authentication or command dispatch.
-Command and wire-format changes require a product version bump in the same PR,
-including between releases. The required CI guard checks changes in contract
-owners against the exact base commit. See [Contract version guard](CI.md#contract-version-guard)
-for its scope and local commands. A version bump does not publish a release.
+Development changes to TheScore or its ThePlans dependency require an updated,
+checked-in contract hash. Release preparation advances the release number and
+clears that hash. The required CI guard checks committed snapshots. See
+[Contract version guard](CI.md#contract-version-guard) for its scope and commands.
 
 ## Command Layers
 
@@ -114,7 +115,7 @@ sequenceDiagram
     Server-->>Client: serverHello
     Client->>Server: clientHello
 
-    alt Version mismatch
+    alt Release version or contract hash mismatch
         Server-->>Client: protocolMismatch
         Server--xClient: close
     else Reachability probe

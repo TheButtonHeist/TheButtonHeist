@@ -26,12 +26,12 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Require version bumps for contract changes
+      - name: Verify the checked-in contract version
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          git fetch --tags --depth=1 origin "$BASE_SHA"
           python3 scripts/check-contract-version.py "$BASE_SHA" "$HEAD_SHA"
 
       - name: Classify integration changes

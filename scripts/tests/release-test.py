@@ -196,6 +196,23 @@ esac
         self.assertIn('"1.2.3"', version.read_text())
         self.assertFalse(any(call.startswith(("git tag ", "git push ", "gh run ")) for call in calls))
 
+    def test_development_main_prepares_the_next_release_and_clears_its_hash(self):
+        version = self.root / "ButtonHeist/Sources/TheScore/Wire/Messages.swift"
+        version.write_text('public let buttonHeistVersion: ButtonHeistVersion = "1.2.3-a81d93c047e2"\n')
+        result, calls = self.run_release(TEST_TAG_EXISTS="true")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('"1.2.4"', version.read_text())
+        self.assertNotIn("a81d93c047e2", version.read_text())
+        self.assertFalse(any(call.startswith(("git tag ", "git push ", "gh run ")) for call in calls))
+
+    def test_development_version_cannot_be_tagged_as_current(self):
+        version = self.root / "ButtonHeist/Sources/TheScore/Wire/Messages.swift"
+        version.write_text('public let buttonHeistVersion: ButtonHeistVersion = "1.2.3-a81d93c047e2"\n')
+        result, calls = self.run_release("--tag-current", TEST_TAG_EXISTS="true")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("development", result.stdout + result.stderr)
+        self.assertFalse(any(call.startswith(("git tag ", "git push ", "gh run ")) for call in calls))
+
     def test_incomplete_or_unreadable_publication_does_not_prepare_another_bump(self):
         for environment in ({"TEST_RELEASE_DRAFT": "true"}, {"TEST_RELEASE_EXISTS": "false"}):
             with self.subTest(environment=environment):

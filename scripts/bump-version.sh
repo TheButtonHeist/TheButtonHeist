@@ -18,8 +18,8 @@ NEW_VERSION="$1"
     || { echo "Error: '$NEW_VERSION' is not MAJOR.MINOR.PATCH" >&2; exit 1; }
 
 CURRENT_VERSION=$(buttonheist_code_version)
-[[ "$CURRENT_VERSION" =~ $SEMVER_REGEX ]] \
-    || { echo "Error: canonical version '$CURRENT_VERSION' is not MAJOR.MINOR.PATCH" >&2; exit 1; }
+[[ "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-f]{12})?$ ]] \
+    || { echo "Error: canonical version '$CURRENT_VERSION' is invalid" >&2; exit 1; }
 
 TMP_DIR=$(mktemp -d)
 UPDATED=false

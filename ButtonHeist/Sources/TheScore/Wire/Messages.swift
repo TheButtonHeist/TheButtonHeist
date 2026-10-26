@@ -8,12 +8,12 @@ public let buttonHeistServiceType = "_buttonheist._tcp"
 
 /// Canonical product version shared by CLI, MCP, and the iOS server.
 ///
-/// SemVer (`MAJOR.MINOR.PATCH`). There is no separate "wire protocol version"
-/// — the handshake requires exact equality between
-/// the server's and the client's `buttonHeistVersion`. Update this constant
-/// only via `scripts/bump-version.sh`; merge it before publication. See `docs/WIRE-PROTOCOL.md` and
-/// `VERSIONING.md` in bh-infra.
-public let buttonHeistVersion: ButtonHeistVersion = "0.7.4"
+/// Releases use `MAJOR.MINOR.PATCH`; development builds append the checked-in
+/// TheScore/ThePlans contract hash. The handshake compares the complete string.
+/// Update development hashes with `scripts/check-contract-version.py --update`.
+/// Prepare releases with `scripts/bump-version.sh`, which clears the hash.
+/// See `docs/WIRE-PROTOCOL.md`.
+public let buttonHeistVersion: ButtonHeistVersion = "0.7.1"
 
 /// Shared socket wire-framing limits.
 public enum WireFrameLimits {

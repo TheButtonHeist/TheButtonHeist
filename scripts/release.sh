@@ -64,8 +64,13 @@ if [[ "$(git rev-parse origin/main)" != "$RELEASE_SHA" || "$(git rev-parse HEAD)
 fi
 [[ -z "$(git status --porcelain)" ]] || { echo "Error: worktree changed during admission" >&2; exit 1; }
 
-CURRENT_VERSION=$(buttonheist_code_version)
-[[ "$CURRENT_VERSION" =~ $SEMVER_REGEX ]] || { echo "Error: invalid source version" >&2; exit 1; }
+BUILD_VERSION=$(buttonheist_code_version)
+[[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-f]{12})?$ ]] || { echo "Error: invalid source version" >&2; exit 1; }
+CURRENT_VERSION=${BUILD_VERSION%%-*}
+if [[ "$TAG_CURRENT" == true && "$BUILD_VERSION" != "$CURRENT_VERSION" ]]; then
+    echo "Error: a development version cannot be tagged; prepare the next release first" >&2
+    exit 1
+fi
 CURRENT_REMOTE_TAG=$(git ls-remote --tags origin "refs/tags/v$CURRENT_VERSION")
 CURRENT_TAG_EXISTS=false
 if [[ -n "$CURRENT_REMOTE_TAG" ]] || git show-ref --verify --quiet "refs/tags/v$CURRENT_VERSION"; then
@@ -92,6 +97,8 @@ elif [[ -z "$VERSION" ]]; then
             exit 1
         fi
         VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+    elif [[ "$BUILD_VERSION" != "$CURRENT_VERSION" ]]; then
+        VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
     fi
 fi
 if [[ "$VERSION" != "$CURRENT_VERSION" ]]; then
@@ -117,6 +124,10 @@ fi
 if [[ "$CURRENT_TAG_EXISTS" == true ]]; then
     echo "Error: v$VERSION already exists; its tag and published files are preserved."
     retry_publication "$VERSION"
+    exit 1
+fi
+if [[ "$BUILD_VERSION" != "$CURRENT_VERSION" ]]; then
+    echo "Error: prepare a newer release version to clear the development hash" >&2
     exit 1
 fi
 if [[ "$DRY_RUN" == true ]]; then

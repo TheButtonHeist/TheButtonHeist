@@ -5,39 +5,47 @@ inside the app's own test bundle, or in a runner script that drives the app
 from outside.
 
 Both topologies share the version rule: the embedded `TheInsideJob` build and
-the `buttonheist` CLI/MCP build must be the same release. The wire handshake
-compares versions for exact equality and rejects mismatches, so pin the CLI to
-the release your app embeds rather than installing "latest" in CI.
+the `buttonheist` CLI/MCP build must report the same full version. The wire
+handshake compares versions for exact equality and rejects mismatches. Pin the
+CLI to the release or development contract that your app embeds.
 
 ## Contract version guard
 
 The required `release-contract` job runs `scripts/check-contract-version.py`
-on pull requests and pushes to `main`. A contract change must increase
-`buttonHeistVersion` in the same change, including between releases.
+on pull requests and pushes to `main`. Development changes retain the last
+release number and append a checked-in contract hash, such as
+`0.7.0-a81d93c047e2`. These identities do not create releases or tags.
 
-The guard watches these contract owners:
+The hash covers every Swift source in `TheScore` and `ThePlans`, including
+paths, comments, additions, deletions, and renames. The version declaration
+itself is excluded. ThePlans defines plan and action types that TheScore sends
+over the wire. Adapter and runtime implementation changes outside these modules
+do not change this fingerprint.
 
-- `TheScore` and `ThePlans` sources: shared wire values, results, and plan language.
-- `TheFence` sources: command admission, schemas, and response rendering.
-- CLI and MCP sources: public command adapters.
-- `TheVault/IdAssignment.swift`: stable heist ID synthesis.
-- `tests/fixtures/public-cli-mcp-command-contract.json`: the command contract fixture.
+After a shared contract change, update the checked-in version:
 
-This is a conservative source check. Comments and refactors in these owners
-also require a bump. The guard does not force a bump for other files.
-Behavioral contract changes outside these owners still require one.
+```bash
+python3 scripts/check-contract-version.py --update
+```
 
-For pull requests, CI compares the exact base and head commits. For main pushes,
-it compares the previous and new main commits. Additions, deletions, and renames
-all count. The version must be greater numerically; another change's bump cannot
-cover your contract changes after main advances. Update your branch and run:
+The script uses the first 12 hexadecimal characters of SHA-256 over ordered
+source paths and contents. Every build reads the resulting version constant.
+Consumers need no Git checkout or build-time generator.
+
+For pull requests, CI checks the exact base and head commits. For main pushes,
+it checks the previous and new main commits. CI rejects a missing, malformed,
+or stale hash. Worktree changes cannot mask a stale committed value.
+
+To prepare a release, change the release number and clear the hash:
 
 ```bash
 scripts/bump-version.sh <new-version>
 ```
 
-A version bump does not publish a release. Several versions on main may remain
-unreleased. CI rejects missing or malformed versions and version decreases.
+A release preparation must exceed the newest release tag. Unpublished version
+numbers can be reconciled before publication. A release bump clears the hash;
+later contract changes require a hash again. Release publication is a separate
+operation and rejects development versions.
 
 To check two committed snapshots locally:
 
