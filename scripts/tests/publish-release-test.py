@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -41,7 +42,7 @@ class PublicationTests(unittest.TestCase):
         self.other_releases = []
         self.assets = {}
         self.calls = []
-        self.fail = ""
+        self.failure = ""
         self.concurrent = False
         self.head = "original-commit"
         self.tree = {"README.md": "Keep unrelated tap content\n",
@@ -65,28 +66,28 @@ class PublicationTests(unittest.TestCase):
             for argument in args:
                 if Path(argument).is_file():
                     self.assets[Path(argument).name] = Path(argument).read_bytes()
-                    if self.fail == "upload":
+                    if self.failure == "upload":
                         raise subprocess.CalledProcessError(1, args)
         elif args[:2] == ["release", "download"]:
-            if self.fail == "download":
+            if self.failure == "download":
                 raise subprocess.CalledProcessError(1, args)
             output = Path(args[args.index("--dir") + 1])
             for name, content in self.assets.items():
                 (output / name).write_bytes(content)
         elif args[:2] == ["release", "edit"]:
             self.assertIn("--draft=false", args)
-            if self.fail == "publish":
+            if self.failure == "publish":
                 raise subprocess.CalledProcessError(1, args)
             self.release["draft"] = False
         elif args[0] == "api":
             endpoint = args[1]
             method = args[args.index("--method") + 1]
-            if (self.fail in ("trees", "commits") and endpoint.endswith(f"/git/{self.fail}")) or (
-                self.fail == "ref" and "/git/refs/" in endpoint
+            if (self.failure in ("trees", "commits") and endpoint.endswith(f"/git/{self.failure}")) or (
+                self.failure == "ref" and "/git/refs/" in endpoint
             ):
                 raise subprocess.CalledProcessError(1, args)
             if endpoint.endswith("/releases"):
-                if self.fail == "lookup":
+                if self.failure == "lookup":
                     raise subprocess.CalledProcessError(1, args)
                 return json.dumps([self.other_releases, [self.release] if self.release else []])
             self.assertEqual(token, "tap-token")
@@ -116,7 +117,7 @@ class PublicationTests(unittest.TestCase):
                     raise subprocess.CalledProcessError(1, args)
                 self.tree = self.pending_tree
                 self.head = payload["sha"]
-                if self.fail == "lost-response":
+                if self.failure == "lost-response":
                     raise subprocess.CalledProcessError(1, args)
                 return json.dumps({"object": {"sha": self.head}})
             else:
@@ -144,14 +145,14 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(sum("/git/refs/" in args[1] for args, _, _ in self.calls), 1)
 
     def test_partial_upload_stays_draft_and_can_be_retried(self):
-        self.fail = "upload"
+        self.failure = "upload"
         original = self.tree.copy()
         with self.assertRaises(subprocess.CalledProcessError):
             self.publish()
         self.assertTrue(self.release["draft"])
         self.assertEqual(self.tree, original)
         self.assertEqual(len(self.assets), 1)
-        self.fail = ""
+        self.failure = ""
         self.publish()
         self.assertFalse(self.release["draft"])
         self.assertEqual(set(self.assets), {*self.archives, "checksums.txt"})
@@ -172,27 +173,35 @@ class PublicationTests(unittest.TestCase):
         self.assertFalse(any(args[1].endswith(("/git/commits", "/git/refs/heads/main"))
                              for args, _, _ in self.calls))
 
+    def test_published_retry_needs_no_local_archives_or_release_notes(self):
+        self.published()
+        shutil.rmtree(self.dist)
+        self.notes.unlink()
+        self.publish()
+        self.assertFalse(any(args[0] == "release" and args[1] in ("create", "upload", "edit")
+                             for args, _, _ in self.calls))
+
     def test_tap_failures_leave_both_previous_formulas_and_release_intact(self):
         self.published()
         original = self.tree.copy()
         for failure in ("trees", "commits", "ref"):
             with self.subTest(failure=failure):
-                self.fail = failure
+                self.failure = failure
                 with self.assertRaises(subprocess.CalledProcessError):
                     self.publish()
                 self.assertEqual(self.tree, original)
                 self.assertFalse(self.release["draft"])
-        self.fail = ""
+        self.failure = ""
         self.publish()
         self.assertNotEqual(self.tree, original)
 
     def test_retry_after_lost_ref_response_does_not_add_a_second_commit(self):
         self.published()
-        self.fail = "lost-response"
+        self.failure = "lost-response"
         with self.assertRaises(subprocess.CalledProcessError):
             self.publish()
         committed = self.tree.copy()
-        self.fail = ""
+        self.failure = ""
         self.calls.clear()
         self.publish()
         self.assertEqual(self.tree, committed)
@@ -214,7 +223,7 @@ class PublicationTests(unittest.TestCase):
         original = self.tree.copy()
         for failure in ("lookup", "download", "publish"):
             with self.subTest(failure=failure):
-                self.fail = failure
+                self.failure = failure
                 with self.assertRaises(subprocess.CalledProcessError):
                     self.publish()
                 self.assertEqual(self.tree, original)
@@ -235,11 +244,18 @@ class PublicationTests(unittest.TestCase):
                 self.assertEqual(self.tree, original)
                 self.assertFalse(self.release["draft"])
 
-    def test_missing_tap_token_still_publishes_without_tap_requests(self):
+    def test_missing_tap_token_fails_before_any_publication(self):
         with patch.dict(os.environ, {"HOMEBREW_TAP_TOKEN": ""}):
-            self.publish()
-        self.assertFalse(self.release["draft"])
-        self.assertFalse(any("homebrew-tap" in args[1] for args, _, _ in self.calls))
+            with self.assertRaisesRegex(ValueError, "HOMEBREW_TAP_TOKEN"):
+                self.publish()
+        self.assertIsNone(self.release)
+        self.assertEqual(self.calls, [])
+
+    def test_invalid_versions_fail_before_any_publication(self):
+        for version in ("01.2.3", "1.02.3", "1.2.03", "1.2.3-abcdef012345", "1.2.3\n"):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                PUBLICATION.publish(version, self.dist, self.notes)
+        self.assertEqual(self.calls, [])
 
     def test_invalid_staged_archive_never_creates_a_release(self):
         (self.dist / self.archives[0]).write_text("corrupt build")

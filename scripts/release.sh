@@ -16,7 +16,6 @@ DRY_RUN=false
 TAG_CURRENT=false
 BUMP_TYPE=""
 VERSION=""
-SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --dry-run) DRY_RUN=true ;;
@@ -37,14 +36,14 @@ if [[ "$TAG_CURRENT" == true && -n "$BUMP_TYPE$VERSION" ]]; then
     echo "Error: --tag-current cannot be combined with a version or bump flag" >&2
     exit 2
 fi
-if [[ -n "$VERSION" && ! "$VERSION" =~ $SEMVER_REGEX ]]; then
+if [[ -n "$VERSION" && ! "$VERSION" =~ $BUTTONHEIST_RELEASE_VERSION_REGEX ]]; then
     echo "Error: version must be MAJOR.MINOR.PATCH" >&2
     exit 2
 fi
 
 retry_publication() {
     echo "  Retry publication of the existing tag:"
-    echo "    gh workflow run release.yml --repo $BUTTONHEIST_GITHUB_REPO --ref v$1 -f tag=v$1"
+    echo "    gh workflow run release.yml --repo $BUTTONHEIST_GITHUB_REPO --ref main -f tag=v$1"
 }
 
 [[ "$(git branch --show-current)" == main ]] || { echo "Error: release from main" >&2; exit 1; }
@@ -65,7 +64,7 @@ fi
 [[ -z "$(git status --porcelain)" ]] || { echo "Error: worktree changed during admission" >&2; exit 1; }
 
 BUILD_VERSION=$(buttonheist_code_version)
-[[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-f]{12})?$ ]] || { echo "Error: invalid source version" >&2; exit 1; }
+[[ "$BUILD_VERSION" =~ $BUTTONHEIST_BUILD_VERSION_REGEX ]] || { echo "Error: invalid source version" >&2; exit 1; }
 CURRENT_VERSION=${BUILD_VERSION%%-*}
 if [[ "$TAG_CURRENT" == true && "$BUILD_VERSION" != "$CURRENT_VERSION" ]]; then
     echo "Error: a development version cannot be tagged; prepare the next release first" >&2
@@ -139,11 +138,19 @@ fi
 git tag "v$VERSION" "$RELEASE_SHA"
 git push origin "refs/tags/v$VERSION"
 echo "Tagged signed, green main $RELEASE_SHA as v$VERSION."
+DISPATCHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+if ! gh workflow run release.yml --repo "$BUTTONHEIST_GITHUB_REPO" --ref main -f "tag=v$VERSION"; then
+    echo "Release dispatch failed; the tag is preserved."
+    retry_publication "$VERSION"
+    exit 1
+fi
 
 RUN_ID=""
 for _ in {1..30}; do
     if ! RUN_ID=$(gh run list --repo "$BUTTONHEIST_GITHUB_REPO" --workflow Release \
-        --commit "$RELEASE_SHA" --limit 1 --json databaseId --jq '.[0].databaseId // ""'); then
+        --branch main --event workflow_dispatch --created ">=$DISPATCHED_AT" \
+        --limit 20 --json databaseId,displayTitle \
+        | jq -r --arg title "Release v$VERSION" '[.[] | select(.displayTitle == $title)][0].databaseId // ""'); then
         echo "Could not inspect release workflows. The tag is preserved."
         retry_publication "$VERSION"
         exit 1

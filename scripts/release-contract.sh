@@ -5,6 +5,8 @@
 BUTTONHEIST_GITHUB_REPO="TheButtonHeist/TheButtonHeist"
 BUTTONHEIST_TAP_REPO="TheButtonHeist/homebrew-tap"
 BUTTONHEIST_HOMEBREW_TAP="TheButtonHeist/tap"
+BUTTONHEIST_RELEASE_VERSION_REGEX='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+BUTTONHEIST_BUILD_VERSION_REGEX="${BUTTONHEIST_RELEASE_VERSION_REGEX%\$}(-[0-9a-f]{12})?$"
 
 # TheScore owns the version. Release tags must match it, while the checked-in
 # Homebrew formula templates are rendered by the release job.
@@ -24,12 +26,15 @@ BUTTONHEIST_DEMO_ARTIFACT_SUFFIX="iphonesimulator"
 BUTTONHEIST_INSIDEJOB_ARTIFACT_PREFIX="theinsidejob"
 
 buttonheist_code_version() {
+    buttonheist_parse_code_version < "$BUTTONHEIST_CODE_VERSION_FILE"
+}
+
+buttonheist_parse_code_version() {
     local versions
     local count
 
     versions="$(
         grep -E '^[[:space:]]*public let buttonHeistVersion: ButtonHeistVersion = "[^"]+"' \
-            "$BUTTONHEIST_CODE_VERSION_FILE" \
             | sed -E 's/.*"([^"]+)".*/\1/' \
             || true
     )"

@@ -78,21 +78,33 @@ Release admission requires a GitHub-verified signature and the existing green
 main CI suite for the exact source commit. If a version bump is needed,
 `release.sh` prepares it with `bump-version.sh` and stops for review and merge.
 Otherwise it tags the admitted main SHA. Release builds use that exact commit
-and reuse its CI result.
+and reuse its CI result. The release script dispatches the workflow from
+protected main. Admission runs before the candidate checkout and reads GitHub's
+current-attempt job results, independent of diagnostic artifact retention.
+It also verifies the tap token's write permission before starting a build.
 
 `publish-release.py` uploads a draft and verifies the uploaded checksums before
 publication. It then updates both Homebrew formulas through one Git commit and
 one non-forced branch update. Retries use published assets and leave matching
-formulas unchanged. Failures preserve published files and tags.
+formulas unchanged. Build and publication use separate jobs, so a publication
+failure reuses retained archives. A fresh retry of a published release skips
+building entirely. Publication scripts come from main; formula templates come
+from the admitted release commit. Failures preserve published files and tags.
+The Mac archives include dependency licenses and notices alongside the binaries.
 
 ```mermaid
 flowchart LR
-    Main["Signed main commit + existing green CI"] --> Sources["Runtime + private dependencies"]
+    Main["Protected main workflow"] --> Admit["Admit signed, green SHA"]
+    Admit --> Tap["Verify tap write access"]
+    Tap --> Existing{"Already published?"}
+    Existing -->|No| Sources["Admitted source commit"]
+    Existing -->|Yes| GitHub["Published GitHub release"]
     Sources --> Package["Debug distribution build"]
     Package --> Framework["TheInsideJob.xcframework<br/>device + simulator + resources + symbols"]
     Framework --> Zip["theinsidejob-version.zip"]
-    Zip --> Draft["Draft: upload and verify"]
-    Draft --> GitHub["Published GitHub release"]
+    Zip --> Retain["Verify and retain archives"]
+    Retain --> Draft["Separate publication job"]
+    Draft --> GitHub
     GitHub --> Brew["Both Homebrew formulas in one commit"]
     GitHub --> App["App includes framework only in Debug"]
     Brew --> App

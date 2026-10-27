@@ -70,38 +70,34 @@ list_ci_runs() {
 
 has_successful_exact_sha_suite() {
     local runs_json="$1"
-    local expected_workflow_ref="$REPOSITORY/.github/workflows/ci.yml@refs/heads/main"
     local run_id
     while IFS= read -r run_id; do
         [[ -n "$run_id" ]] || continue
-        local jobs_json
-        jobs_json=$(gh run view "$run_id" --repo "$REPOSITORY" --json jobs 2>/dev/null || echo '{"jobs":[]}')
-        if ! jq -e '
-            [.jobs[] | select(
-                .name == "exact-sha-suite"
-                and .status == "completed"
-                and .conclusion == "success"
-            )] | length == 1
-        ' <<< "$jobs_json" >/dev/null; then
+        local run_json attempt jobs_json
+        run_json=$(gh api "repos/$REPOSITORY/actions/runs/$run_id" 2>/dev/null) || continue
+        if ! jq -e --arg commit "$COMMIT_SHA" --argjson runId "$run_id" '
+            .id == $runId and .head_sha == $commit
+            and .head_branch == "main" and .event == "push"
+            and .path == ".github/workflows/ci.yml"
+            and .status == "completed" and .conclusion == "success"
+            and (.run_attempt | type == "number" and . >= 1 and floor == .)
+        ' <<< "$run_json" >/dev/null; then
             continue
         fi
-
-        local manifest_directory
-        manifest_directory=$(mktemp -d)
-        if gh run download "$run_id" \
-            --repo "$REPOSITORY" \
-            --name buttonheist-exact-sha-suite \
-            --dir "$manifest_directory" >/dev/null 2>&1 \
-            && jq -e \
-                --arg commit "$COMMIT_SHA" \
-                --arg runId "$run_id" \
-                --arg workflowRef "$expected_workflow_ref" \
-                -f "$SCRIPT_DIR/exact-sha-suite.jq" \
-                "$manifest_directory/exact-sha-suite.json" >/dev/null; then
-            rm -rf "$manifest_directory"
+        attempt=$(jq -r '.run_attempt' <<< "$run_json")
+        jobs_json=$(gh api "repos/$REPOSITORY/actions/runs/$run_id/attempts/$attempt/jobs" \
+            --paginate --slurp 2>/dev/null) || continue
+        if jq -e -L "$SCRIPT_DIR" '
+            include "release-suites";
+            [.[] | .jobs[]] as $jobs
+            | all((required_release_suites + ["exact-sha-suite"])[];
+                . as $name | [$jobs[] | select(.name == $name)] as $matches
+                | ($matches | length) == 1
+                and $matches[0].status == "completed" and $matches[0].conclusion == "success"
+            )
+        ' <<< "$jobs_json" >/dev/null; then
             return 0
         fi
-        rm -rf "$manifest_directory"
     done < <(jq -r --arg commit "$COMMIT_SHA" '
         .[]
         | select(

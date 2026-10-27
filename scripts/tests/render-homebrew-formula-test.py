@@ -58,6 +58,7 @@ class HomebrewFormulaTests(unittest.TestCase):
     def test_rejects_invalid_version_and_each_invalid_checksum(self) -> None:
         for arguments in (
             {"version": "v1.2.3"}, {"version": "1.2.3\n"},
+            {"version": "01.2.3"}, {"version": "1.02.3"}, {"version": "1.2.03"},
             {"cli": "bad"}, {"mcp": "A" * 64}, {"insidejob": "3" * 63},
         ):
             with self.subTest(arguments=arguments):

@@ -9,6 +9,8 @@
 #   - Pass --require-installed and either --prefix or release archives.
 
 set -euo pipefail
+# shellcheck source=scripts/release-contract.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/release-contract.sh"
 
 PREFIX="${BUTTONHEIST_INSTALL_PREFIX:-}"
 CLI_ARCHIVE="${BUTTONHEIST_CLI_ARCHIVE:-}"
@@ -486,7 +488,7 @@ mkdir -p "$SMOKE_HOME" "$PLAN_TMP"
 version_output="$(run_with_timeout 10 "$BUTTONHEIST" --version 2>&1)" \
     || fail "buttonheist --version failed: $version_output"
 version="$(printf '%s\n' "$version_output" | sed -n '1p' | tr -d '[:space:]')"
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-f]{12})?$ ]] \
+[[ "$version" =~ $BUTTONHEIST_BUILD_VERSION_REGEX ]] \
     || fail "buttonheist --version did not print a release or development version: $version_output"
 if [[ -n "$EXPECTED_VERSION" && "$version" != "$EXPECTED_VERSION" ]]; then
     fail "buttonheist --version printed $version, expected $EXPECTED_VERSION"
