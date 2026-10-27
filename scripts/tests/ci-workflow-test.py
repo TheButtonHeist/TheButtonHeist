@@ -9,8 +9,8 @@ WORKFLOW = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").re
 PROJECT = (Path(__file__).resolve().parents[2] / "Project.swift").read_text()
 
 
-def job_blocks() -> dict[str, str]:
-    jobs = WORKFLOW.split("\njobs:\n", 1)[1]
+def job_blocks(workflow: str = WORKFLOW) -> dict[str, str]:
+    jobs = workflow.split("\njobs:\n", 1)[1]
     starts = list(re.finditer(r"(?m)^  ([a-z0-9-]+):\n", jobs))
     return {
         match.group(1): jobs[match.end() : starts[index + 1].start()]
@@ -130,8 +130,8 @@ class CIWorkflowTests(unittest.TestCase):
     def test_release_uses_signed_commit_admission_and_one_publication_owner(self) -> None:
         root = Path(__file__).resolve().parents[2]
         release = (root / ".github/workflows/release.yml").read_text()
-        self.assertIn("scripts/require-release-commit.sh", release)
-        self.assertLess(release.index("scripts/require-release-commit.sh"), release.index("swift build"))
+        self.assertIn("scripts/admit-release.sh", release)
+        self.assertLess(release.index("scripts/admit-release.sh"), release.index("swift build"))
         self.assertEqual(release.count("python3 scripts/publish-release.py"), 1)
         self.assertNotIn("gh release create", release)
         self.assertNotIn("--method PUT", release)
@@ -139,7 +139,7 @@ class CIWorkflowTests(unittest.TestCase):
         self.assertIn("cancel-in-progress: false", release)
         portable = job_blocks()["release-contract"]
         readiness = (root / "scripts/release-readiness.sh").read_text()
-        for test in ("publish-release-test.py", "release-test.py", "require-release-commit-test.sh"):
+        for test in ("publish-release-test.py", "release-test.py", "require-release-commit-test.sh", "release-boundaries-test.py"):
             self.assertIn(test, portable)
             self.assertIn(test, readiness)
 
@@ -158,12 +158,58 @@ class CIWorkflowTests(unittest.TestCase):
         for suite in (
             "release-contract",
             "macos-tests",
-            "ios-tests",
-            "ios-demo-gates",
-            "main-integration",
+            "ios-logic",
+            "ios-hosted",
+            "ios-integration",
         ):
             with self.subTest(suite=suite):
                 self.assertIn(f'{{name: "{suite}", conclusion:', aggregate)
+
+    def test_release_admission_and_publication_use_protected_main(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        release = (root / ".github/workflows/release.yml").read_text()
+        jobs = job_blocks(release)
+        self.assertNotIn("  push:", release)
+        self.assertIn("if: github.ref == 'refs/heads/main'", jobs["admit"])
+        for name in ("admit", "publish"):
+            self.assertIn("ref: ${{ github.sha }}", jobs[name])
+        self.assertIn("ref: ${{ needs.admit.outputs.sha }}", jobs["build"])
+        self.assertIn("RELEASE_TAG: ${{ inputs.tag }}", jobs["admit"])
+        self.assertIn('scripts/admit-release.sh "$RELEASE_TAG"', jobs["admit"])
+        for block in re.findall(r"(?m)^        run: \|\n((?:^          .*\n|^\n)*)", release):
+            self.assertNotIn("${{", block, "Pass workflow values through env, not shell source")
+        self.assertIn("scripts/verify-homebrew-tap-access.sh", jobs["admit"])
+        self.assertNotIn("HOMEBREW_TAP_TOKEN", jobs["build"])
+        self.assertNotIn("contents: write", jobs["build"])
+        self.assertIn("contents: write", jobs["publish"])
+        self.assertEqual(release.count("persist-credentials: false"), 3)
+
+    def test_release_retries_reuse_staged_or_already_published_archives(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        jobs = job_blocks((root / ".github/workflows/release.yml").read_text())
+        self.assertIn("if: needs.admit.outputs.published != 'true'", jobs["build"])
+        self.assertIn("actions/upload-artifact@", jobs["build"])
+        self.assertIn("actions/download-artifact@", jobs["publish"])
+        self.assertIn("if: needs.admit.outputs.published != 'true'", jobs["publish"])
+        self.assertIn("needs.admit.result == 'success'", jobs["publish"])
+        self.assertIn("needs.build.result == 'success'", jobs["publish"])
+        self.assertIn("needs.build.result == 'skipped' && needs.admit.outputs.published == 'true'", jobs["publish"])
+        self.assertNotIn("swift build", jobs["publish"])
+        self.assertIn('git show "$RELEASE_SHA:Formula/$formula.rb"', jobs["publish"])
+        for name in ("build", "publish"):
+            self.assertIn("name: buttonheist-release-${{ needs.admit.outputs.sha }}", jobs[name])
+
+    def test_both_mac_archives_include_dependency_licenses(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        release = (root / ".github/workflows/release.yml").read_text()
+        self.assertIn('-C dist buttonheist ThePlans Licenses', release)
+        self.assertIn('-C dist buttonheist-mcp Licenses', release)
+        self.assertEqual(release.count("python3 scripts/package-licenses.py"), 2)
+        for dependency in ("swift-sdk", "swift-system", "swift-log", "eventsource", "swift-nio", "swift-atomics", "swift-collections"):
+            self.assertIn(f"ButtonHeistMCP/.build/checkouts/{dependency}", release)
+        formula = (root / "Formula/buttonheist.rb").read_text()
+        self.assertIn('(pkgshare/"licenses/cli").install Dir["Licenses/*"]', formula)
+        self.assertIn('(pkgshare/"licenses/mcp").install Dir["Licenses/*"]', formula)
 
     def test_macos_frameworks_share_one_test_invocation(self) -> None:
         macos = job_blocks()["macos-tests"]

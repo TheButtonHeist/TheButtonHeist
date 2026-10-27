@@ -23,7 +23,7 @@ extract_formula_version() {
 }
 
 BUILD_VERSION=$(buttonheist_code_version)
-[[ "$BUILD_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-f]{12})?$ ]] \
+[[ "$BUILD_VERSION" =~ $BUTTONHEIST_BUILD_VERSION_REGEX ]] \
     || fail "$BUTTONHEIST_CODE_VERSION_FILE ($BUILD_VERSION) is not a release or development version"
 CANONICAL_VERSION=${BUILD_VERSION%%-*}
 for template in "$BUTTONHEIST_FORMULA_TEMPLATE" "$BUTTONHEIST_INSIDEJOB_FORMULA_TEMPLATE"; do

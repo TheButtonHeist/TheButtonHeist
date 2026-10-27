@@ -70,6 +70,7 @@ jobs:
           python3 scripts/tests/render-homebrew-formula-test.py
           python3 scripts/tests/publish-release-test.py
           python3 scripts/tests/release-test.py
+          python3 scripts/tests/release-boundaries-test.py
           python3 scripts/tests/select-ci-change-scopes-test.py
           python3 scripts/tests/select-ios-ci-simulator-test.py
           python3 scripts/tests/test-runner-test.py
@@ -487,9 +488,9 @@ jobs:
               suites: [
                 {name: "release-contract", conclusion: $releaseContract},
                 {name: "macos-tests", conclusion: $macosTests},
-                {name: "ios-tests", conclusion: $iosTests},
-                {name: "ios-demo-gates", conclusion: $iosDemoGates},
-                {name: "main-integration", conclusion: $mainIntegration}
+                {name: "ios-logic", conclusion: $iosTests},
+                {name: "ios-hosted", conclusion: $iosDemoGates},
+                {name: "ios-integration", conclusion: $mainIntegration}
               ]
             }' > exact-sha-suite.json
 
@@ -508,7 +509,7 @@ jobs:
           EXPECTED_WORKFLOW_REF: ${{ github.repository }}/.github/workflows/ci.yml@refs/heads/main
           RUN_ID: ${{ github.run_id }}
         run: |
-          jq -e \
+          jq -e -L scripts \
             --arg commit "$COMMIT_SHA" \
             --arg workflowRef "$EXPECTED_WORKFLOW_REF" \
             --arg runId "$RUN_ID" \

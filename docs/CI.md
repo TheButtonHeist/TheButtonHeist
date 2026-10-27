@@ -228,11 +228,12 @@ CI budgets macOS capacity explicitly:
   `TheInsideJobIntegrationTests` suite then runs behind the completed iOS logic
   lane, keeping macOS concurrency at three.
 - A final `exact-sha-suite` job records the commit, workflow revision, run ID,
-  and every required suite conclusion in `buttonheist-exact-sha-suite`. Release
-  admission requires a GitHub-verified commit signature, accepts only that
-  successful aggregate, and validates its manifest. Tagging the same commit
-  reuses this record; it does not start another source CI run. Release packaging
-  still builds and verifies the artifacts from that exact SHA.
+  and every required suite conclusion in `buttonheist-exact-sha-suite`.
+  Release admission checks the signature and GitHub job results for that exact
+  SHA. It requires a successful push run from `ci.yml` on `main`, including all
+  five suites and the aggregate in its current attempt. It reads every page of
+  job results. The diagnostic manifest can expire without blocking admission.
+  Publication reuses the existing CI result and starts no source CI run.
 - Successful jobs publish timing summaries. Recorded heist results and Xcode
   result bundles are retained only when a job fails; the release admission
   manifest is retained for every main run.
@@ -240,6 +241,52 @@ CI budgets macOS capacity explicitly:
 This keeps the main validation topology within the same three-runner ceiling
 while making the exact release SHA prove the complete required suite. CI and
 local validation both delegate test driving to `scripts/test-runner.py`.
+
+## Release publication
+
+Run `scripts/release.sh` from clean, signed, green `main`. If the version needs
+a bump, the script prepares it and stops for review and merge. Otherwise it
+creates the official tag and dispatches `release.yml` from `main`.
+
+The workflow has three jobs:
+
+1. **Admit:** Run trusted scripts from the protected main workflow revision.
+   Validate `vMAJOR.MINOR.PATCH`, resolve the tag once, verify its source version,
+   signature and existing main CI, then check the tap token's actual Contents
+   write permission. The permission check recreates the tap's existing Git tree;
+   it changes no branch or commit.
+2. **Build:** Check out only the admitted SHA. Build and verify the archives,
+   including both app integration methods, then retain them for 14 days.
+   This job has read-only credentials and no tap token.
+3. **Publish:** Run trusted publication scripts from the main workflow revision.
+   Download the verified archives, verify uploaded bytes, publish the release,
+   and update both Homebrew formulas. Formula templates come from the admitted
+   release commit so older archive layouts remain installable.
+
+Retry a failed publication job with **Re-run failed jobs**. The successful build
+job does not repeat. If the release is already published, dispatch a new workflow:
+
+```bash
+gh workflow run release.yml --repo TheButtonHeist/TheButtonHeist --ref main -f tag=v0.7.1
+```
+
+Admission still runs. An already-published release skips the build and verifies
+its published assets before repairing the tap. A missing or invalid tap token
+fails the release. Tags and published archives are never replaced during recovery.
+
+Keep `main` protected. The [creation rule](https://github.com/TheButtonHeist/TheButtonHeist/rules/25949171)
+restricts `v*` tags to maintain/admin roles. The
+[immutability rule](https://github.com/TheButtonHeist/TheButtonHeist/rules/25949146)
+blocks updates and deletion without a bypass. Release dispatch must use `main`; tag pushes do
+not start the new workflow. Older workflow revisions still exist in Git history,
+so tag protection remains part of the release boundary.
+
+Parser validation checks the exact pinned tag and every tracked lockfile revision.
+It does not require that tag to equal the parser's current main branch. Use
+`scripts/bump-parser.sh --dry-run` to check for newer parser work.
+
+Mac binary archives include project and linked dependency licenses and notices
+under `Licenses`. Homebrew retains them under the formula's shared data directory.
 
 Run the complete portable framework suite with:
 

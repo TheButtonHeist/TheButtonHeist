@@ -29,7 +29,11 @@ class Buttonheist < Formula
   def install
     bin.install "buttonheist"
     lib.install "ThePlans" if (buildpath/"ThePlans").exist?
-    resource("mcp").stage { bin.install "buttonheist-mcp" }
+    (pkgshare/"licenses/cli").install Dir["Licenses/*"]
+    resource("mcp").stage do
+      bin.install "buttonheist-mcp"
+      (pkgshare/"licenses/mcp").install Dir["Licenses/*"]
+    end
   end
 
   def caveats
@@ -57,5 +61,7 @@ class Buttonheist < Formula
     assert_predicate lib/"ThePlans/arm64-apple-macosx/release/Modules/ThePlans.swiftinterface", :exist?
     refute_predicate lib/"ThePlans/arm64-apple-macosx/release/Modules/ThePlans.swiftmodule", :exist?
     assert_predicate lib/"ThePlans/arm64-apple-macosx/release/description.json", :exist?
+    assert_predicate pkgshare/"licenses/cli/swift-argument-parser/LICENSE.txt", :file?
+    assert_predicate pkgshare/"licenses/mcp/swift-sdk/LICENSE", :file?
   end
 end

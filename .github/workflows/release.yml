@@ -1,9 +1,7 @@
 name: Release
+run-name: Release ${{ inputs.tag }}
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -12,64 +10,77 @@ on:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
 
 concurrency:
   group: release-publication
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
-    runs-on: macos-26
-    timeout-minutes: 75
+  admit:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.admission.outputs.sha }}
+      version: ${{ steps.admission.outputs.version }}
+      published: ${{ steps.publication.outputs.published }}
     steps:
-      - name: Checkout repository
+      - name: Checkout protected main workflow revision
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
-      - name: Verify signature and CI on exact release commit
+      - name: Admit the requested release from trusted scripts
+        id: admission
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: scripts/admit-release.sh "$RELEASE_TAG"
+
+      - name: Verify Homebrew tap write access before building
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: scripts/verify-homebrew-tap-access.sh
+
+      - name: Inspect existing publication
+        id: publication
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.admission.outputs.version }}
         run: |
-          TAG_REF="${{ github.event.inputs.tag || github.ref_name }}"
-          TAG_SHA=$(git rev-parse "${TAG_REF}^{}")
-          scripts/require-release-commit.sh \
-            --repo "${{ github.repository }}" \
-            "$TAG_SHA" \
-            "tagged release commit"
+          published=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --slurp \
+            | jq -r --arg tag "v$VERSION" 'any(.[][]; .tag_name == $tag and .draft == false)')
+          echo "published=$published" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: admit
+    if: needs.admit.outputs.published != 'true'
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      VERSION: ${{ needs.admit.outputs.version }}
+    steps:
+      - name: Checkout admitted source commit
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        with:
+          ref: ${{ needs.admit.outputs.sha }}
+          persist-credentials: false
 
       - name: Select Xcode 26.6
         run: sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
 
-      - name: Extract version from tag
-        id: version
-        run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
-
       - name: Verify version consistency
         run: |
           source scripts/release-contract.sh
-          TAG_VERSION="${{ steps.version.outputs.version }}"
           CODE_VERSION=$(buttonheist_code_version)
-          if ! [[ "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Development versions cannot be released"
-            exit 1
-          fi
-          TAG_SHA=$(git rev-parse "v${TAG_VERSION}^{}")
-          HEAD_SHA=$(git rev-parse HEAD)
-
-          if [[ "$TAG_VERSION" != "$CODE_VERSION" ]]; then
-            echo "::error::Tag version ($TAG_VERSION) != buttonHeistVersion ($CODE_VERSION)"
-            exit 1
-          fi
-          if [[ "$TAG_SHA" != "$HEAD_SHA" ]]; then
-            echo "::error::Checked-out HEAD ($HEAD_SHA) is not tag v${TAG_VERSION} ($TAG_SHA)"
+          if [[ "$VERSION" != "$CODE_VERSION" ]]; then
+            echo "::error::Release version ($VERSION) != buttonHeistVersion ($CODE_VERSION)"
             exit 1
           fi
           scripts/validate-release-contract.sh
-          echo "Version $TAG_VERSION verified against source and the release contract."
+          echo "Version $VERSION verified against admitted source and the release contract."
 
       - name: Build CLI (universal)
         run: |
@@ -143,7 +154,6 @@ jobs:
       - name: Check public Swift client and app integration
         run: |
           source scripts/release-contract.sh
-          VERSION="${{ steps.version.outputs.version }}"
           scripts/check-insidejob-integration.py \
             "dist/$(buttonheist_insidejob_archive_name "$VERSION")" \
             ButtonHeistCLI/.build/buttonheist "$SIM_UDID"
@@ -151,7 +161,6 @@ jobs:
       - name: Package binaries and scripts
         run: |
           source scripts/release-contract.sh
-          VERSION="${{ steps.version.outputs.version }}"
           CLI_ARCHIVE=$(buttonheist_cli_archive_name "$VERSION")
           MCP_ARCHIVE=$(buttonheist_mcp_archive_name "$VERSION")
           DEMO_ARCHIVE=$(buttonheist_demo_archive_name "$VERSION")
@@ -169,14 +178,28 @@ jobs:
             dist/ThePlans/arm64-apple-macosx/release/Modules/
           cp .build/arm64-apple-macosx/release/description.json \
             dist/ThePlans/arm64-apple-macosx/release/
-          tar -czf "dist/${CLI_ARCHIVE}" -C dist buttonheist ThePlans
+          python3 scripts/package-licenses.py dist/Licenses \
+            ButtonHeistCLI/.build/checkouts/AccessibilitySnapshotBH \
+            ButtonHeistCLI/.build/checkouts/swift-argument-parser
+          tar -czf "dist/${CLI_ARCHIVE}" -C dist buttonheist ThePlans Licenses
           rm dist/buttonheist
           rm -rf dist/ThePlans
+          rm -rf dist/Licenses
 
           # MCP
           cp ButtonHeistMCP/.build/buttonheist-mcp dist/
-          tar -czf "dist/${MCP_ARCHIVE}" -C dist buttonheist-mcp
+          python3 scripts/package-licenses.py dist/Licenses \
+            ButtonHeistMCP/.build/checkouts/AccessibilitySnapshotBH \
+            ButtonHeistMCP/.build/checkouts/swift-sdk \
+            ButtonHeistMCP/.build/checkouts/swift-system \
+            ButtonHeistMCP/.build/checkouts/swift-log \
+            ButtonHeistMCP/.build/checkouts/swift-nio \
+            ButtonHeistMCP/.build/checkouts/swift-atomics \
+            ButtonHeistMCP/.build/checkouts/swift-collections \
+            ButtonHeistMCP/.build/checkouts/eventsource
+          tar -czf "dist/${MCP_ARCHIVE}" -C dist buttonheist-mcp Licenses
           rm dist/buttonheist-mcp
+          rm -rf dist/Licenses
 
           # Simulator app
           if [[ ! -d "$APP_PATH" || ! -f "$APP_PATH/Info.plist" || ! -x "$APP_PATH/BHDemo" ]]; then
@@ -191,18 +214,57 @@ jobs:
 
           # Checksums
           cd dist
-          shasum -a 256 *.tar.gz *.zip > checksums.txt
+          shasum -a 256 -- *.tar.gz *.zip > checksums.txt
           cat checksums.txt
 
       - name: Smoke staged release artifacts
         run: |
           source scripts/release-contract.sh
-          VERSION="${{ steps.version.outputs.version }}"
           scripts/installed-artifact-smoke.sh \
             --cli-archive "dist/$(buttonheist_cli_archive_name "$VERSION")" \
             --mcp-archive "dist/$(buttonheist_mcp_archive_name "$VERSION")" \
             --expected-version "$VERSION" \
             --require-installed
+
+      - name: Retain verified release archives for publication retries
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: buttonheist-release-${{ needs.admit.outputs.sha }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Delete release simulator
+        if: always() && env.SIM_NAME != ''
+        run: scripts/test-runner.py cleanup --simulator-name "$SIM_NAME"
+
+  publish:
+    needs: [admit, build]
+    if: >-
+      !cancelled() && needs.admit.result == 'success' &&
+      (needs.build.result == 'success' ||
+       (needs.build.result == 'skipped' && needs.admit.outputs.published == 'true'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: write
+    env:
+      VERSION: ${{ needs.admit.outputs.version }}
+      RELEASE_SHA: ${{ needs.admit.outputs.sha }}
+    steps:
+      - name: Checkout protected main publication scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Download verified archives
+        if: needs.admit.outputs.published != 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: buttonheist-release-${{ needs.admit.outputs.sha }}
+          path: dist
 
       - name: Publish release and Homebrew formulas
         env:
@@ -210,8 +272,11 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           source scripts/release-contract.sh
-          VERSION="${{ steps.version.outputs.version }}"
-          PARSER_TAG=$(grep 'AccessibilitySnapshotBH' Package.swift | grep -oE 'exact: "[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          git fetch --no-tags origin "$RELEASE_SHA"
+          for formula in buttonheist theinsidejob; do
+            git show "$RELEASE_SHA:Formula/$formula.rb" > "Formula/$formula.rb"
+          done
+          PARSER_TAG=$(git show "$RELEASE_SHA:Package.swift" | grep 'AccessibilitySnapshotBH' | grep -oE 'exact: "[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           PARSER_SHA=$(git ls-remote https://github.com/TheButtonHeist/AccessibilitySnapshotBH.git "refs/tags/${PARSER_TAG}^{}" | awk '{print $1}' | cut -c1-12)
           if [[ -z "$PARSER_SHA" ]]; then
             PARSER_SHA=$(git ls-remote https://github.com/TheButtonHeist/AccessibilitySnapshotBH.git "refs/tags/${PARSER_TAG}" | awk '{print $1}' | cut -c1-12)
@@ -230,7 +295,3 @@ jobs:
           Integration: https://github.com/${BUTTONHEIST_GITHUB_REPO}/blob/v${VERSION}/docs/PREBUILT-IOS.md
           EOF
           python3 scripts/publish-release.py "$VERSION" dist "$RELEASE_NOTES"
-
-      - name: Delete release simulator
-        if: always() && env.SIM_NAME != ''
-        run: scripts/test-runner.py cleanup --simulator-name "$SIM_NAME"
