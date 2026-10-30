@@ -11,9 +11,8 @@ from pathlib import Path
 
 PACKAGE_API = "run_package_api_contracts"
 CLI_TOOLS = "run_cli_tool_tests"
-BUMPER_RULE_TESTS = "run_bumper_rule_tests"
 IOS_INTEGRATION = "run_ios_integration"
-SCOPES = (PACKAGE_API, CLI_TOOLS, BUMPER_RULE_TESTS, IOS_INTEGRATION)
+SCOPES = (PACKAGE_API, CLI_TOOLS, IOS_INTEGRATION)
 
 DOCUMENTATION_FILES = {
     "AGENTS.md",
@@ -57,7 +56,7 @@ CLI_TOOL_PATHS = {
 }
 
 # These paths are covered by the always-on lint/framework/iOS lanes. They do not
-# affect the three optional macOS scopes selected by this script.
+# affect the optional scopes selected by this script.
 IOS_OR_FRAMEWORK_TEST_PREFIXES = (
     "ButtonHeist/Tests/",
     "TestApp/",
@@ -127,7 +126,7 @@ def scopes_for_path(path: str) -> set[str]:
         else set()
     )
     if matches(path, BUMPER_RULE_PATHS, BUMPER_RULE_PREFIXES):
-        return integration.union([BUMPER_RULE_TESTS])
+        return integration
 
     if is_documentation(path):
         return integration

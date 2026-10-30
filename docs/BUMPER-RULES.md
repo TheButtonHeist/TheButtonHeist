@@ -4,7 +4,7 @@ Button Heist uses Bumper Bowling for source boundaries that Swift and package
 manifests cannot fully express.
 
 Bumper's architecture model owns component paths, internal dependency direction,
-capability access, and banned concurrency escape hatches. Custom rules fill the
+platform imports, and banned concurrency escape hatches. Custom rules fill the
 remaining source-level gaps. Swift access control owns private construction.
 Behavioral tests own runtime and wire behavior.
 
@@ -20,7 +20,7 @@ source imports that cross it.
 | `component_boundary` | A component imports only its listed Button Heist dependencies. | Move the work to the owning component or pass a typed value across an allowed edge. |
 | `declared_dependency_cycle` | The declared component graph stays acyclic. | Remove the reverse edge and restore one direction of ownership. |
 | `duplicate_ownership` | Component source paths do not overlap. | Remove the overlapping `Owns` declaration. This assertion does not detect an unowned path. |
-| `forbidden_import` | Only named components can use each platform capability. | Move the platform work to an allowed boundary and pass typed values inward. |
+| `forbidden_import` | Only named components can import each listed platform module. | Move the platform work to an allowed boundary and pass typed values inward. |
 | `forbidden_syntax_node` | Production code contains no `@preconcurrency` or `nonisolated(unsafe)`. | Model actor isolation and Sendability with checked Swift concurrency. |
 
 The internal dependency graph is:
@@ -37,13 +37,13 @@ The internal dependency graph is:
 | ButtonHeistMCP | ButtonHeist, TheScore |
 | BH Demo | TheInsideJob, ThePlans, TheScore |
 
-Platform capabilities have narrow owners:
+Platform imports have narrow owners:
 
-| Capability | Allowed components |
+| Imported module | Allowed locations |
 | --- | --- |
 | UIKit and SwiftUI | TheInsideJob, ThePlant, and BH Demo |
-| Network.framework | TheInsideJob, ThePlant, ButtonHeist, ButtonHeistSupport, and TheScore |
-| Security.framework | TheScore |
+| Network and FoundationNetworking | Client/server `NetworkBoundary` folders, the discovery boundary files, `ServerTransport.swift`, `NetworkTransportFailure.swift`, and `TLSPreSharedKeyMaterial.swift` |
+| Security | `TheScore/Core/TLSPreSharedKeyMaterial.swift` |
 | Objective-C runtime | TheInsideJob and ThePlant |
 | Live accessibility parser products | TheInsideJob and ThePlant |
 
@@ -53,19 +53,42 @@ TheScore rejects UI, persistence, and test frameworks.
 ## Custom Rules
 
 These rules cover source invariants that the component graph and Swift access
-control cannot force.
+control cannot force. Import ownership uses Bumper's standard shaper.
 
 | Rule ID | What it protects | Repair |
 | --- | --- | --- |
 | `buttonheist.any_boundary` | The exact current Foundation and Objective-C bridge declarations are the only production declarations that use `Any`. The rule does not prove runtime normalization. | Convert the external value to a typed Button Heist value at its boundary. |
-| `buttonheist.callback_isolation` | Stored `onFoo` callbacks declare `@Sendable` or a global actor. The rule also resolves file-local callback aliases. | Add the callback's actor or Sendability contract to its outer function type. |
-| `buttonheist.heist_content_opacity` | `HeistContent` exposes no public stored or computed property. | Keep builder state internal and create `HeistPlan` through its public initializer. |
-| `buttonheist.plan_else_ownership` | Only `WaitFor` and `IfContent` expose a DSL `else` branch. | Use a wait predicate or an enclosing conditional instead of a loop-local alternate body. |
+| `buttonheist.callback_isolation` | Optional function slots and `onFoo` callbacks declare `@Sendable` or a known global actor. Optional slots are checked regardless of the binding name. File-local alias chains use nearest lexical scope. | Add the callback's actor or Sendability contract to its outer function type. |
+| `buttonheist.heist_content_opacity` | `HeistContent` exposes no public members, including methods, initializers, subscripts, aliases, or nested types. | Keep builder state internal and create `HeistPlan` through its public initializer. |
+| `buttonheist.plan_else_ownership` | Only `WaitFor` and `IfContent` expose a public DSL `else` branch. Private/internal helpers are permitted. | Use a wait predicate or an enclosing conditional instead of a loop-local alternate body. |
 | `buttonheist.exported_tuple_contract` | Public, open, and package declarations use named contract types instead of multi-value tuples. | Add a named Swift type or narrow the declaration's access. |
 
-The tuple rule covers function parameters and returns, typed properties,
-subscripts, protocol requirements, and inherited extension access. It permits
-local tuple scratch values and non-exported declarations.
+The tuple rule covers function parameters and returns, initializer parameters,
+typed properties, subscripts, typealiases, enum payload types, associated-type
+defaults, protocol requirements, and inherited extension access. It ignores
+setter access modifiers when evaluating getter visibility. It permits local
+tuple scratch values and non-exported declarations. Named enum case parameters
+such as `case pair(left: Int, right: Int)` are not tuple-valued payloads.
+
+| Rule ID | What it protects | Repair |
+| --- | --- | --- |
+| `buttonheist.transport_import_ownership` | `Network` and `FoundationNetworking` imports stay in the listed transport boundaries. | Pass typed values from the transport owner. |
+| `buttonheist.security_import_ownership` | `Security` imports stay in the shared TLS boundary. | Use the canonical TLS operation. |
+
+The callback rule covers explicitly typed optional function slots and `onFoo`
+contracts. It permits non-optional synchronous dependency functions with other
+names: syntax alone cannot establish that they are callbacks.
+
+Callback isolation recognizes `MainActor`, the imported `ButtonHeistActor`, and
+file-local `@globalActor` declarations. Actor names need no suffix. Optional and
+qualified local aliases are supported; cycles terminate as unresolved. C and
+Objective-C ABI function types retain their calling convention instead of a
+Swift isolation annotation. Computed function properties and protocol
+requirements must preserve the same explicit contract.
+
+These checks inspect explicit syntax. They do not infer types, resolve imported
+aliases, prove symbol identity, or prove the absence of I/O through Foundation.
+Compiler checks still own actor validity and concurrency correctness.
 
 ## Construction Boundaries
 
@@ -84,12 +107,26 @@ construction outside the owning declaration.
 
 ## Test Policy
 
-The `.bumper/Tests` suite tests only custom matching logic. It covers alias
-resolution, effective Swift access, exact bridge exemptions, and DSL ownership.
+Run `scripts/check-source-shape.sh` for the complete source check. It runs the
+rule tests before repository lint. `scripts/check-source-shape.sh test` runs
+only the tests. CI uses the complete check on every change.
 
-It does not repeat Bumper's own tests for imports, syntax nodes, dependency
-edges, cycles, or overlapping paths. Repository lint evaluates those built-in
-assertions against the real source tree.
+The suite covers custom matching, configured transport owners, and ownership
+coverage. The coverage test reads `bumper.architecture` and requires exactly one
+component owner for every included, non-excluded Swift file. It runs outside the
+sandboxed rule evaluator because Bumper 0.6 discards unowned files before rules
+can inspect them. The wrapper provides `BUTTONHEIST_SOURCE_ROOT` explicitly.
+Remove this local filesystem guard when upstream
+[Bumper issue #55](https://github.com/TheButtonHeist/BumperBowling/issues/55)
+provides coverage enforcement.
+
+Coverage applies to Swift files using Bumper's hidden-file and exclusion
+conventions. ThePlant's Objective-C shim is represented in the component map
+but is not analyzed by SwiftSyntax. A native-only ownership scope is valid.
+
+Tests do not repeat Bumper's import-matching, dependency-cycle, or syntax-node
+algorithms. Transport fixtures test our allowed locations. Repository lint
+checks the built-in assertions against real source.
 
 ## Rule Lifecycle
 

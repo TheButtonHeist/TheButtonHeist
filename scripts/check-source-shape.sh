@@ -5,6 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${BUTTONHEIST_SOURCE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+REPO_ROOT="$(cd "$REPO_ROOT" && pwd)"
 BUMPER_CACHE_DIR="${BUMPER_CACHE_DIR:-$REPO_ROOT/.build/bumper-cache}"
 BUMPER_EVALUATION_TIMEOUT_SECONDS="${BUMPER_EVALUATION_TIMEOUT_SECONDS:-300}"
 BUMPER_RUNNER_BUILD_CONFIGURATION="${BUMPER_RUNNER_BUILD_CONFIGURATION:-debug}"
@@ -24,12 +25,17 @@ case "$COMMAND" in
         ;;
 esac
 
-BUMPER_ARGUMENTS=("$COMMAND" "$REPO_ROOT")
-if [[ "$COMMAND" == "lint" ]]; then
-    BUMPER_ARGUMENTS+=(--fail-on error)
-fi
+export BUTTONHEIST_SOURCE_ROOT="$REPO_ROOT"
 
+# Coverage needs the filesystem: Bumper drops unowned files before rule evaluation.
 swift run \
     --package-path "$REPO_ROOT" \
     --configuration debug \
-    bumper "${BUMPER_ARGUMENTS[@]}"
+    bumper test "$REPO_ROOT"
+
+if [[ "$COMMAND" == "lint" ]]; then
+    swift run \
+        --package-path "$REPO_ROOT" \
+        --configuration debug \
+        bumper lint "$REPO_ROOT" --fail-on error
+fi

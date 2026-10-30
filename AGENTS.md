@@ -623,9 +623,9 @@ public var onStatus: (@ButtonHeistActor (String) -> Void)?
 public var onStatus: ((String) -> Void)?
 ```
 
-If a callback fires on a non-actor thread (network queue, ObjC runtime), still annotate explicitly: `@Sendable` for non-isolated, or document with the actor specified.
+Declare `@Sendable` when a callback can run without actor isolation. When a callback belongs to an actor, put that actor on its closure type.
 
-The Bumper rule `buttonheist.callback_isolation` requires stored callback types to declare `@Sendable` or a global actor, including file-local callback aliases.
+The Bumper rule `buttonheist.callback_isolation` requires explicitly typed optional function slots and `onFoo` callbacks to declare `@Sendable` or a known global actor. Optional slots are checked regardless of the binding name. It resolves file-local alias chains; imported aliases and inferred types remain compiler concerns. C and Objective-C ABI function types retain their calling convention.
 
 ## Value Isolation and Sendability
 

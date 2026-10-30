@@ -3,6 +3,7 @@ import SwiftSyntax
 
 let buttonHeistRules = RuleSet {
     anyBoundaryRule
+    transportImportRules
     callbackIsolationRule
     heistContentOpacityRule
     planElseOwnershipRule
@@ -40,72 +41,27 @@ private let anyBoundaryRule = Rules.files(
         }
 }
 
-private let callbackIsolationRule = Rules.files(
-    "buttonheist.callback_isolation",
-    severity: .error,
-    summary: "Stored onFoo callbacks declare their actor or Sendable isolation."
-) { file in
-    let aliases = typeAliases().matches(in: file).map { match in
-        CallbackAlias(
-            name: match.node.name.text,
-            enclosingNominalNames: match.node.bumper.lexicalContext.enclosingNominalNames,
-            shape: match.node.bumper.aliasedTypeShape
-        )
-    }
-    return variables()
-        .lexically(within: SyntaxScope.fileScope.union(.typeMembers))
-        .matches(in: file)
-        .flatMap { match in
-            match.node.bindings.compactMap { binding -> RuleFailure? in
-                guard let name = binding.bumper.identifierName,
-                      name.hasPrefix("on"),
-                      name.dropFirst(2).first?.isUppercase == true,
-                      let declaredShape = binding.bumper.explicitTypeShape,
-                      let shape = callbackShape(
-                          declaredShape,
-                          context: binding.bumper.lexicalContext,
-                          aliases: aliases
-                      ),
-                      shape.isFunction,
-                      !shape.outerFunctionAttributes.contains(where: isIsolationAttribute) else {
-                    return nil
-                }
-                return file.failure(
-                    at: binding,
-                    message: "callback without explicit isolation: \(name)",
-                    evidence: ViolationEvidence(
-                        observed: "\(name): \(shape.spelling)",
-                        expectation: "stored callbacks declare a global actor or @Sendable"
-                    )
-                )
-            }
-        }
-}
-
 private let heistContentOpacityRule = Rules.files(
     "buttonheist.heist_content_opacity",
     severity: .error,
     summary: "HeistContent remains an opaque public authoring fragment."
 ) { file in
-    variables()
+    SyntaxQuery<DeclSyntax>()
         .within(plansScope)
         .lexically(within: contractDeclarationScope)
         .filter { match in
             match.node.bumper.lexicalContext.enclosingNominalNames.first == "HeistContent"
-                && effectiveAccess(of: match.node, modifiers: match.node.modifiers).isPublic
+                && effectiveAccess(of: match.node).isPublic
         }
         .matches(in: file)
-        .flatMap { match in
-            match.node.bindings.map { binding in
-                file.failure(
-                    at: binding,
-                    message: "HeistContent exposes public builder state.",
-                    evidence: ViolationEvidence(
-                        observed: binding.bumper.identifierName ?? binding.trimmedDescription,
-                        expectation: "keep HeistContent properties below public access"
-                    )
+        .map { match in
+            match.failure(
+                message: "HeistContent exposes a public member.",
+                evidence: ViolationEvidence(
+                    observed: match.node.trimmedDescription,
+                    expectation: "keep the opaque authoring fragment's members below public access"
                 )
-            }
+            )
         }
 }
 
@@ -117,7 +73,9 @@ private let planElseOwnershipRule = Rules.files(
     functions()
         .within(plansScope)
         .filter { match in
-            functionName(match.node) == "else" && !isAllowedPlanElseOwner(match.node)
+            functionName(match.node) == "else"
+                && effectiveAccess(of: match.node).isPublic
+                && !isAllowedPlanElseOwner(match.node)
         }
         .matches(in: file)
         .map { match in
@@ -163,6 +121,10 @@ private struct DeclarationContract {
         case function
         case property
         case subscriptDeclaration = "subscript"
+        case initializer
+        case typeAlias = "typealias"
+        case enumCase = "enum case"
+        case associatedType = "associatedtype"
     }
 
     var observedTupleContract: String? {
@@ -202,55 +164,47 @@ private enum ContractAccess: Int, Comparable {
 private let contractDeclarationScope = SyntaxScope.fileScope.union(.typeMembers)
 
 private func declarationContracts(in file: SourceFileContext) -> [DeclarationContract] {
-    let functionContracts = functions()
-        .lexically(within: contractDeclarationScope)
-        .matches(in: file)
-        .map { match in
-            DeclarationContract(
-                node: Syntax(match.node),
-                kind: .function,
-                effectiveAccess: effectiveAccess(
-                    of: match.node,
-                    modifiers: match.node.modifiers
-                ),
-                types: functionContractTypes(match.node)
-            )
-        }
-
-    let propertyContracts = variables()
+    SyntaxQuery<DeclSyntax>()
         .lexically(within: contractDeclarationScope)
         .matches(in: file)
         .flatMap { match -> [DeclarationContract] in
-            let access = effectiveAccess(of: match.node, modifiers: match.node.modifiers)
-            return match.node.bindings.compactMap { binding -> DeclarationContract? in
-                guard let type = binding.typeAnnotation?.type else {
-                    return nil
+            let node = match.node
+            let access = effectiveAccess(of: node)
+            let kind: DeclarationContract.Kind
+            let types: [TypeSyntax]
+            if let function = node.as(FunctionDeclSyntax.self) {
+                kind = .function
+                types = functionContractTypes(function)
+            } else if let initializer = node.as(InitializerDeclSyntax.self) {
+                kind = .initializer
+                types = initializer.signature.parameterClause.parameters.map(\.type)
+            } else if let property = node.as(VariableDeclSyntax.self) {
+                return property.bindings.compactMap { binding in
+                    binding.typeAnnotation.map { annotation in
+                        DeclarationContract(node: Syntax(binding), kind: .property,
+                                            effectiveAccess: access, types: [annotation.type])
+                    }
                 }
-                return DeclarationContract(
-                    node: Syntax(binding),
-                    kind: .property,
-                    effectiveAccess: access,
-                    types: [type]
-                )
+            } else if let declaration = node.as(SubscriptDeclSyntax.self) {
+                kind = .subscriptDeclaration
+                types = subscriptContractTypes(declaration)
+            } else if let alias = node.as(TypeAliasDeclSyntax.self) {
+                kind = .typeAlias
+                types = [alias.initializer.value]
+            } else if let declaration = node.as(EnumCaseDeclSyntax.self) {
+                kind = .enumCase
+                types = declaration.elements.flatMap { element in
+                    element.parameterClause?.parameters.map(\.type) ?? []
+                }
+            } else if let declaration = node.as(AssociatedTypeDeclSyntax.self) {
+                kind = .associatedType
+                types = [declaration.initializer?.value].compactMap { $0 }
+            } else {
+                return []
             }
+            return [DeclarationContract(node: Syntax(node), kind: kind,
+                                        effectiveAccess: access, types: types)]
         }
-
-    let subscriptContracts = SyntaxQuery<SubscriptDeclSyntax>()
-        .lexically(within: contractDeclarationScope)
-        .matches(in: file)
-        .map { match in
-            DeclarationContract(
-                node: Syntax(match.node),
-                kind: .subscriptDeclaration,
-                effectiveAccess: effectiveAccess(
-                    of: match.node,
-                    modifiers: match.node.modifiers
-                ),
-                types: subscriptContractTypes(match.node)
-            )
-        }
-
-    return functionContracts + propertyContracts + subscriptContracts
 }
 
 private func functionContractTypes(_ node: FunctionDeclSyntax) -> [TypeSyntax] {
@@ -262,18 +216,19 @@ private func subscriptContractTypes(_ node: SubscriptDeclSyntax) -> [TypeSyntax]
     node.parameterClause.parameters.map(\.type) + [node.returnClause.type]
 }
 
-private func effectiveAccess(
-    of node: some SyntaxProtocol,
-    modifiers: DeclModifierListSyntax
-) -> ContractAccess {
+private func effectiveAccess(of node: some SyntaxProtocol) -> ContractAccess {
+    let modifiers = node.asProtocol(WithModifiersSyntax.self)?.modifiers ?? []
     let declared = explicitAccess(modifiers) ?? inheritedDefaultAccess(of: node) ?? .internal
     return node.ancestors.compactMap(accessCap).reduce(declared, min)
 }
 
 private func inheritedDefaultAccess(of node: some SyntaxProtocol) -> ContractAccess? {
     for ancestor in node.ancestors {
+        if node.is(EnumCaseDeclSyntax.self), let declaration = ancestor.as(EnumDeclSyntax.self) {
+            return effectiveAccess(of: declaration)
+        }
         if let declaration = ancestor.as(ProtocolDeclSyntax.self) {
-            return effectiveAccess(of: declaration, modifiers: declaration.modifiers)
+            return effectiveAccess(of: declaration)
         }
         if let declaration = ancestor.as(ExtensionDeclSyntax.self) {
             return explicitAccess(declaration.modifiers) ?? .internal
@@ -289,10 +244,10 @@ private func accessCap(_ ancestor: Syntax) -> ContractAccess? {
     if let declaration = ancestor.as(ExtensionDeclSyntax.self) {
         return explicitAccess(declaration.modifiers)
     }
-    guard let modifiers = nominalModifiers(ancestor) else {
+    guard nominalModifiers(ancestor) != nil else {
         return nil
     }
-    return effectiveAccess(of: ancestor, modifiers: modifiers)
+    return effectiveAccess(of: ancestor)
 }
 
 private func nominalModifiers(_ node: Syntax) -> DeclModifierListSyntax? {
@@ -300,7 +255,7 @@ private func nominalModifiers(_ node: Syntax) -> DeclModifierListSyntax? {
 }
 
 private func explicitAccess(_ modifiers: DeclModifierListSyntax) -> ContractAccess? {
-    for modifier in modifiers {
+    for modifier in modifiers where modifier.detail == nil {
         switch modifier.name.text {
         case "private":
             return .private
@@ -334,40 +289,12 @@ private func isAllowedAnyBoundary(
 
     let context = node.bumper.lexicalContext
     if path == commandArgumentsPath,
-       context.enclosingFunctionName == "expectedDescription" {
+       context.enclosingFunctionName == "expectedDescription",
+       node.parent?.as(MetatypeTypeSyntax.self)?.metatypeSpecifier.text == "Type" {
         return context.enclosingNominalNames.contains("HeistValuePayloadDecoder")
     }
     return path == runtimeConfigurationResolutionPath
         && context.enclosingFunctionName == "decodeFoundationInfoPlistValue"
-}
-
-private func isIsolationAttribute(_ name: String) -> Bool {
-    name == "Sendable" || name.hasSuffix("Actor")
-}
-
-private struct CallbackAlias {
-    let name: String
-    let enclosingNominalNames: [String]
-    let shape: TypeShape
-}
-
-private func callbackShape(
-    _ declaredShape: TypeShape,
-    context: LexicalContext,
-    aliases: [CallbackAlias]
-) -> TypeShape? {
-    if declaredShape.isFunction {
-        return declaredShape
-    }
-    guard let name = declaredShape.outerTypeName else {
-        return nil
-    }
-    return aliases.first { alias in
-        alias.name == name
-            && alias.enclosingNominalNames == context.enclosingNominalNames
-    }?.shape ?? aliases.first { alias in
-        alias.name == name && alias.enclosingNominalNames.isEmpty
-    }?.shape
 }
 
 private func functionName(_ node: FunctionDeclSyntax) -> String {
@@ -379,6 +306,6 @@ private func functionName(_ node: FunctionDeclSyntax) -> String {
 }
 
 private func isAllowedPlanElseOwner(_ node: FunctionDeclSyntax) -> Bool {
-    let owner = node.bumper.lexicalContext.enclosingNominalNames.first
-    return owner == "WaitFor" || owner == "IfContent"
+    let owners = node.bumper.lexicalContext.enclosingNominalNames
+    return owners == ["WaitFor"] || owners == ["IfContent"]
 }

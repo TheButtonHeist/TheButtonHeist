@@ -23,23 +23,15 @@ extension ComponentShape {
         )
     }
 
-    static let buttonHeistNoUIAuthority = ComponentShape {
+    static let buttonHeistNoUIImports = ComponentShape {
         DoesNotUse(.uiKit, .swiftUI, severity: .error)
     }
 
-    static let buttonHeistNoNetworkAuthority = ComponentShape {
-        DoesNotUse("Network", severity: .error)
-    }
-
-    static let buttonHeistNoSecurityAuthority = ComponentShape {
-        DoesNotUse("Security", severity: .error)
-    }
-
-    static let buttonHeistNoObjectiveCAuthority = ComponentShape {
+    static let buttonHeistNoObjectiveCImports = ComponentShape {
         DoesNotUse("ObjectiveC", "ObjectiveC.runtime", severity: .error)
     }
 
-    static let buttonHeistNoAccessibilityParserAuthority = ComponentShape {
+    static let buttonHeistNoAccessibilityParserImports = ComponentShape {
         DoesNotUse(
             "AccessibilitySnapshotCore",
             "AccessibilitySnapshotParser",

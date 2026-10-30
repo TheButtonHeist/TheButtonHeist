@@ -110,7 +110,7 @@ final class UIKitAccessibilityValueProbeView: UIView {
 
 final class HandRolledAccessibilityElement: NSObject {
     let title: String
-    var valueDidChange: ((String) -> Void)?
+    var valueDidChange: (@MainActor (String) -> Void)?
 
     private let activatesItself: Bool
     private var count = 0
@@ -144,6 +144,7 @@ final class HandRolledAccessibilityElement: NSObject {
         return true
     }
 
+    @MainActor
     func advanceValue() {
         count += 1
         let value = currentValue
