@@ -112,12 +112,12 @@ needs the authored plan retains it before dispatch.
 These changes require source updates for separate Swift tools that use this
 SPI. Public CLI, JSON-lines, and MCP response formats remain unchanged.
 
-The native API check includes SPI and package-only declarations. Against
-`v0.7.1`, it accepts six exact diagnostics for these response changes and the
-stricter recording-mode parser. The list lives in
-[`swift-api-breakages-v0.7.1.txt`](../scripts/swift-api-breakages-v0.7.1.txt).
-Other diagnostics still fail the check. This exception expires with the next
-release baseline.
+The native API check includes SPI and package-only declarations. Its
+baseline-specific allowlist accepts six exact diagnostics for these response
+changes and the stricter recording-mode parser.
+[`check-swift-api-breaking-changes.sh`](../scripts/check-swift-api-breaking-changes.sh)
+selects the list only for its matching release baseline. Other diagnostics
+still fail the check. This exception expires when the release baseline changes.
 
 ### Payload Value Admission
 
