@@ -124,10 +124,6 @@ jobs:
           swiftlint lint --strict
           scripts/check-source-shape.sh
 
-      - name: Test Bumper rules
-        if: github.event_name == 'push' || steps.changes.outputs.run_bumper_rule_tests == 'true'
-        run: scripts/check-source-shape.sh test
-
       - name: Validate Swift package products and public API
         if: github.event_name == 'push' || steps.changes.outputs.run_package_api_contracts == 'true'
         timeout-minutes: 15

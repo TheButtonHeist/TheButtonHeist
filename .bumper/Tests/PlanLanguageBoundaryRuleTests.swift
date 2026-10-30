@@ -200,4 +200,68 @@ struct PlanLanguageBoundaryRuleTests {
             )))
         }
     }
+
+    @Test
+    func opaqueContentRejectsEveryPublicMemberForm() throws {
+        for source in [
+            "public struct HeistContent { public func exposedSteps() -> [Int] { [] } }",
+            "public struct HeistContent { public init() {} }",
+            "public struct HeistContent { public subscript(index: Int) -> Int { index } }",
+            "public struct HeistContent { public typealias Steps = [Int] }",
+            "public struct HeistContent { public struct Exposed {} }",
+            "public extension HeistContent { func exposedSteps() -> [Int] { [] } }"
+        ] {
+            let report = try evaluateButtonHeistRules(
+                path: "ButtonHeist/Sources/ThePlans/Fragment.swift", component: .plans, source: source
+            )
+            #expect(report.violations.contains { $0.rule.id == "buttonheist.heist_content_opacity" })
+        }
+    }
+
+    @Test
+    func privateElseHelpersAreNotPublicGrammar() throws {
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/ThePlans/Helpers.swift", component: .plans,
+            source: """
+            public struct RepeatUntil { private func `else`() {} }
+            private struct Helper { func `else`() {} }
+            """
+        )
+        #expect(report.violations.isEmpty)
+    }
+
+    @Test
+    func exportedTupleContractsIncludeConstructorsAliasesAndEnumPayloads() throws {
+        for source in [
+            "public typealias Pair = (Int, Int)",
+            "public struct Example { public init(_ pair: (Int, Int)) {} }",
+            "public enum Example { case pair((Int, Int)) }",
+            "public struct Example { private(set) public var pair: (Int, Int) = (0, 0) }",
+            "public protocol Example { associatedtype Pair = (Int, Int) }"
+        ] {
+            let report = try evaluateButtonHeistRules(
+                path: "ButtonHeist/Sources/TheScore/Contract.swift", component: .score, source: source
+            )
+            #expect(report.violations.count == 1)
+            #expect(report.violations.first?.rule.id == "buttonheist.exported_tuple_contract")
+        }
+        let valid = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/TheScore/PrivateContract.swift", component: .score,
+            source: """
+            private enum Example { case pair((Int, Int)) }
+            private typealias Pair = (Int, Int)
+            public enum NamedPayload { case pair(left: Int, right: Int) }
+            """
+        )
+        #expect(valid.violations.isEmpty)
+    }
+
+    @Test
+    func nestedLookalikesDoNotOwnPublicElseGrammar() throws {
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/ThePlans/Other.swift", component: .plans,
+            source: "public struct Other { public struct WaitFor { public func `else`() {} } }"
+        )
+        #expect(report.violations.first?.rule.id == "buttonheist.plan_else_ownership")
+    }
 }

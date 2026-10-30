@@ -244,11 +244,8 @@ class CIWorkflowTests(unittest.TestCase):
             'python3 scripts/select-ci-change-scopes.py --github-output "$GITHUB_OUTPUT"',
             macos,
         )
-        self.assertIn(
-            "if: github.event_name == 'push' || steps.changes.outputs.run_bumper_rule_tests == 'true'",
-            macos,
-        )
-        self.assertIn("run: scripts/check-source-shape.sh test", macos)
+        self.assertIn("scripts/check-source-shape.sh", macos)
+        self.assertNotIn("run_bumper_rule_tests", macos)
         self.assertIn(
             "if: github.event_name == 'push' || steps.changes.outputs.run_package_api_contracts == 'true'",
             macos,

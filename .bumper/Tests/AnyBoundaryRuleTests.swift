@@ -70,4 +70,14 @@ struct AnyBoundaryRuleTests {
             #expect(report.contains(ViolationMatcher(id: "buttonheist.any_boundary", path: path)))
         }
     }
+
+    @Test
+    func typeDescriptionExceptionDoesNotPermitErasedValues() throws {
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/TheButtonHeist/TheFence/TheFence+CommandArguments.swift",
+            component: .client,
+            source: "enum HeistValuePayloadDecoder { static func expectedDescription(for value: Any) {} }"
+        )
+        #expect(report.violations.first?.rule.id == "buttonheist.any_boundary")
+    }
 }

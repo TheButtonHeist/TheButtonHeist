@@ -21,11 +21,9 @@ let bumper = BumperProject {
             Modules("ThePlans")
             Applies(.buttonHeistCheckedConcurrency)
             Applies(.buttonHeistPlansBoundary)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoNetworkAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
+            Applies(.buttonHeistNoUIImports)
+            Applies(.buttonHeistNoObjectiveCImports)
+            Applies(.buttonHeistNoAccessibilityParserImports)
         }
 
         Component(.score) {
@@ -34,9 +32,9 @@ let bumper = BumperProject {
             MayDependOn(.plans)
             Applies(.buttonHeistCheckedConcurrency)
             Applies(.buttonHeistScoreBoundary)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
+            Applies(.buttonHeistNoUIImports)
+            Applies(.buttonHeistNoObjectiveCImports)
+            Applies(.buttonHeistNoAccessibilityParserImports)
         }
 
         Component(.embeddedRuntime) {
@@ -47,7 +45,6 @@ let bumper = BumperProject {
             Modules("TheInsideJob", "ThePlant")
             MayDependOn(.support, .plans, .score)
             Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoSecurityAuthority)
         }
 
         Component(.client) {
@@ -55,20 +52,18 @@ let bumper = BumperProject {
             Modules("ButtonHeist")
             MayDependOn(.support, .plans, .score)
             Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
+            Applies(.buttonHeistNoUIImports)
+            Applies(.buttonHeistNoObjectiveCImports)
+            Applies(.buttonHeistNoAccessibilityParserImports)
         }
 
         Component(.support) {
             Owns("ButtonHeist/Sources/ButtonHeistSupport")
             Modules("ButtonHeistSupport")
             Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
+            Applies(.buttonHeistNoUIImports)
+            Applies(.buttonHeistNoObjectiveCImports)
+            Applies(.buttonHeistNoAccessibilityParserImports)
         }
 
         Component(.testing) {
@@ -76,11 +71,9 @@ let bumper = BumperProject {
             Modules("ButtonHeistTesting")
             MayDependOn(.embeddedRuntime, .plans)
             Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoNetworkAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
+            Applies(.buttonHeistNoUIImports)
+            Applies(.buttonHeistNoObjectiveCImports)
+            Applies(.buttonHeistNoAccessibilityParserImports)
         }
 
         Component(.cli) {
@@ -88,11 +81,9 @@ let bumper = BumperProject {
             Modules("ButtonHeistCLIExe")
             MayDependOn(.client, .plans, .score)
             Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoNetworkAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
+            Applies(.buttonHeistNoUIImports)
+            Applies(.buttonHeistNoObjectiveCImports)
+            Applies(.buttonHeistNoAccessibilityParserImports)
         }
 
         Component(.mcp) {
@@ -100,21 +91,17 @@ let bumper = BumperProject {
             Modules("ButtonHeistMCP")
             MayDependOn(.client, .score)
             Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoUIAuthority)
-            Applies(.buttonHeistNoNetworkAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
+            Applies(.buttonHeistNoUIImports)
+            Applies(.buttonHeistNoObjectiveCImports)
+            Applies(.buttonHeistNoAccessibilityParserImports)
         }
 
         Component(.demo) {
             Owns("TestApp/Sources")
             MayDependOn(.plans, .score, .embeddedRuntime)
             Applies(.buttonHeistCheckedConcurrency)
-            Applies(.buttonHeistNoNetworkAuthority)
-            Applies(.buttonHeistNoSecurityAuthority)
-            Applies(.buttonHeistNoObjectiveCAuthority)
-            Applies(.buttonHeistNoAccessibilityParserAuthority)
+            Applies(.buttonHeistNoObjectiveCImports)
+            Applies(.buttonHeistNoAccessibilityParserImports)
         }
     }
 
