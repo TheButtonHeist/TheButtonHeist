@@ -1,3 +1,4 @@
+import Foundation
 import XCTest
 import ButtonHeistTestSupport
 import ThePlans
@@ -127,6 +128,24 @@ final class HeistJUnitXMLTests: XCTestCase {
         assertContains(xml, "&gt;")
         assertContains(xml, "&quot;")
         assertContains(xml, "&apos;")
+        XCTAssertTrue(XMLParser(data: Data(xml.utf8)).parse())
+    }
+
+    @ButtonHeistActor
+    func testJunitXMLReplacesForbiddenCharactersAndPreservesUnicode() async throws {
+        let invalid = "\u{0}\u{1}\u{8}\u{B}\u{C}\u{1F}\u{FFFE}\u{FFFF}"
+        let valid = "\t\n\r café 😀 \u{10000}\u{10FFFF}"
+        let result = HeistResultFixture.result(steps: [
+            failedAction(path: "$.body[0]", label: "Pay" + invalid + valid, message: "failed" + invalid + valid),
+        ], durationMs: 1)
+        let (fence, _) = makeConnectedFence()
+        let xml = fence.junitXML(for: HeistReport.project(result: result), heistName: "heist" + invalid + valid)
+
+        let parser = XMLParser(data: Data(xml.utf8))
+        XCTAssertTrue(parser.parse(), String(describing: parser.parserError))
+        XCTAssertFalse(xml.unicodeScalars.contains { invalid.unicodeScalars.contains($0) })
+        XCTAssertTrue(xml.contains("café 😀 \u{10000}\u{10FFFF}"))
+        XCTAssertTrue(xml.contains(String(repeating: "\u{FFFD}", count: invalid.unicodeScalars.count)))
     }
 
     @ButtonHeistActor

@@ -110,8 +110,8 @@ package enum CanonicalValueDescription {
     package static func decimal(_ value: Double) -> String {
         guard value.isFinite else { return "\(value)" }
         let rounded = value.rounded()
-        if abs(value - rounded) < 0.000_001 {
-            return "\(Int(rounded))"
+        if abs(value - rounded) < 0.000_001, let integer = Int(exactly: rounded) {
+            return "\(integer)"
         }
         var text = String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), value)
         while text.last == "0" { text.removeLast() }

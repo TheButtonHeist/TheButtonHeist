@@ -71,6 +71,14 @@ if [[ $# -lt 1 ]]; then
     exit 2
 fi
 
+case "$RESULTS_MODE" in
+    failures|all|off) ;;
+    *)
+        echo "Error: recording mode must be failures, all, or off (observed '$RESULTS_MODE')" >&2
+        exit 2
+        ;;
+esac
+
 if [[ -z "$RESULTS_DIR" ]]; then
     RESULTS_DIR="$REPO_ROOT/.rp1/work/heist-results/manual"
 fi

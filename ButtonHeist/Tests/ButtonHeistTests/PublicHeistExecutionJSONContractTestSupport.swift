@@ -387,7 +387,6 @@ func publicHeistExecutionResponse(
     result: HeistResult
 ) throws -> FenceResponse {
     return FenceResponse.heistExecution(
-        plan: try HeistPlan(body: [.warn(WarnStep(message: "fixture"))]),
         report: HeistReport.project(result: result)
     )
 }

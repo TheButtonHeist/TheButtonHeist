@@ -2,44 +2,72 @@ import Foundation
 import ButtonHeistSupport
 
 /// Fires a callback after a period of inactivity.
-/// Call `resetTimer()` after each activity event. The timer restarts from zero each time.
-/// When the timeout elapses without a reset, `onTimeout` is called.
+/// `withActivity` suspends expiry while work runs; `resetTimer` starts idle monitoring.
 @ButtonHeistActor
 @_spi(ButtonHeistTooling) public final class IdleMonitor {
+    private enum State {
+        case idle(Task<Void, Never>?)
+        case active(count: Int)
+        case stopped
+    }
+
     private let timeout: TimeInterval
     private let onTimeout: @ButtonHeistActor () -> Void
-    private var timeoutTask: Task<Void, Never>?
+    private var state = State.idle(nil)
 
     public init(timeout: TimeInterval, onTimeout: @escaping @ButtonHeistActor () -> Void) {
         self.timeout = timeout
         self.onTimeout = onTimeout
     }
 
-    public func resetTimer() {
-        timeoutTask?.cancel()
-        guard timeout > 0 else { return }
-        timeoutTask = Task { [weak self, timeout] in
-            guard await Task.cancellableSleep(for: .seconds(timeout)) else { return }
-            guard !Task.isCancelled, let self else { return }
-            self.onTimeout()
-            // Clear the stored task so `hasPendingTimer` distinguishes
-            // completed-and-fired from in-flight. Safe: we are already on
-            // @ButtonHeistActor and do not await between fire and clear.
-            self.timeoutTask = nil
+    /// Suspend idle expiry until all overlapping activities finish.
+    public func withActivity<Value>(
+        _ operation: @ButtonHeistActor () async throws -> Value
+    ) async rethrows -> Value {
+        switch state {
+        case .idle(let timer):
+            timer?.cancel()
+            state = .active(count: 1)
+        case .active(let count):
+            state = .active(count: count + 1)
+        case .stopped:
+            return try await operation()
         }
+        defer { finishActivity() }
+        return try await operation()
+    }
+
+    public func resetTimer() {
+        if case .active = state { return }
+        stop()
+        state = .idle(nil)
+        guard timeout > 0 else { return }
+        state = .idle(Task { [weak self, timeout] in
+            guard await Task.cancellableSleep(for: .saturatingSeconds(timeout)) else { return }
+            guard !Task.isCancelled, let self else { return }
+            self.state = .idle(nil)
+            self.onTimeout()
+        })
     }
 
     public func stop() {
-        timeoutTask?.cancel()
-        timeoutTask = nil
+        if case .idle(let timer) = state { timer?.cancel() }
+        state = .stopped
     }
 
-    /// Test-only: whether a timeout task is currently scheduled and has not
-    /// yet been cancelled or completed. Tests use this to assert "did not
-    /// fire" without wall-clock waits. The task body nils out `timeoutTask`
-    /// after `onTimeout()` runs, so a fired timer reads `false` here.
+    /// Whether idle expiry is scheduled, for deterministic lifecycle tests.
     var hasPendingTimer: Bool {
-        guard let task = timeoutTask else { return false }
+        guard case .idle(let task?) = state else { return false }
         return !task.isCancelled
+    }
+
+    private func finishActivity() {
+        guard case .active(let count) = state else { return }
+        if count > 1 {
+            state = .active(count: count - 1)
+        } else {
+            state = .idle(nil)
+            resetTimer()
+        }
     }
 }

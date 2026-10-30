@@ -64,5 +64,10 @@ Notes:
 - Replay always crosses the wire contract: the exact `buttonHeistVersion` handshake gates the session before any plan runs, so a heist can never execute against a mismatched runtime.
 - `HeistResult` remains execution truth. `HeistReport.project(result:)`
   interprets it once, and every presentation boundary renders that report.
+  The tooling response carries the report alone; the authored plan stays in
+  execution and recording. JUnit normalizes forbidden XML characters only
+  while rendering.
 - Result recording reads `HeistResult.Outcome` directly. The recording mode and
-  artifact filename do not introduce a second passed/failed status.
+  artifact filename do not introduce a second passed/failed status. Invalid
+  modes produce configuration errors; automatic recording logs them without
+  changing the execution result.

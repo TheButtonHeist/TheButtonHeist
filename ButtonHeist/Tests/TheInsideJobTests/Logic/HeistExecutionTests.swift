@@ -10,6 +10,16 @@ import XCTest
 @_spi(ButtonHeistInternals) @testable import TheScore
 
 final class HeistExecutionTests: XCTestCase {
+    func testExecutionAdmitsLargestFiniteWholeHeistTimeout() throws {
+        let plan = try HeistPlan(body: [.wait(WaitStep(predicate: .notification("Saved"), timeout: 1))])
+        var execution = try HeistExecution(plan: plan)
+        let timeout = try HeistTimeout(validatingSeconds: .greatestFiniteMagnitude)
+
+        guard case .perform(.beginObservation(_, _, let deadline)) = execution.start(at: .now, timeout: timeout) else {
+            return XCTFail("A large whole-heist timeout must still begin observation")
+        }
+        XCTAssertTrue(deadline.hasTimeRemaining(at: .now))
+    }
     func testExecutionEmitsEffectsWaitsAndCompletes() throws {
         let plan = try HeistPlan(body: [
             .wait(WaitStep(

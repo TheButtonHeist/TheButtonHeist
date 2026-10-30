@@ -70,7 +70,7 @@ struct RunHeistCommand: ConnectedOneShotCLICommand {
                 cleanup: prepared.cleanup,
                 output: junit.map { junitPath -> CLIRunner.CommandOutputProjection in
                     { fence, response in
-                        guard case .heistExecution(_, let report) = response else {
+                        guard case .heistExecution(let report) = response else {
                             return .junit(response: response, xml: nil, path: junitPath)
                         }
                         let name = heistPath

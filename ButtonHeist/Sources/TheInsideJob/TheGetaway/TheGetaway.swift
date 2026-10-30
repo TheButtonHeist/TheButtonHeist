@@ -280,7 +280,7 @@ final class TheGetaway {
     ) async {
         let deadline = SemanticObservationDeadline(
             start: RuntimeElapsed.now,
-            timeout: .seconds(request.timeout.seconds)
+            timeoutSeconds: request.timeout.seconds
         )
         switch await brains.captureScreenPayload(
             mode: request.mode,

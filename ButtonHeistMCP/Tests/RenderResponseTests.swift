@@ -59,9 +59,7 @@ struct RenderResponseTests {
             coverage: .complete
         )
         let command = HeistActionCommand.activate(.predicate(ElementPredicate(label: "Load More")))
-        let plan = try HeistPlan(body: [.action(ActionStep(command: command))])
         let response = FenceResponse.heistExecution(
-            plan: plan,
             report: HeistReport.project(
                 result: try Self.passedExecutionResult(
                     command: command,
@@ -243,7 +241,7 @@ struct RenderResponseTests {
         )
         let fallback = try FenceResponse.error(failure).jsonData(profile: .mcp, outputFormatting: [])
         let result = ButtonHeistMCPServer.renderResponse(
-            .ok(message: "done"),
+            .targets([:], defaultTarget: nil),
             jsonRenderer: { _ in .fallback(fallback, failure) }
         )
         let root = try #require(result.structuredContent?.objectValue)
@@ -265,13 +263,13 @@ struct RenderResponseTests {
             return
         }
         #expect(text.contains("formatting.json_encoding_failed"))
-        #expect(!text.contains("done"))
+        #expect(!text.contains("no targets configured"))
     }
 
     @Test("structured projection failure returns the canonical formatting diagnostic")
     func structuredProjectionFailureReturnsCanonicalFormattingDiagnostic() throws {
         let result = ButtonHeistMCPServer.renderResponse(
-            .ok(message: "done"),
+            .targets([:], defaultTarget: nil),
             jsonRenderer: { _ in throw StructuredProjectionTestError.failed }
         )
         let root = try #require(result.structuredContent?.objectValue)
@@ -285,7 +283,7 @@ struct RenderResponseTests {
             return
         }
         #expect(text.contains("formatting.json_encoding_failed"))
-        #expect(!text.contains("done"))
+        #expect(!text.contains("no targets configured"))
     }
 
     private static func interfaceFixture() throws -> Interface {

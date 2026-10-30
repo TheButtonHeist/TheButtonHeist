@@ -66,7 +66,7 @@ extension FenceResponse {
         switch self {
         case .action:
             true
-        case .heistExecution(_, let report):
+        case .heistExecution(let report):
             report.outputNodes.contains { $0.kind == .action }
         default:
             false
