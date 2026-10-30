@@ -29,7 +29,7 @@ final class JSONLinesSession {
         try await fence.start()
 
         if let timeout = sessionTimeout.seconds {
-            logStatus("Idle timeout: \(Int(timeout))s")
+            logStatus("Idle timeout: \(timeout)s")
         }
 
         // SIGINT closes stdin to unstick the blocking readLine; the loop sees a
@@ -43,12 +43,17 @@ final class JSONLinesSession {
                 break
             }
 
-            idleMonitor?.resetTimer()
-
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty { continue }
+            if trimmed.isEmpty {
+                idleMonitor?.resetTimer()
+                continue
+            }
 
-            await executeRequestLine(trimmed)
+            if let idleMonitor {
+                await idleMonitor.withActivity { await executeRequestLine(trimmed) }
+            } else {
+                await executeRequestLine(trimmed)
+            }
         }
 
         idleMonitor?.stop()
@@ -72,7 +77,7 @@ final class JSONLinesSession {
     }
 
     private func expireAfterIdleTimeout(_ timeout: TimeInterval) {
-        logStatus("JSON-lines session idle timeout (\(Int(timeout))s) — exiting.")
+        logStatus("JSON-lines session idle timeout (\(timeout)s) — exiting.")
         close(STDIN_FILENO)
     }
 

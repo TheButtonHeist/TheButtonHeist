@@ -361,7 +361,7 @@ final class TheFenceHandlerTests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        guard case .heistExecution(_, let report) = response else {
+        guard case .heistExecution(let report) = response else {
             return XCTFail("Expected .heistExecution response, got \(response)", file: file, line: line)
         }
         XCTAssertEqual(report.nodes.map(\.kind), [stepKind], file: file, line: line)

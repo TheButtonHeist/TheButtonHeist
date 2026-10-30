@@ -73,6 +73,7 @@ jobs:
           python3 scripts/tests/select-ci-change-scopes-test.py
           python3 scripts/tests/select-ios-ci-simulator-test.py
           python3 scripts/tests/test-runner-test.py
+          python3 scripts/tests/run-with-heist-results-test.py
           python3 scripts/tests/test-topology-test.py
 
       - name: Report portable contract timing
@@ -326,7 +327,7 @@ jobs:
         if: failure()
         uses: ./.github/actions/finalize-heist-results
         with:
-          result-directory: ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/TheInsideJobWindowTests/heist-results
+          result-directory: ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/${{ env.BUTTONHEIST_TEST_SIMULATOR_NAME }}/TheInsideJobWindowTests/heist-results
           job-label: ios-window
           artifact-name: buttonheist-results-ios-window-${{ github.run_attempt }}
           retention-days: 14
@@ -335,7 +336,7 @@ jobs:
         if: failure()
         uses: ./.github/actions/finalize-heist-results
         with:
-          result-directory: ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/HostedBehaviorTests/heist-results
+          result-directory: ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/${{ env.BUTTONHEIST_TEST_SIMULATOR_NAME }}/HostedBehaviorTests/heist-results
           job-label: ios-hosted
           artifact-name: buttonheist-results-ios-hosted-${{ github.run_attempt }}
           retention-days: 14
@@ -346,10 +347,10 @@ jobs:
         with:
           name: buttonheist-ios-hosted-diagnostics-${{ github.run_attempt }}
           path: |
-            ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/TheInsideJobWindowTests/result-bundles
-            ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/TheInsideJobWindowTests/diagnostics
-            ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/HostedBehaviorTests/result-bundles
-            ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/HostedBehaviorTests/diagnostics
+            ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/${{ env.BUTTONHEIST_TEST_SIMULATOR_NAME }}/TheInsideJobWindowTests/result-bundles
+            ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/${{ env.BUTTONHEIST_TEST_SIMULATOR_NAME }}/TheInsideJobWindowTests/diagnostics
+            ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/${{ env.BUTTONHEIST_TEST_SIMULATOR_NAME }}/HostedBehaviorTests/result-bundles
+            ${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/${{ env.BUTTONHEIST_TEST_SIMULATOR_NAME }}/HostedBehaviorTests/diagnostics
           if-no-files-found: warn
           retention-days: 14
 

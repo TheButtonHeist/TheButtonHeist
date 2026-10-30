@@ -93,6 +93,14 @@ class CIWorkflowTests(unittest.TestCase):
             with self.subTest(job=name):
                 self.assertNotIn("git submodule update", blocks[name])
 
+    def test_hosted_failure_uploads_use_the_runners_task_scope(self) -> None:
+        hosted = job_blocks()["ios-hosted"]
+        root = "${{ env.BUTTONHEIST_TEST_ARTIFACTS_DIR }}/${{ env.BUTTONHEIST_TEST_SIMULATOR_NAME }}"
+        for suite in ("TheInsideJobWindowTests", "HostedBehaviorTests"):
+            for artifact in ("heist-results", "result-bundles", "diagnostics"):
+                with self.subTest(suite=suite, artifact=artifact):
+                    self.assertIn(f"{root}/{suite}/{artifact}", hosted)
+
     def test_app_integration_conformance_gates_ci_and_release(self) -> None:
         hosted = job_blocks()["ios-hosted"]
         release = (Path(__file__).resolve().parents[2] / ".github/workflows/release.yml").read_text()

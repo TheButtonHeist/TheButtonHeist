@@ -26,29 +26,10 @@ extension TheFence {
     }
 
     func handleConnect(_ request: ConnectRequest) async throws -> FenceResponse {
-        let resolvedTarget: DeviceResolutionTarget
-        let resolvedToken: String?
-
-        if let device = request.device {
-            resolvedTarget = DeviceResolutionTarget(filter: device)
-            resolvedToken = request.token
-        } else if let targetName = request.targetName {
-            guard let fileConfig = config.fileConfig else {
-                throw FenceError.invalidRequest(
-                    "No config file loaded. Create .buttonheist.json or ~/.config/buttonheist/config.json"
-                )
+        guard case .replacement(let resolvedTarget, let authToken) = request else {
+            if handoff.connectionLifecycle.isConnected || !config.connectionTarget.isAutomatic {
+                return try await establishSessionOnly()
             }
-            guard let target = fileConfig.targets[targetName] else {
-                let available = fileConfig.targets.keys.map(\.rawValue).sorted()
-                throw FenceError.invalidRequest(
-                    "Unknown target '\(targetName.rawValue)'. Available: \(available.joined(separator: ", "))"
-                )
-            }
-            resolvedTarget = DeviceResolutionTarget(config: target, named: targetName)
-            resolvedToken = request.token ?? target.token
-        } else if handoff.connectionLifecycle.isConnected || !config.connectionTarget.isAutomatic {
-            return try await establishSessionOnly()
-        } else {
             throw FenceError.invalidRequest(
                 "Must specify 'target' (named config target), 'device' (host:port), or configure BUTTONHEIST_DEVICE/.buttonheist.json"
             )
@@ -56,7 +37,6 @@ extension TheFence {
 
         stop()
 
-        let authToken = try resolvedToken.map(SessionAuthToken.init(validating:))
         handoff.authToken = authToken
         config.connectionTarget = resolvedTarget
         config.token = authToken

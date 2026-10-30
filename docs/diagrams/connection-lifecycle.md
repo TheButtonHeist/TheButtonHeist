@@ -33,6 +33,10 @@ stateDiagram-v2
 route—direct endpoint probing or discovery—and retains the same typed target
 for reconnect. It does not retain a parallel filter or consult the environment
 again after admission.
+Config admission rejects a default name absent from the target table. A
+replacement `connect` resolves its target and validates its token before the
+current session leaves the connected phase; rejected input preserves that
+session.
 
 ## Handshake inside `connecting`
 

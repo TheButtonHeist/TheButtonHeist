@@ -50,7 +50,19 @@ struct ButtonHeistMCPServer {
         _ params: CallTool.Parameters,
         context: MCPServerContext
     ) async -> CallTool.Result {
-        defer { context.idleMonitor?.resetTimer() }
+        if let idleMonitor = context.idleMonitor {
+            return await idleMonitor.withActivity {
+                await executeToolCall(params, context: context)
+            }
+        }
+        return await executeToolCall(params, context: context)
+    }
+
+    @ButtonHeistActor
+    private static func executeToolCall(
+        _ params: CallTool.Parameters,
+        context: MCPServerContext
+    ) async -> CallTool.Result {
         do {
             let arguments = try MCPValueBridge.commandEnvelope(from: params.arguments)
             let input = try TheFence.Command.routeToolRequest(named: params.name, arguments: arguments)

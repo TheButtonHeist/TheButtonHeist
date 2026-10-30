@@ -60,7 +60,7 @@ final class EnvironmentConfigTests: XCTestCase {
             sessionTimeout: nil,
             connectionTimeout: nil,
             autoReconnect: true,
-            fileConfig: ButtonHeistFileConfig(targets: [name: target], defaultTarget: name),
+            fileConfig: try ButtonHeistFileConfig(targets: [name: target], defaultTarget: name),
             environment: ButtonHeistEnvironment(token: "env-token")
         )
 

@@ -64,7 +64,7 @@ final class GetScreenCommandTests: XCTestCase {
     }
 
     func testJSONEncodingFallbackMarksSuccessfulCommandAsFailed() {
-        let result = CLIRunner.CommandOutput.response(.ok(message: "done"))
+        let result = CLIRunner.CommandOutput.response(.targets([:], defaultTarget: nil))
         let fallbackText =
             #"{"code":"formatting.json_encoding_failed","message":"encoding failed","status":"error"}"#
         let fallbackJSON = Data(fallbackText.utf8)

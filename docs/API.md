@@ -98,6 +98,27 @@ without forcing compatibility aliases back into the package.
 `BUTTONHEIST_SWIFT_API_BREAKAGE_MODE=report` is available for local
 investigation only.
 
+### Tooling SPI Changes
+
+The CLI and MCP server import `@_spi(ButtonHeistTooling)`. This interface is
+separate from the public Swift client API.
+
+`FenceResponse` no longer includes `.ok(message:)` or
+`.status(connected:deviceName:)`. Commands return their specific response cases.
+Connection responses use `.sessionState`. The `.heistExecution` case carries
+only `report`; custom adapters match `.heistExecution(let report)`. Code that
+needs the authored plan retains it before dispatch.
+
+These changes require source updates for separate Swift tools that use this
+SPI. Public CLI, JSON-lines, and MCP response formats remain unchanged.
+
+The native API check includes SPI and package-only declarations. Its
+baseline-specific allowlist accepts six exact diagnostics for these response
+changes and the stricter recording-mode parser.
+[`check-swift-api-breaking-changes.sh`](../scripts/check-swift-api-breaking-changes.sh)
+selects the list only for its matching release baseline. Other diagnostics
+still fail the check. This exception expires when the release baseline changes.
+
 ### Payload Value Admission
 
 Public ThePlans payload values are admitted when they are constructed, not
@@ -580,6 +601,8 @@ Runtime behavior:
 - Requires explicit, size-bounded inline screenshot opt-ins
 - Exposes `validate_heist` without requiring a configured device, connection,
   or Button Heist session
+- Suspends idle expiry while tool calls run; the idle interval starts after
+  the last active call finishes
 
 Environment variables:
 
@@ -609,10 +632,19 @@ Common environment variables:
 | `BUTTONHEIST_SESSION_TIMEOUT` | Default idle timeout for `buttonheist json_lines` (`0` disables it) |
 
 Flags take precedence over environment variables.
+Fence admission runs before catalog-directed connection setup. Standalone
+`ping` and `get_session_state` establish an initial session; probes within
+JSON-lines sessions do not reconnect. Local commands such as
+`list_targets` do not connect to an app. A configured `default` must name an
+existing target; an unresolved name fails configuration before discovery.
+Replacement connection targets and tokens are admitted before the current
+session is disconnected.
 Session idle timeout accepts `0` as the explicit disabled state. Positive
 session and connection timeouts must be finite. A present malformed, negative,
 or non-finite value fails configuration instead of silently selecting a
 default.
+JSON-lines also suspends idle expiry while executing a request and starts a
+fresh idle interval after the response.
 
 ### Notifications
 
@@ -634,6 +666,8 @@ Every in-process `Heist` and `runHeist` entry point accepts a typed
 `HeistTimeout`. The default is 60 seconds. Finite positive values have no policy
 maximum. The same value crosses the device wire for CLI and MCP execution; the
 client derives only transport headroom around that app-owned deadline.
+Scheduling saturates at the platform's representable duration. Millisecond
+budget evidence saturates at `Int.max`; the authored timeout remains intact.
 
 ### Interface
 

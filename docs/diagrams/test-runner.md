@@ -14,9 +14,9 @@ or manage simulator lifecycle themselves.
 
 ```mermaid
 flowchart TD
-    Request["Runner request<br/>mode + suite + selection"]
+    Request["Runner request<br/>mode + suite + selection + task slug"]
     Catalog["Canonical suite catalog<br/>scheme + platform + host settings"]
-    Paths["Deterministic suite paths<br/>derived data + xcresult + heist evidence"]
+    Paths["Deterministic task + suite paths<br/>derived data + xcresult + heist evidence"]
     Destination{"Suite platform"}
     Mac["Explicit macOS destination"]
     Runtime["Admit iOS runtime"]
@@ -40,6 +40,10 @@ flowchart TD
 Every mode runs the full suite through `xcodebuild`.
 CI's build-once lanes use `build-for-testing` followed by
 `test-without-building` against the same deterministic derived-data path.
+`--simulator-name` or `BUTTONHEIST_TEST_SIMULATOR_NAME` scopes build and
+artifact roots for both platforms. Each concurrent worker uses a distinct
+slug; split phases reuse one slug. Unnamed runs retain suite-only paths and
+run sequentially. CI failure uploads include the same task scope.
 Every completed test phase must produce a nonzero test count from its result
 bundle; a successful process with no executed tests is inconclusive, not green.
 

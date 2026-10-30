@@ -13,7 +13,7 @@ public let buttonHeistServiceType = "_buttonheist._tcp"
 /// Update development hashes with `scripts/check-contract-version.py --update`.
 /// Prepare releases with `scripts/bump-version.sh`, which clears the hash.
 /// See `docs/WIRE-PROTOCOL.md`.
-public let buttonHeistVersion: ButtonHeistVersion = "0.7.1-d53fb59edbf3"
+public let buttonHeistVersion: ButtonHeistVersion = "0.7.1-cc72a0b93dff"
 
 /// Shared socket wire-framing limits.
 public enum WireFrameLimits {

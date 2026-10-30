@@ -70,17 +70,6 @@ struct PublicSessionFailure: Encodable {
     }
 }
 
-struct PublicOKResponse: Encodable {
-    let status = PublicResponseStatus.ok
-    let message: String
-}
-
-struct PublicStatusResponse: Encodable {
-    let status = PublicResponseStatus.ok
-    let connected: Bool
-    let device: String?
-}
-
 struct PublicPongResponse: Encodable {
     let status = PublicResponseStatus.ok
     let buttonHeistVersion: String

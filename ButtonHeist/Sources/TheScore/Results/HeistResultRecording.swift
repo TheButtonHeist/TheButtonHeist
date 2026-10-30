@@ -10,12 +10,14 @@ package enum HeistResultRecordingMode: String, Sendable, Equatable {
     case failures
     case all
 
-    package init?(environmentValue: String?) {
+    package init(environmentValue: String?) throws {
         guard let environmentValue = environmentValue?.nilIfBlank else {
             self = .failures
             return
         }
-        guard let mode = Self(rawValue: environmentValue) else { return nil }
+        guard let mode = Self(rawValue: environmentValue) else {
+            throw HeistResultRecordingError.invalidMode(environmentValue)
+        }
         self = mode
     }
 
@@ -48,13 +50,13 @@ package struct HeistResultRecordingConfiguration: Sendable, Equatable {
     }
 
     package static var environment: HeistResultRecordingConfiguration? {
-        guard let directory = EnvironmentKey.buttonheistResultsDir.value?.nilIfBlank else {
-            return nil
+        get throws {
+            let mode = try HeistResultRecordingMode(environmentValue: EnvironmentKey.buttonheistResultsMode.value)
+            guard let directory = EnvironmentKey.buttonheistResultsDir.value?.nilIfBlank else {
+                return nil
+            }
+            return HeistResultRecordingConfiguration(rootDirectory: rootDirectory(for: directory), mode: mode)
         }
-        guard let mode = HeistResultRecordingMode(environmentValue: EnvironmentKey.buttonheistResultsMode.value) else {
-            return nil
-        }
-        return HeistResultRecordingConfiguration(rootDirectory: rootDirectory(for: directory), mode: mode)
     }
 
     private static func rootDirectory(for value: String) -> URL {
@@ -69,9 +71,12 @@ package struct HeistResultRecordingConfiguration: Sendable, Equatable {
     }
 }
 
-package enum HeistResultRecordingError: Error, Sendable, Equatable, CustomStringConvertible {
+package enum HeistResultRecordingError: Error, LocalizedError, Sendable, Equatable, CustomStringConvertible {
     case unsupportedSchemaVersion(Int)
     case invalidPlanFingerprint(String)
+    case invalidMode(String)
+
+    package var errorDescription: String? { description }
 
     package var description: String {
         switch self {
@@ -79,6 +84,8 @@ package enum HeistResultRecordingError: Error, Sendable, Equatable, CustomString
             "Unsupported heist result recording schema version: \(version)"
         case .invalidPlanFingerprint(let fingerprint):
             "Invalid heist plan fingerprint: \(fingerprint)"
+        case .invalidMode(let mode):
+            "BUTTONHEIST_RESULTS_MODE must be failures, all, or off (observed '\(mode)')"
         }
     }
 }
@@ -168,12 +175,9 @@ extension HeistResultRecording {
         _ result: HeistResult,
         plan: HeistPlan
     ) async -> URL? {
-        guard environmentRecordingEnabled,
-              let configuration = HeistResultRecordingConfiguration.environment
-        else {
-            return nil
-        }
+        guard environmentRecordingEnabled else { return nil }
         do {
+            guard let configuration = try HeistResultRecordingConfiguration.environment else { return nil }
             return try await write(result, plan: plan, configuration: configuration)
         } catch {
             heistResultLogger.warning("Failed to record heist result: \(error.localizedDescription)")

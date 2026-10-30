@@ -131,13 +131,19 @@ def catalog_manifest() -> dict[str, object]:
     }
 
 
-def suite_paths(name: str) -> dict[str, Path]:
+def suite_paths(name: str, task_name: str | None = None) -> dict[str, Path]:
     artifacts = Path(os.environ.get(
         "BUTTONHEIST_TEST_ARTIFACTS_DIR", ROOT / ".build/test-artifacts"
     )).expanduser().resolve()
     derived = Path(os.environ.get(
         "BUTTONHEIST_TEST_DERIVED_DATA_ROOT", ROOT / ".build/test-derived-data"
     )).expanduser().resolve()
+    task_name = task_name or os.environ.get("BUTTONHEIST_TEST_SIMULATOR_NAME")
+    if task_name:
+        if task_name in (".", "..") or any(character in task_name for character in "/\\\x00\r\n"):
+            raise ValueError("--simulator-name must be a single directory name")
+        artifacts /= task_name
+        derived /= task_name
     root = artifacts / name
     derived_suite = str(SUITES[name].get("derived_suite", name))
     return {
@@ -522,7 +528,7 @@ def execute(
     selected_simulators: list[dict[str, str]] | None = None,
 ) -> int:
     suite = SUITES[name]
-    paths = suite_paths(name)
+    paths = suite_paths(name, args.simulator_name)
     simulator = select_simulator(args.mode, suite, args.simulator_name, args.simulator_runtime)
     if simulator is not None and selected_simulators is not None:
         selected_simulators.append(simulator)
