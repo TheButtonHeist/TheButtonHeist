@@ -85,7 +85,7 @@ jobs:
   macos-tests:
     name: macos-tests
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 45
     env:
       BUTTONHEIST_RESULTS_MODE: failures
@@ -109,10 +109,11 @@ jobs:
           git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA" \
             | python3 scripts/select-ci-change-scopes.py --github-output "$GITHUB_OUTPUT"
 
-      - name: Select Xcode 26.6
+      - name: Show Swift 6.4 toolchain
         run: |
           echo "MAC_VALIDATION_START=$(date +%s)" >> "$GITHUB_ENV"
-          sudo xcode-select -s /Applications/Xcode_26.6.app/Contents/Developer
+          xcodebuild -version
+          swift --version
 
       - name: Install build tools
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151  # v4
@@ -124,10 +125,6 @@ jobs:
         run: |
           swiftlint lint --strict
           scripts/check-source-shape.sh
-
-      - name: Test Bumper rules
-        if: github.event_name == 'push' || steps.changes.outputs.run_bumper_rule_tests == 'true'
-        run: scripts/check-source-shape.sh test
 
       - name: Validate Swift package products and public API
         if: github.event_name == 'push' || steps.changes.outputs.run_package_api_contracts == 'true'

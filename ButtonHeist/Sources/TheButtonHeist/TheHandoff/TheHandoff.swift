@@ -63,7 +63,7 @@ final class TheHandoff {
 
     // MARK: - Injectable Closures
 
-    var makeConnection: ((DiscoveredDevice) -> any DeviceConnecting)?
+    var makeConnection: (@ButtonHeistActor (DiscoveredDevice) -> any DeviceConnecting)?
 
     // MARK: - Init
 

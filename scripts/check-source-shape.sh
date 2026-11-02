@@ -5,10 +5,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${BUTTONHEIST_SOURCE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-BUMPER_CACHE_DIR="${BUMPER_CACHE_DIR:-$REPO_ROOT/.build/bumper-cache}"
+REPO_ROOT="$(cd "$REPO_ROOT" && pwd)"
 BUMPER_EVALUATION_TIMEOUT_SECONDS="${BUMPER_EVALUATION_TIMEOUT_SECONDS:-300}"
 BUMPER_RUNNER_BUILD_CONFIGURATION="${BUMPER_RUNNER_BUILD_CONFIGURATION:-debug}"
-export BUMPER_CACHE_DIR BUMPER_EVALUATION_TIMEOUT_SECONDS BUMPER_RUNNER_BUILD_CONFIGURATION
+export BUMPER_EVALUATION_TIMEOUT_SECONDS BUMPER_RUNNER_BUILD_CONFIGURATION
 
 if (( $# > 1 )); then
     echo "Usage: scripts/check-source-shape.sh [lint|test]" >&2
@@ -24,12 +24,15 @@ case "$COMMAND" in
         ;;
 esac
 
-BUMPER_ARGUMENTS=("$COMMAND" "$REPO_ROOT")
-if [[ "$COMMAND" == "lint" ]]; then
-    BUMPER_ARGUMENTS+=(--fail-on error)
-fi
-
+# The ordinary rule package owns its dependencies and tests.
 swift run \
-    --package-path "$REPO_ROOT" \
+    --package-path "$REPO_ROOT/.bumper" \
     --configuration debug \
-    bumper "${BUMPER_ARGUMENTS[@]}"
+    bumper test "$REPO_ROOT"
+
+if [[ "$COMMAND" == "lint" ]]; then
+    swift run \
+        --package-path "$REPO_ROOT/.bumper" \
+        --configuration debug \
+        bumper lint "$REPO_ROOT"
+fi

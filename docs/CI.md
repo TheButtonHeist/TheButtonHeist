@@ -237,6 +237,9 @@ CI budgets macOS capacity explicitly:
 - Pushes to `main` run those same three mandatory lanes. The genuine
   `TheInsideJobIntegrationTests` suite then runs behind the completed iOS logic
   lane, keeping macOS concurrency at three.
+- The macOS lane uses the `xcode-27` runner, matching Bumper 0.7.1's Swift 6.4
+  requirement. Bumper builds its separate `.bumper` package; iOS lanes retain
+  their explicit Xcode selection.
 - A final `exact-sha-suite` job records the commit, workflow revision, run ID,
   and every required suite conclusion in `buttonheist-exact-sha-suite`. Release
   admission requires a GitHub-verified commit signature, accepts only that

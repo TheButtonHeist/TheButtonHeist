@@ -2,52 +2,45 @@ import BumperBowlingCore
 import BumperBowlingTestSupport
 import Testing
 
+@testable import BumperRules
+
 @Suite("Any bridge boundary")
 struct AnyBoundaryRuleTests {
     @Test
     func arbitraryProductionAPIsCannotExposeAny() throws {
-        let path: RelativeFilePath = "ButtonHeist/Sources/TheInsideJob/UntypedValue.swift"
+        let path: String = "ButtonHeist/Sources/TheInsideJob/UntypedValue.swift"
         let report = try evaluateButtonHeistRules(
             path: path,
-            component: .embeddedRuntime,
             source: "func render(_ value: Any) {}"
         )
 
-        #expect(report.violations.count == 1)
-        #expect(report.contains(ViolationMatcher(id: "buttonheist.any_boundary", path: path)))
+        #expect(report.count == 1)
+        #expect(report.contains { $0.ruleIdentifier == "buttonheist.any_boundary" && $0.location.file?.hasSuffix(path) == true })
     }
 
     @Test
     func exactSystemBoundaryDeclarationsPermitAny() throws {
         let fixtures = [
             (
-                RelativeFilePath("ButtonHeist/Sources/TheButtonHeist/Storage/PrivateStorage.swift"),
-                ButtonHeistComponent.client,
+                "ButtonHeist/Sources/TheButtonHeist/Storage/PrivateStorage.swift",
                 "private typealias FoundationFileAttributeDictionary = [String: Any]"
             ),
             (
-                RelativeFilePath(
-                    "ButtonHeist/Sources/TheButtonHeist/TheFence/TheFence+CommandArguments.swift"
-                ),
-                ButtonHeistComponent.client,
+                "ButtonHeist/Sources/TheButtonHeist/TheFence/TheFence+CommandArguments.swift",
                 "enum HeistValuePayloadDecoder { static func expectedDescription(for type: Any.Type) {} }"
             ),
             (
-                RelativeFilePath(
-                    "ButtonHeist/Sources/TheInsideJob/Lifecycle/InsideJobRuntimeConfiguration+Resolution.swift"
-                ),
-                ButtonHeistComponent.embeddedRuntime,
+                "ButtonHeist/Sources/TheInsideJob/Lifecycle/InsideJobRuntimeConfiguration+Resolution.swift",
                 "func decodeFoundationInfoPlistValue(_ object: Any) {}"
             ),
         ]
 
-        for (path, component, source) in fixtures {
+        for (path, source) in fixtures {
             let report = try evaluateButtonHeistRules(
                 path: path,
-                component: component,
                 source: source
             )
-            #expect(report.violations.isEmpty)
+            #expect(report.isEmpty)
         }
     }
 
@@ -60,14 +53,22 @@ struct AnyBoundaryRuleTests {
         ]
 
         for (index, source) in fixtures.enumerated() {
-            let path = try RelativeFilePath("ButtonHeist/Sources/TheInsideJob/Impostor\(index).swift")
+            let path = "ButtonHeist/Sources/TheInsideJob/Impostor\(index).swift"
             let report = try evaluateButtonHeistRules(
                 path: path,
-                component: .embeddedRuntime,
                 source: source
             )
 
-            #expect(report.contains(ViolationMatcher(id: "buttonheist.any_boundary", path: path)))
+            #expect(report.contains { $0.ruleIdentifier == "buttonheist.any_boundary" && $0.location.file?.hasSuffix(path) == true })
         }
+    }
+
+    @Test
+    func typeDescriptionExceptionDoesNotPermitErasedValues() throws {
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/TheButtonHeist/TheFence/TheFence+CommandArguments.swift",
+            source: "enum HeistValuePayloadDecoder { static func expectedDescription(for value: Any) {} }"
+        )
+        #expect(report.first?.ruleIdentifier == "buttonheist.any_boundary")
     }
 }

@@ -26,7 +26,7 @@ extension Array where Element == DiscoveredDevice {
 }
 
 @ButtonHeistActor
-var makeReachabilityConnection: ((DiscoveredDevice) -> any TransportReachabilityConnecting)?
+var makeReachabilityConnection: (@ButtonHeistActor (DiscoveredDevice) -> any TransportReachabilityConnecting)?
 
 enum DeviceReachability: Equatable {
     case reachable

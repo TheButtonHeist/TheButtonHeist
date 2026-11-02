@@ -5,7 +5,7 @@ struct UnavailablePlaceholderView: View {
     let systemImage: String
     let description: String
     var actionTitle: String?
-    var action: (() -> Void)?
+    var action: (@MainActor () -> Void)?
 
     var body: some View {
         VStack(spacing: 12) {

@@ -578,6 +578,51 @@ struct HeistPlanCompilerTests {
     }
 
     @Test
+    func `reported Swift Build products resolve from one directory`() async throws {
+        let temp = try CompilerTemporaryDirectory()
+        let root = try temp.makeButtonHeistPackage(named: "local")
+        let products = root.appendingPathComponent(".build/out/Products/Debug")
+        try FileManager.default.createDirectory(at: products, withIntermediateDirectories: true)
+        try Data().write(to: products.appendingPathComponent("ThePlans.swiftmodule"))
+        let object = products.appendingPathComponent("ThePlans.o")
+        try Data().write(to: object)
+
+        let reported = try await HeistSwiftCompilation.resolveThePlansSwiftcArguments(
+            explicitPackageRoot: root,
+            environment: [:],
+            executableURL: nil,
+            swiftPMBuildDirectory: { _ in products }
+        )
+        let overridden = try await HeistSwiftCompilation.resolveThePlansSwiftcArguments(
+            explicitPackageRoot: nil,
+            environment: ["HEIST_THEPLANS_BUILD_DIR": products.path],
+            executableURL: nil
+        )
+        #expect(reported == ["-I", products.path, object.path])
+        #expect(overridden == reported)
+    }
+
+    @Test(arguments: ["ThePlans.swiftmodule", "ThePlans.o"])
+    func `incomplete Swift Build products do not fall back to installed artifacts`(presentArtifact: String) async throws {
+        let temp = try CompilerTemporaryDirectory()
+        let products = temp.url.appendingPathComponent("products")
+        try FileManager.default.createDirectory(at: products, withIntermediateDirectories: true)
+        try Data().write(to: products.appendingPathComponent(presentArtifact))
+        let executable = temp.url.appendingPathComponent("prefix/bin/buttonheist")
+        _ = try temp.writeInstalledThePlansArtifacts(for: executable)
+
+        let diagnostics = try await buildDiagnostics {
+            try await HeistSwiftCompilation.resolveThePlansSwiftcArguments(
+                explicitPackageRoot: nil,
+                environment: ["HEIST_THEPLANS_BUILD_DIR": products.path],
+                executableURL: executable
+            )
+        }
+        #expect(diagnostics.map(\.code.knownCode) == [.swiftCompilationBuildArtifactsNotFound])
+        #expect(diagnostics.first?.description.contains(products.path) == true)
+    }
+
+    @Test
     func `relative environment artifact override is rejected`() async throws {
         do {
             _ = try await HeistSwiftCompilation.resolveThePlansSwiftcArguments(

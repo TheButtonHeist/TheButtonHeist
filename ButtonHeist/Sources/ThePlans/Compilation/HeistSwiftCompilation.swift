@@ -320,10 +320,11 @@ extension HeistSwiftCompilation {
                 searched: [buildDirectory.path],
                 hint: """
                 \(environmentOverrideKey)=\(override) does not contain built ThePlans artifacts \
-                (expected Modules/ThePlans.swiftmodule or Modules/ThePlans.swiftinterface and ThePlans.build/*.swift.o, or \
+                (expected ThePlans.swiftmodule and ThePlans.o, \
+                Modules/ThePlans.swiftmodule or Modules/ThePlans.swiftinterface and ThePlans.build/*.swift.o, or \
                 ThePlans.framework in an Xcode products directory). \
                 Build them with `swift build --target ThePlans` \
-                and point \(environmentOverrideKey) at the absolute path of `.build/debug`.
+                and point \(environmentOverrideKey) at the absolute path reported by `swift build --show-bin-path`.
                 """,
                 source: diagnosticSource
             )
@@ -434,6 +435,12 @@ private extension HeistSwiftCompilation {
     }
 
     private static func resolveSwiftPMBuildDirectory(_ buildDirectory: URL) throws -> [String]? {
+        let swiftBuildModule = buildDirectory.appendingPathComponent("ThePlans.swiftmodule")
+        let aggregateObject = buildDirectory.appendingPathComponent("ThePlans.o")
+        if FileManager.default.fileExists(atPath: swiftBuildModule.path),
+           FileManager.default.fileExists(atPath: aggregateObject.path) {
+            return ["-I", buildDirectory.path, aggregateObject.path]
+        }
         let modulesDirectory = buildDirectory.appendingPathComponent("Modules", isDirectory: true)
         let binaryModule = modulesDirectory.appendingPathComponent("ThePlans.swiftmodule")
         let textualModuleInterface = modulesDirectory.appendingPathComponent("ThePlans.swiftinterface")

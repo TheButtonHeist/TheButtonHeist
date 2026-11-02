@@ -739,6 +739,9 @@ final class DeterministicRuntimeScenarioDriver {
                 requiresObservationRequest: requiresObservationRequest,
                 session: session
             )
+            if case .action(_, .resultAfterAdvancingClock) = input {
+                observationRequestGeneration = session.inputProbe.currentGeneration
+            }
             try await executeInput(
                 input,
                 at: index,
@@ -752,7 +755,6 @@ final class DeterministicRuntimeScenarioDriver {
             }
             if case .action(_, .resultAfterAdvancingClock) = input {
                 requiresObservationRequest = true
-                observationRequestGeneration = session.inputProbe.currentGeneration
             }
         }
         let authorCancelled = lastInputCancelsExecution()

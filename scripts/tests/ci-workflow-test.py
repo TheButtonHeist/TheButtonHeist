@@ -182,6 +182,20 @@ class CIWorkflowTests(unittest.TestCase):
         self.assertNotIn("for scheme in", macos)
         self.assertIn('name: "MacFrameworkTests"', PROJECT)
 
+    def test_bumper_uses_its_required_toolchain_and_isolated_package(self) -> None:
+        macos = job_blocks()["macos-tests"]
+        self.assertIn("runs-on: xcode-27", macos)
+        self.assertNotIn("Xcode_26.6.app", macos)
+        root = Path(__file__).resolve().parents[2]
+        manifest = (root / ".bumper/Package.swift").read_text()
+        self.assertIn("swift-tools-version: 6.4", manifest)
+        self.assertIn('exact: "0.7.1"', manifest)
+        self.assertNotIn("BumperBowling", (root / "Package.swift").read_text())
+        wrapper = (root / "scripts/check-source-shape.sh").read_text()
+        self.assertIn('--package-path "$REPO_ROOT/.bumper"', wrapper)
+        self.assertNotIn("--fail-on", wrapper)
+        self.assertNotIn("BUMPER_CACHE_DIR", wrapper)
+
     def test_xcode_suites_delegate_all_test_driving_to_the_runner(self) -> None:
         for command in (
             "build-for-testing TheInsideJobLogicTests",
@@ -252,11 +266,8 @@ class CIWorkflowTests(unittest.TestCase):
             'python3 scripts/select-ci-change-scopes.py --github-output "$GITHUB_OUTPUT"',
             macos,
         )
-        self.assertIn(
-            "if: github.event_name == 'push' || steps.changes.outputs.run_bumper_rule_tests == 'true'",
-            macos,
-        )
-        self.assertIn("run: scripts/check-source-shape.sh test", macos)
+        self.assertIn("scripts/check-source-shape.sh", macos)
+        self.assertNotIn("run_bumper_rule_tests", macos)
         self.assertIn(
             "if: github.event_name == 'push' || steps.changes.outputs.run_package_api_contracts == 'true'",
             macos,
