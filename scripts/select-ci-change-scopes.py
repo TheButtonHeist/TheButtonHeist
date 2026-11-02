@@ -24,7 +24,6 @@ DOCUMENTATION_FILES = {
 DOCUMENTATION_PREFIXES = ("docs/",)
 
 BUMPER_RULE_PATHS = {
-    "BumperBowling.swift",
     "docs/BUMPER-RULES.md",
     "scripts/check-source-shape.sh",
 }

@@ -93,9 +93,9 @@ class ChangeScopeSelectionTests(unittest.TestCase):
 
     def test_bumper_policy_changes_use_always_on_source_validation(self) -> None:
         for path in (
-            "BumperBowling.swift",
-            ".bumper/Sources/ButtonHeistCustomRules.swift",
-            ".bumper/Tests/AnyBoundaryRuleTests.swift",
+            ".bumper/Package.swift",
+            ".bumper/Sources/BumperRules/ButtonHeistCustomRules.swift",
+            ".bumper/Tests/BumperRulesTests/AnyBoundaryRuleTests.swift",
             "docs/BUMPER-RULES.md",
         ):
             with self.subTest(path=path):

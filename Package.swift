@@ -20,9 +20,6 @@ let package = Package(
         // Keep this exact tag aligned across manifests and lockfiles via
         // scripts/check-parser-contract.sh and scripts/bump-parser.sh.
         .package(url: "https://github.com/TheButtonHeist/AccessibilitySnapshotBH", exact: "0.25.1"),
-        // Source-shape validation runs the dependency's executable product
-        // directly through SwiftPM; it is not linked into a Button Heist target.
-        .package(url: "https://github.com/TheButtonHeist/BumperBowling.git", exact: "0.6.0"),
     ],
     targets: [
         .target(
