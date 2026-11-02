@@ -59,7 +59,14 @@ struct ButtonHeistFileConfig: Codable, Sendable, Equatable {
         case defaultTarget = "default"
     }
 
-    init(targets: [TargetName: TargetConfig], defaultTarget: TargetName? = nil) {
+    init(targets: [TargetName: TargetConfig], defaultTarget: TargetName? = nil) throws {
+        if let defaultTarget, targets[defaultTarget] == nil {
+            throw SchemaValidationError(
+                field: "default",
+                observed: "unknown target \"\(defaultTarget.rawValue)\"",
+                expected: "configured target name"
+            )
+        }
         self.targets = targets
         self.defaultTarget = defaultTarget
     }
@@ -68,14 +75,23 @@ struct ButtonHeistFileConfig: Codable, Sendable, Equatable {
         try decoder.rejectUnknownKeys(allowed: CodingKeys.self, typeName: "config")
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let targetContainer = try container.nestedContainer(keyedBy: TargetNameCodingKey.self, forKey: .targets)
-        targets = try Dictionary(uniqueKeysWithValues: targetContainer.allKeys.map { key in
+        let targets = try Dictionary(uniqueKeysWithValues: targetContainer.allKeys.map { key in
             (
                 TargetName(rawValue: key.stringValue),
                 try targetContainer.decode(TargetConfig.self, forKey: key)
             )
         })
-        defaultTarget = try container.decodeIfPresent(String.self, forKey: .defaultTarget)
+        let defaultTarget = try container.decodeIfPresent(String.self, forKey: .defaultTarget)
             .map(TargetName.init(rawValue:))
+        do {
+            try self.init(targets: targets, defaultTarget: defaultTarget)
+        } catch {
+            throw DecodingError.dataCorruptedError(
+                forKey: .defaultTarget,
+                in: container,
+                debugDescription: String(describing: error)
+            )
+        }
     }
 
     func encode(to encoder: Encoder) throws {

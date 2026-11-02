@@ -39,7 +39,7 @@ extension TheFence {
         timeoutSource: HeistExecutionBudget.TimeoutSource
     ) async throws -> FenceResponse {
         let result = try await executeHeistPlan(plan, argument: argument, timeoutSource: timeoutSource)
-        return .heistExecution(plan: plan, report: HeistReport.project(result: result))
+        return .heistExecution(report: HeistReport.project(result: result))
     }
 
     /// Execute through the shared admission, transport, and recording pipeline.

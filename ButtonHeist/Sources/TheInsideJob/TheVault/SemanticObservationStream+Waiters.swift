@@ -235,7 +235,7 @@ extension Observation.Stream {
             resolveObservationWaiter(waiterID, with: .deadlineReached)
             return
         }
-        oneShot.armTimeout(after: .seconds(remaining)) { [weak self] in
+        oneShot.armTimeout(after: .saturatingSeconds(remaining)) { [weak self] in
             await self?.resolveObservationWaiter(waiterID, with: .deadlineReached)
         }
     }

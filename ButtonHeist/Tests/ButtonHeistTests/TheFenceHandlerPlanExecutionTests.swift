@@ -22,11 +22,10 @@ extension TheFenceHandlerTests {
             "plan": .string(Self.pureRuntimeHeistSource),
         ])
 
-        guard case .heistExecution(let plan, let report) = response else {
+        guard case .heistExecution(let report) = response else {
             return XCTFail("Expected heistExecution response, got \(response)")
         }
-        XCTAssertEqual(plan.name, "agentFlow")
-        XCTAssertEqual(mockConn.sent.sentHeistPlan, plan)
+        XCTAssertEqual(mockConn.sent.sentHeistPlan?.name, "agentFlow")
         XCTAssertEqual(mockConn.sent.sentHeistRun?.argument, HeistArgument.none)
         XCTAssertEqual(mockConn.sent.sentHeistRun?.timeout, .default)
         XCTAssertEqual(
@@ -264,7 +263,7 @@ extension TheFenceHandlerTests {
                 "plan": .string(Self.pureRuntimeHeistSource),
             ])
 
-            guard case .heistExecution(_, let report) = response else {
+            guard case .heistExecution(let report) = response else {
                 return XCTFail("Expected heistExecution response, got \(response)")
             }
             XCTAssertEqual(report, HeistReport.project(result: scriptedResult))
@@ -772,7 +771,6 @@ extension TheFenceHandlerTests {
             durationMs: 5
         )
         let response = FenceResponse.heistExecution(
-            plan: try HeistPlan(body: [.warn(WarnStep(message: "x"))]),
             report: HeistReport.project(result: result)
         )
         XCTAssertTrue(response.isFailure)

@@ -42,6 +42,7 @@ class TestRunnerTests(unittest.TestCase):
             {
                 "BUTTONHEIST_TEST_ARTIFACTS_DIR": "/artifacts",
                 "BUTTONHEIST_TEST_DERIVED_DATA_ROOT": "/derived",
+                "BUTTONHEIST_TEST_SIMULATOR_NAME": "",
             },
         )
         self.environment.start()
@@ -281,6 +282,59 @@ class TestRunnerTests(unittest.TestCase):
             derived_suite = SUITES[name].get("derived_suite", name)
             self.assertEqual(paths["derived"], Path(f"/derived/{derived_suite}"))
             self.assertEqual(paths["record"], Path(f"/artifacts/{name}/run.json"))
+
+    def test_task_names_isolate_artifacts_and_builds_for_every_suite(self) -> None:
+        for suite in SUITES:
+            first = RUNNER["suite_paths"](suite, "accra-first")
+            second = RUNNER["suite_paths"](suite, "accra-second")
+            self.assertEqual(first, RUNNER["suite_paths"](suite, "accra-first"))
+            for key in first:
+                self.assertNotEqual(first[key], second[key])
+                self.assertIn("accra-first", first[key].parts)
+
+    def test_task_scope_uses_explicit_name_before_environment(self) -> None:
+        with mock.patch.dict(os.environ, {"BUTTONHEIST_TEST_SIMULATOR_NAME": "accra-env"}):
+            self.assertEqual(
+                RUNNER["suite_paths"]("MacFrameworkTests")["derived"],
+                Path("/derived/accra-env/MacFrameworkTests"),
+            )
+            self.assertEqual(
+                RUNNER["suite_paths"]("MacFrameworkTests", "accra-explicit")["derived"],
+                Path("/derived/accra-explicit/MacFrameworkTests"),
+            )
+
+    def test_named_split_phases_and_hosted_projections_share_one_build(self) -> None:
+        window = RUNNER["suite_paths"]("TheInsideJobWindowTests", "accra-split")
+        hosted = RUNNER["suite_paths"]("HostedBehaviorTests", "accra-split")
+        self.assertEqual(window["derived"], hosted["derived"])
+        for mode in ("build-for-testing", "test-without-building"):
+            command = RUNNER["test_command"](mode, "HostedBehaviorTests", SUITES["HostedBehaviorTests"], hosted, SIMULATOR)
+            self.assertIn("/derived/accra-split/HostedBehaviorTests", command)
+
+    def test_task_scope_rejects_path_escape_before_file_operations(self) -> None:
+        for name in (".", "..", "../other", "/tmp/other", "a/b", "a\\b", "a\nb", "a\x00b"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                RUNNER["suite_paths"]("MacFrameworkTests", name)
+
+    def test_run_does_not_delete_another_tasks_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, {
+            "BUTTONHEIST_TEST_ARTIFACTS_DIR": str(Path(directory) / "artifacts"),
+            "BUTTONHEIST_TEST_DERIVED_DATA_ROOT": str(Path(directory) / "derived"),
+        }):
+            other = RUNNER["suite_paths"]("MacFrameworkTests", "accra-other")
+            other["heist_results"].mkdir(parents=True)
+            receipt = other["heist_results"] / "retained.json"
+            receipt.write_text("retained")
+            args = RUNNER["parse_args"](["build-for-testing", "MacFrameworkTests", "--simulator-name", "accra-owned"])
+            published = mock.Mock()
+            with mock.patch.dict(RUNNER["execute"].__globals__, {
+                "publish": published,
+                "source_state": mock.Mock(return_value=RUNNER["SourceState"]("test", True)),
+                "run_phase": mock.Mock(return_value=RUNNER["PhaseResult"]("build", 0, 1)),
+            }):
+                self.assertEqual(RUNNER["execute"](args, "MacFrameworkTests"), 0)
+            self.assertEqual(receipt.read_text(), "retained")
+            self.assertEqual(published.call_args.args[0], RUNNER["suite_paths"]("MacFrameworkTests", "accra-owned"))
 
     def test_run_drives_xcodebuild_directly_and_never_tuist(self) -> None:
         # `tuist test` reports a failing suite as "✖ Error" plus a forum link.

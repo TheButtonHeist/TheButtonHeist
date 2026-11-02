@@ -82,7 +82,7 @@ extension HeistExecution {
                 awaiting: nil,
                 pendingEffect: nil,
                 nextEffectID: 0,
-                executionDeadline: .init(start: startedAt, timeout: .seconds(timeout.seconds)),
+                executionDeadline: .init(start: startedAt, timeoutSeconds: timeout.seconds),
                 observationDeadline: nil,
                 now: startedAt
             ))

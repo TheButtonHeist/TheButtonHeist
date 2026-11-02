@@ -23,7 +23,6 @@ extension TheFenceCompactFormattingContractTests {
             afterScreenId: "screen"
         )
         let command = HeistActionCommand.activate(.predicate(ElementPredicate(label: "Load More")))
-        let plan = try HeistPlan(body: [.action(ActionStep(command: command))])
         let result = try HeistResult(
             steps: [
                 HeistResultFixture.action(
@@ -36,7 +35,7 @@ extension TheFenceCompactFormattingContractTests {
             ],
             durationMs: 8
         )
-        let response = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result))
+        let response = FenceResponse.heistExecution(report: HeistReport.project(result: result))
 
         let compact = response.compactFormatted()
         let report = try publicHeistReportJSON(response)
@@ -92,9 +91,7 @@ extension TheFenceCompactFormattingContractTests {
             afterScreenId: "screen"
         )
         let command = HeistActionCommand.activate(.predicate(ElementPredicate(label: "Load More")))
-        let plan = try HeistPlan(body: [.action(ActionStep(command: command))])
         let response = FenceResponse.heistExecution(
-            plan: plan,
             report: HeistReport.project(result: try HeistResult(
                 steps: [
                     HeistResultFixture.action(
@@ -159,9 +156,7 @@ extension TheFenceCompactFormattingContractTests {
             screenChanged: true
         )
         let command = HeistActionCommand.activate(.predicate(ElementPredicate(label: "Checkout")))
-        let plan = try HeistPlan(body: [.action(ActionStep(command: command))])
         let response = FenceResponse.heistExecution(
-            plan: plan,
             report: HeistReport.project(result: try HeistResult(
                 steps: [
                     HeistResultFixture.action(
@@ -220,7 +215,6 @@ extension TheFenceCompactFormattingContractTests {
             after: makeTestInterface(elements: unchanged + [lazyRow])
         )
         let command = HeistActionCommand.activate(.predicate(ElementPredicate(label: "Load More")))
-        let plan = try HeistPlan(body: [.action(ActionStep(command: command))])
         let result = try HeistResult(
             steps: [
                 HeistResultFixture.action(
@@ -241,7 +235,7 @@ extension TheFenceCompactFormattingContractTests {
             durationMs: 8
         )
 
-        let compact = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result)).compactFormatted()
+        let compact = FenceResponse.heistExecution(report: HeistReport.project(result: result)).compactFormatted()
 
         XCTAssertTrue(
             compact.contains("-> error[request.action_failed request retryable=false]: target stopped responding"),
@@ -258,9 +252,7 @@ extension TheFenceCompactFormattingContractTests {
             tapActivationSucceeded: true
         ))
         let command = HeistActionCommand.activate(.predicate(ElementPredicate(label: "Search all items")))
-        let plan = try HeistPlan(body: [.action(ActionStep(command: command))])
         let response = FenceResponse.heistExecution(
-            plan: plan,
             report: HeistReport.project(result: try HeistResult(
                 steps: [
                     HeistResultFixture.action(

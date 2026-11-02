@@ -63,16 +63,7 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testHumanHeistFormattingCountsNestedProjectedExpectations() throws {
-        let expected = AccessibilityPredicate.exists(.label("Done"))
-        let childAction = try HeistStep.action(ActionStep(
-            command: .activate(.predicate(ElementPredicate(label: .exact("Submit")))),
-            expectationPolicy: .expect(ActionExpectation(predicate: expected, timeout: 1))))
-        let casePredicate = PresenceCondition.exists(.label("Home"))
         let casePredicateRuntime = AccessibilityPredicate.exists(.label("Home"))
-        let conditional = try ConditionalStep(cases: [
-            PredicateCase(predicate: casePredicate, body: [childAction]),
-        ])
-        let plan = try HeistPlan(body: [.conditional(conditional)])
         let childResult = HeistResultFixture.action(
             path: "$.body[0].conditional.cases[0].body[0]",
             result: ActionResult.success(payload: .activate),
@@ -98,20 +89,12 @@ extension TheFenceCompactFormattingContractTests {
             durationMs: 1
         )
 
-        let output = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result)).humanFormatted()
+        let output = FenceResponse.heistExecution(report: HeistReport.project(result: result)).humanFormatted()
 
         XCTAssertTrue(output.contains("[expectations: 1/1 met]"), output)
     }
 
     func testHeistExpectationCountsAgreeAcrossPublicFormats() throws {
-        let expected = AccessibilityPredicate.exists(.label("Done"))
-        let action = try HeistStep.action(ActionStep(
-            command: .activate(.predicate(ElementPredicate(label: "Submit"))),
-            expectationPolicy: .expect(ActionExpectation(predicate: expected, timeout: 1))))
-        let plan = try HeistPlan(body: [
-            .warn(WarnStep(message: "starting checkout")),
-            action,
-        ])
         let result = try HeistResult(
             steps: [
                 HeistResultFixture.warning(path: "$.body[0]", message: "starting checkout"),
@@ -124,7 +107,7 @@ extension TheFenceCompactFormattingContractTests {
             ],
             durationMs: 5
         )
-        let response = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result))
+        let response = FenceResponse.heistExecution(report: HeistReport.project(result: result))
 
         let json = try publicJSONProbe(response)
         let report = try json.object("report")
@@ -148,14 +131,7 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testPublicHeistJSONIncludesScoreMetricProjection() throws {
-        let expected = AccessibilityPredicate.exists(.label("Done"))
         let command = HeistActionCommand.activate(.predicate(ElementPredicate(label: "Submit")))
-        let plan = try HeistPlan(body: [
-            .action(ActionStep(command: command, expectationPolicy: .expect(ActionExpectation(
-                predicate: expected,
-                timeout: 1
-            )))),
-        ])
         let result = try HeistResult(
             steps: [
                 HeistResultFixture.action(
@@ -175,7 +151,7 @@ extension TheFenceCompactFormattingContractTests {
         )
 
         let metrics = try publicHeistReportJSON(
-            FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result))
+            FenceResponse.heistExecution(report: HeistReport.project(result: result))
         ).object("metrics").decode(HeistReport.Metrics.self)
 
         XCTAssertEqual(metrics.measurements.map(MeasurementExpectation.init(measurement:)), [
@@ -186,9 +162,6 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testExplicitSingleActionHeistKeepsReportShapeAcrossPublicFormats() throws {
-        let plan = try HeistPlan(body: [
-            .action(ActionStep(command: .activate(.predicate(ElementPredicate(label: "Pay"))))),
-        ])
         let result = try HeistResult(
             steps: [
                 HeistResultFixture.action(
@@ -198,7 +171,7 @@ extension TheFenceCompactFormattingContractTests {
             ],
             durationMs: 3
         )
-        let response = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result))
+        let response = FenceResponse.heistExecution(report: HeistReport.project(result: result))
 
         let json = try publicJSONProbe(response)
         let compact = response.compactFormatted()
@@ -211,7 +184,6 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testCompactHeistFormattingReportsFailStepMessage() throws {
-        let plan = try HeistPlan(body: [.fail(FailStep(message: "Unknown screen"))])
         let result = try HeistResult(
             steps: [
                 HeistResultFixture.explicitFailure(message: "Unknown screen"),
@@ -219,7 +191,7 @@ extension TheFenceCompactFormattingContractTests {
             durationMs: 1
         )
 
-        let output = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result)).compactFormatted()
+        let output = FenceResponse.heistExecution(report: HeistReport.project(result: result)).compactFormatted()
 
         XCTAssertTrue(
             output.contains("[0] fail -> error[request.action_failed request retryable=false]: Unknown screen"),
@@ -228,14 +200,13 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testPublicHeistJSONReportsFailStepMessage() throws {
-        let plan = try HeistPlan(body: [.fail(FailStep(message: "Unknown screen"))])
         let result = try HeistResult(
             steps: [
                 HeistResultFixture.explicitFailure(message: "Unknown screen"),
             ],
             durationMs: 1
         )
-        let response = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result))
+        let response = FenceResponse.heistExecution(report: HeistReport.project(result: result))
 
         let json = try publicJSONProbe(response)
         let node = try XCTUnwrap(try json.object("report").array("nodes").first)
@@ -254,9 +225,6 @@ extension TheFenceCompactFormattingContractTests {
         let mismatch = #"observed accessibility candidate label="Ticket saved., Dismiss" traits=[staticText] "#
             + #"did not match exists(target(predicate(label="Ticket saved.")))"#
         let message = "timed out waiting for exact predicate; \(mismatch)"
-        let plan = try HeistPlan(body: [
-            .wait(WaitStep(predicate: predicate, timeout: 1)),
-        ])
         let current = makeTestObservationSnapshot(elements: [])
         let step = HeistResultFixture.failedWait(
             evidence: HeistResultFixture.expectationEvidence(
@@ -277,7 +245,7 @@ extension TheFenceCompactFormattingContractTests {
             )
         )
         let report = HeistReport.project(result: try HeistResult(steps: [step], durationMs: 1))
-        let response = FenceResponse.heistExecution(plan: plan, report: report)
+        let response = FenceResponse.heistExecution(report: report)
         let node = try XCTUnwrap(try publicJSONProbe(response).object("report").array("nodes").first)
         let (fence, _) = makeConnectedFence()
 
@@ -298,11 +266,6 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testAbortedHeistOutputCountsOnlyResultNodes() throws {
-        let plan = try HeistPlan(body: [
-            .warn(WarnStep(message: "before")),
-            .fail(FailStep(message: "stop")),
-            .warn(WarnStep(message: "after")),
-        ])
         let result = try HeistResult(
             steps: [
                 HeistResultFixture.warning(path: "$.body[0]", message: "before"),
@@ -315,7 +278,7 @@ extension TheFenceCompactFormattingContractTests {
             ],
             durationMs: 2
         )
-        let response = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result))
+        let response = FenceResponse.heistExecution(report: HeistReport.project(result: result))
 
         let json = try publicJSONProbe(response)
         let report = try json.object("report")
@@ -345,15 +308,7 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testPublicHeistJSONReportsNestedSelectedCaseFailureAsTreeNodes() throws {
-        let childAction = try HeistStep.action(ActionStep(
-            command: .activate(.predicate(ElementPredicate(label: "Continue")))
-        ))
-        let casePredicate = PresenceCondition.exists(.label("Ready"))
         let casePredicateRuntime = AccessibilityPredicate.exists(.label("Ready"))
-        let conditional = try ConditionalStep(cases: [
-            PredicateCase(predicate: casePredicate, body: [childAction]),
-        ])
-        let plan = try HeistPlan(body: [.conditional(conditional)])
         let childPath = "$.body[0].conditional.cases[0].body[0]"
         let childResult = HeistResultFixture.action(
             path: childPath,
@@ -393,7 +348,7 @@ extension TheFenceCompactFormattingContractTests {
             durationMs: 9
         )
 
-        let json = try publicJSONProbe(.heistExecution(plan: plan, report: HeistReport.project(result: result)))
+        let json = try publicJSONProbe(.heistExecution(report: HeistReport.project(result: result)))
         let nodes = try json.object("report").array("nodes")
         let root = try XCTUnwrap(nodes.first)
         let children = try root.array("children")
@@ -420,21 +375,7 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testPublicHeistJSONReportsSelectedElsePathAsTreeNodes() throws {
-        let elseStep = try HeistStep.action(ActionStep(
-            command: .activate(.predicate(ElementPredicate(label: "Fallback")))
-        ))
-        let predicate = PresenceCondition.exists(.label("Home"))
         let runtimePredicate = AccessibilityPredicate.exists(.label("Home"))
-        let conditional = try ConditionalStep(
-            cases: [
-                PredicateCase(
-                    predicate: predicate,
-                    body: [try HeistStep.action(ActionStep(command: .activate(.predicate(ElementPredicate(label: "Home")))))]
-                ),
-            ],
-            elseBody: [elseStep]
-        )
-        let plan = try HeistPlan(body: [.conditional(conditional)])
         let childPath = "$.body[0].conditional.else_body[0]"
         let childResult = HeistResultFixture.action(
             path: childPath,
@@ -462,13 +403,13 @@ extension TheFenceCompactFormattingContractTests {
             durationMs: 3
         )
 
-        let json = try publicJSONProbe(.heistExecution(plan: plan, report: HeistReport.project(result: result)))
+        let json = try publicJSONProbe(.heistExecution(report: HeistReport.project(result: result)))
         let nodes = try json.object("report").array("nodes")
         let root = try XCTUnwrap(nodes.first)
         let evidence = try root.object("evidence")
         let children = try root.array("children")
         let child = try XCTUnwrap(children.first)
-        let compact = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result)).compactFormatted()
+        let compact = FenceResponse.heistExecution(report: HeistReport.project(result: result)).compactFormatted()
 
         XCTAssertEqual(try root.string("kind"), "conditional")
         XCTAssertEqual(try root.string("status"), "passed")
@@ -479,12 +420,6 @@ extension TheFenceCompactFormattingContractTests {
     }
 
     func testHeistReportProjectsForEachStructurally() throws {
-        let forEach = try ForEachStringStep(
-            values: ["Milk", "Eggs"],
-            parameter: "item",
-            body: [.action(ActionStep(command: .typeText(reference: "item", target: nil)))]
-        )
-        let plan = try HeistPlan(body: [.forEachString(forEach)])
         let firstIteration = HeistResultFixture.forEachStringIteration(
             ordinal: 0,
             value: "Milk",
@@ -546,7 +481,7 @@ extension TheFenceCompactFormattingContractTests {
             ],
             durationMs: 30
         )
-        let response = FenceResponse.heistExecution(plan: plan, report: HeistReport.project(result: result))
+        let response = FenceResponse.heistExecution(report: HeistReport.project(result: result))
 
         let json = try publicJSONProbe(response)
         let report = try json.object("report")

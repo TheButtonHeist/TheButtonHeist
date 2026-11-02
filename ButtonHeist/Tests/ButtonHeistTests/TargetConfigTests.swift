@@ -47,6 +47,41 @@ final class TargetConfigTests: XCTestCase {
         XCTAssertTrue(config.targets.isEmpty)
     }
 
+    func testMissingDefaultTargetIsRejectedAtConstructionAndDecoding() {
+        XCTAssertThrowsError(try ButtonHeistFileConfig(targets: [:], defaultTarget: targetName("missing")))
+        let json = #"{"targets":{},"default":"missing"}"#
+        XCTAssertThrowsError(try JSONDecoder().decode(ButtonHeistFileConfig.self, from: Data(json.utf8))) { error in
+            XCTAssertTrue(String(describing: error).contains("missing"))
+        }
+    }
+
+    @ButtonHeistActor
+    func testInvalidReplacementTokenPreservesConnectedSession() async throws {
+        let config = try ButtonHeistFileConfig(targets: targetConfigs([
+            "invalid": TargetConfig(device: "127.0.0.1:9999", token: "   "),
+        ]))
+        let (fence, connection) = makeConnectedFence(configuration: .init(token: "current", fileConfig: config))
+        defer { fence.stop() }
+        try await fence.start()
+        let originalTarget = fence.config.connectionTarget
+        let disconnectCount = connection.disconnectCount
+        let requests: [[String: HeistValue]] = [
+            ["device": .string("127.0.0.1:9999"), "token": .string("   ")],
+            ["target": .string("invalid")],
+        ]
+
+        for values in requests {
+            XCTAssertThrowsError(try fence.admit(FenceCommandInput(
+                command: .connect,
+                arguments: .init(values: values)
+            )))
+            XCTAssertTrue(fence.handoff.connectionLifecycle.isConnected)
+            XCTAssertEqual(connection.disconnectCount, disconnectCount)
+            XCTAssertEqual(fence.config.connectionTarget, originalTarget)
+            XCTAssertEqual(fence.config.token, "current")
+        }
+    }
+
     func testParseInvalidJSONFails() {
         let json = "not json"
         XCTAssertThrowsError(try JSONDecoder().decode(ButtonHeistFileConfig.self, from: Data(json.utf8)))
@@ -213,8 +248,8 @@ final class TargetConfigTests: XCTestCase {
     // MARK: - TheFence.configTargetsAsDevices
 
     @ButtonHeistActor
-    func testConfigTargetsAsDevices() async {
-        let config = ButtonHeistFileConfig(
+    func testConfigTargetsAsDevices() async throws {
+        let config = try ButtonHeistFileConfig(
             targets: targetConfigs([
                 "sim1": TargetConfig(device: "127.0.0.1:1455"),
                 "sim2": TargetConfig(device: "127.0.0.1:1456", token: "tok"),
@@ -233,8 +268,8 @@ final class TargetConfigTests: XCTestCase {
     }
 
     @ButtonHeistActor
-    func testConfigTargetsWithInvalidDeviceSkipped() async {
-        let config = ButtonHeistFileConfig(
+    func testConfigTargetsWithInvalidDeviceSkipped() async throws {
+        let config = try ButtonHeistFileConfig(
             targets: targetConfigs([
                 "good": TargetConfig(device: "127.0.0.1:1455"),
                 "bad": TargetConfig(device: "no-port-here"),
@@ -338,7 +373,7 @@ final class TargetConfigTests: XCTestCase {
 
     @ButtonHeistActor
     func testConnectWithNamedTargetSwitchesConnection() async throws {
-        let config = ButtonHeistFileConfig(
+        let config = try ButtonHeistFileConfig(
             targets: targetConfigs([
                 "sim1": TargetConfig(device: "127.0.0.1:1455", token: "tok1"),
                 "sim2": TargetConfig(device: "127.0.0.1:1456", token: "tok2"),
@@ -385,7 +420,7 @@ final class TargetConfigTests: XCTestCase {
 
     @ButtonHeistActor
     func testConnectFailureLeavesDisconnectedOnRequestedTarget() async throws {
-        let config = ButtonHeistFileConfig(
+        let config = try ButtonHeistFileConfig(
             targets: targetConfigs([
                 "sim1": TargetConfig(device: "127.0.0.1:1455", token: "tok1"),
             ]),
@@ -464,13 +499,13 @@ final class TargetConfigTests: XCTestCase {
 
     @ButtonHeistActor
     func testConnectWithUnknownTargetReturnsError() async throws {
-        let config = ButtonHeistFileConfig(
+        let config = try ButtonHeistFileConfig(
             targets: targetConfigs(["sim1": TargetConfig(device: "127.0.0.1:1455")]),
             defaultTarget: targetName("sim1")
         )
         let fence = TheFence(configuration: .init(fileConfig: config))
         do {
-            _ = try await fence.execute(command: .connect, values: ["target": .string("nonexistent")])
+            _ = try fence.parseRequest(command: .connect, values: ["target": .string("nonexistent")])
             XCTFail("Expected invalid request")
         } catch let error as FenceError {
             guard case .invalidRequest(let message) = error else {
@@ -485,7 +520,7 @@ final class TargetConfigTests: XCTestCase {
     func testConnectWithNoConfigFileReturnsError() async throws {
         let fence = TheFence(configuration: .init())
         do {
-            _ = try await fence.execute(command: .connect, values: ["target": .string("sim1")])
+            _ = try fence.parseRequest(command: .connect, values: ["target": .string("sim1")])
             XCTFail("Expected invalid request")
         } catch let error as FenceError {
             guard case .invalidRequest(let message) = error else {
@@ -508,7 +543,7 @@ final class TargetConfigTests: XCTestCase {
 
     @ButtonHeistActor
     func testListTargetsWithConfig() async throws {
-        let config = ButtonHeistFileConfig(
+        let config = try ButtonHeistFileConfig(
             targets: targetConfigs([
                 "sim1": TargetConfig(device: "127.0.0.1:1455"),
                 "sim2": TargetConfig(device: "127.0.0.1:1456"),
@@ -535,7 +570,7 @@ final class TargetConfigTests: XCTestCase {
     }
 
     func testButtonHeistFileConfigRoundTrip() throws {
-        let original = ButtonHeistFileConfig(
+        let original = try ButtonHeistFileConfig(
             targets: targetConfigs([
                 "sim1": TargetConfig(device: "127.0.0.1:1455", token: "tok"),
                 "sim2": TargetConfig(device: "127.0.0.1:1456"),

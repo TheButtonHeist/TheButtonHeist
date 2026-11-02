@@ -13,13 +13,8 @@ extension FenceResponse {
 
     @_spi(ButtonHeistTooling) public func compactFormatted(profile: ProjectionProfile) -> String {
         switch self {
-        case .ok(let message):
-            return message
         case .error(let failure):
             return Self.diagnosticText(failure)
-        case .status(let connected, let deviceName):
-            if connected, let name = deviceName { return "connected: \(name)" }
-            return "not connected"
         case .pong(let payload):
             let name = payload.appName.isEmpty ? "App" : payload.appName
             return "pong: \(name) \(payload.bundleIdentifier) [ButtonHeist \(payload.buttonHeistVersion)]"
@@ -55,7 +50,7 @@ extension FenceResponse {
                 options: options,
                 profile: profile
             )
-        case .heistExecution(_, let report):
+        case .heistExecution(let report):
             return compactHeistFormatted(
                 report,
                 profile: profile

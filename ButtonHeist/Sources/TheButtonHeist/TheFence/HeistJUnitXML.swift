@@ -193,7 +193,15 @@ private enum JUnitXML {
 
     /// Escape special XML characters in text content and attribute values.
     private static func escape(_ string: String) -> String {
-        string
+        let scalars = string.unicodeScalars.map { scalar -> Unicode.Scalar in
+            switch scalar.value {
+            case 0x9, 0xA, 0xD, 0x20...0xD7FF, 0xE000...0xFFFD, 0x10000...0x10FFFF:
+                scalar
+            default:
+                "\u{FFFD}"
+            }
+        }
+        return String(String.UnicodeScalarView(scalars))
             .replacingOccurrences(of: "&", with: "&amp;")
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")

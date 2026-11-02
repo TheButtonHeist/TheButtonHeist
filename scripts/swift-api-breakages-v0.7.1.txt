@@ -1,0 +1,6 @@
+API breakage: enumelement FenceResponse.heistExecution has declared type change from (ButtonHeist.FenceResponse.Type) -> (ThePlans.HeistPlan, TheScore.HeistReport) -> ButtonHeist.FenceResponse to (ButtonHeist.FenceResponse.Type) -> (TheScore.HeistReport) -> ButtonHeist.FenceResponse
+API breakage: enumelement FenceResponse.ok has been removed
+API breakage: enumelement FenceResponse.status has been removed
+API breakage: constructor HeistResultRecordingMode.init(environmentValue:) is now throwing
+API breakage: constructor HeistResultRecordingMode.init(environmentValue:) has return type change from TheScore.HeistResultRecordingMode? to TheScore.HeistResultRecordingMode
+API breakage: enumelement HeistResultRecordingError.invalidMode has been added as a new enum case

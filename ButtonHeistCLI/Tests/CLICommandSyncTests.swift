@@ -7,6 +7,12 @@ import TheScore
 
 final class CLICommandSyncTests: XCTestCase {
 
+    @ButtonHeistActor
+    func testListTargetsRunsOfflineUsingFenceConnectionPolicy() async throws {
+        let command = try ListTargetsCommand.parse(["--device", "127.0.0.1:1", "--connect-timeout", "0.01"])
+        try await CLIRunner.run(try await command.runnerDescriptor())
+    }
+
     func testTopLevelSubcommandsMatchFenceCLIExposure() {
         let descriptorNames = TheFence.Command.cliDirectCommandDescriptors.map(\.command.rawValue)
         let expected = (descriptorNames + ["adversarial_catalog", "json_lines", "plan"]).sorted()
@@ -23,14 +29,15 @@ final class CLICommandSyncTests: XCTestCase {
     }
 
     @ButtonHeistActor
-    func testOneShotDescriptorsOwnConnectedAndLocalLifecycleModes() async throws {
+    func testOneShotDescriptorsUseFenceConnectionRequirements() async throws {
         let connected = try await PingCommand.parse([]).runnerDescriptor()
         let local = try await ListDevicesCommand.parse([]).runnerDescriptor()
 
         XCTAssertEqual(connected.fenceDescriptor.command, .ping)
-        XCTAssertEqual(connected.executionMode, .connected)
+        XCTAssertTrue(connected.fenceDescriptor.requiresConnectionForCLIInvocation)
+        XCTAssertFalse(connected.fenceDescriptor.requiresConnectionBeforeDispatch)
         XCTAssertEqual(local.fenceDescriptor.command, .listDevices)
-        XCTAssertEqual(local.executionMode, .direct)
+        XCTAssertFalse(local.fenceDescriptor.requiresConnectionForCLIInvocation)
     }
 
     func testJSONLinesDefaultOutputIsCanonicalJSON() {

@@ -115,6 +115,18 @@ decodes once into the canonical `HeistActionCommand` enum.
 Raw command dictionaries end at Fence admission. `FenceCommandInput` is the
 unadmitted edge value; `AdmittedFenceCommand` contains the typed
 `CommandExecution` that execution consumes.
+The CLI admits commands before applying the catalog's standalone connection
+requirement. Standalone health and session probes establish an initial session;
+their existing-session forms never reconnect. Other commands use the shared
+execution connection requirement.
+Config construction rejects unresolved default-target references. Connection
+replacement admission resolves the target and validates its token before any
+existing session is stopped.
+
+`IdleMonitor` owns one idle, active, or stopped state. Active state counts
+overlapping operations and owns no expiry task. The last completed operation
+arms a fresh idle interval; teardown leaves the monitor stopped. MCP tool calls
+and JSON-lines requests use the same scoped activity operation.
 
 Raw machine JSON is size- and shape-checked at the Foundation boundary, then
 decoded directly into its destination contract. MCP converts its existing
@@ -819,6 +831,13 @@ semantic nodes, summary, metrics, failure and warning facts, and diagnostics.
 JSON, compact text, human text, JUnit, and metric boundaries render that report
 instead of interpreting `HeistResult` independently; there is no competing
 execution report or Fence-owned report projection.
+The tooling response carries only that report, without retaining the authored
+plan. Connection output uses the canonical session-state response; no generic
+success or parallel boolean connection response remains. Active command JSON
+and text shapes are unchanged.
+
+JUnit rendering replaces XML 1.0-forbidden characters with U+FFFD before
+escaping text and attributes. Execution evidence retains the original strings.
 
 Failure categories map once to the canonical `ActionFailure.Kind`. The report
 retains that typed classification even when an action or wait has no observation
@@ -889,6 +908,10 @@ derive from the method and subject evidence instead of entering as caller data.
 and the recorder derives artifact naming from the same value. A
 `HeistResultRecording` describes the written artifact; it does not store a
 second status.
+Recording configuration distinguishes absent configuration from invalid mode
+syntax. The result wrapper rejects unknown modes before launching work; the
+automatic recorder reports configuration errors through its existing logging
+boundary without replacing execution truth.
 
 Offline validation follows the same shape. Package-only
 `HeistValidation.Result<Value>` represents `valid(Value)`,

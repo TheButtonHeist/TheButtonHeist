@@ -128,9 +128,7 @@ extension DiagnosticFailure {
 /// Cases without the `Data` suffix carry a filesystem path where the artifact
 /// has been written.
 @_spi(ButtonHeistTooling) public enum FenceResponse {
-    case ok(message: String)
     case error(DiagnosticFailure)
-    case status(connected: Bool, deviceName: String?)
     case pong(PongPayload)
     case devices([DiscoveredDevice])
     case interface(Interface, detail: InterfaceDetail = .summary)
@@ -141,10 +139,7 @@ extension DiagnosticFailure {
     /// Screenshot held in memory as base64 PNG. Returned only when inline data
     /// is explicitly requested.
     case screenshotData(payload: ScreenPayload, options: ScreenshotResponseOptions = ScreenshotResponseOptions())
-    case heistExecution(
-        plan: HeistPlan,
-        report: HeistReport
-    )
+    case heistExecution(report: HeistReport)
     case heistValidation(HeistValidation.Report)
     case heistCatalog([HeistDescription], detail: HeistCatalogDetail)
     case heistDescription(HeistDescription)
@@ -160,7 +155,7 @@ extension DiagnosticFailure {
     /// Whether callers should treat this response as a failed command.
     public var isFailure: Bool {
         switch self {
-        case .ok, .status, .pong, .devices, .interface, .notifications, .screenshot, .screenshotData,
+        case .pong, .devices, .interface, .notifications, .screenshot, .screenshotData,
              .heistCatalog, .heistDescription,
              .sessionState, .targets:
             return false
@@ -170,7 +165,7 @@ extension DiagnosticFailure {
             if !result.outcome.isSuccess { return true }
             if let expectation, !expectation.met { return true }
             return false
-        case .heistExecution(_, let report):
+        case .heistExecution(let report):
             return report.failure != nil
         case .heistValidation(let report):
             return !report.commandPassed

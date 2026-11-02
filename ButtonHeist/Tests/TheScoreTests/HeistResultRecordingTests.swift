@@ -186,7 +186,7 @@ import Testing
             setEnvironment(EnvironmentKey.buttonheistResultsMode.rawValue, previousMode)
         }
 
-        let configuration = try #require(HeistResultRecordingConfiguration.environment)
+        let configuration = try #require(try HeistResultRecordingConfiguration.environment)
         let temporaryDirectory = FileManager.default.temporaryDirectory.standardizedFileURL.path
         let rootDirectory = configuration.rootDirectory.standardizedFileURL.path
 
@@ -194,17 +194,24 @@ import Testing
         #expect(configuration.rootDirectory.lastPathComponent == "buttonheist-results")
 
         setEnvironment(EnvironmentKey.buttonheistResultsMode.rawValue, "failed")
-        #expect(HeistResultRecordingConfiguration.environment == nil)
+        #expect(throws: HeistResultRecordingError.invalidMode("failed")) {
+            _ = try HeistResultRecordingConfiguration.environment
+        }
+
+        setEnvironment(EnvironmentKey.buttonheistResultsMode.rawValue, "off")
+        #expect(try HeistResultRecordingConfiguration.environment?.mode == .off)
     }
 
-    @Test func `result mode parser accepts only canonical spellings`() {
-        #expect(HeistResultRecordingMode(environmentValue: nil) == .failures)
-        #expect(HeistResultRecordingMode(environmentValue: "off") == .off)
-        #expect(HeistResultRecordingMode(environmentValue: "failures") == .failures)
-        #expect(HeistResultRecordingMode(environmentValue: "all") == .all)
+    @Test func `result mode parser accepts only canonical spellings`() throws {
+        #expect(try HeistResultRecordingMode(environmentValue: nil) == .failures)
+        #expect(try HeistResultRecordingMode(environmentValue: "off") == .off)
+        #expect(try HeistResultRecordingMode(environmentValue: "failures") == .failures)
+        #expect(try HeistResultRecordingMode(environmentValue: "all") == .all)
 
         for value in ["passing-and-failing", "failed", "always", "ALL"] {
-            #expect(HeistResultRecordingMode(environmentValue: value) == nil)
+            #expect(throws: HeistResultRecordingError.invalidMode(value)) {
+                _ = try HeistResultRecordingMode(environmentValue: value)
+            }
         }
     }
 

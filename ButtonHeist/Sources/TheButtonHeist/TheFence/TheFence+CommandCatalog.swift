@@ -60,6 +60,16 @@ import TheScore
         cliExposure != .notExposed || mcpExposure != .notExposed
     }
 
+    /// Standalone health and session probes need an initial session; existing-session probes never reconnect.
+    public var requiresConnectionForCLIInvocation: Bool {
+        switch command {
+        case .ping, .getSessionState:
+            true
+        default:
+            requiresConnectionBeforeDispatch
+        }
+    }
+
     public var topLevelParameterKeys: Set<String> {
         Set(parameters.map(\.key))
     }

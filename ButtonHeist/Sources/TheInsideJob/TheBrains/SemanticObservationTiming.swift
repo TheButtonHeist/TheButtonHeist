@@ -44,7 +44,7 @@ struct SemanticObservationDeadline: Sendable, Equatable {
     }
 
     var budgetMilliseconds: Int {
-        Int((timeoutSeconds * 1_000).rounded(.up))
+        Int(exactly: (timeoutSeconds * 1_000).rounded(.up)) ?? .max
     }
 
     private func elapsedSeconds(at now: RuntimeElapsed.Instant) -> Double {

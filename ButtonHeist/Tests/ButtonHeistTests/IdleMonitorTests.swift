@@ -4,6 +4,41 @@ import XCTest
 final class IdleMonitorTests: XCTestCase {
 
     @ButtonHeistActor
+    func testActivitySuspendsTimerUntilLastActivityFinishes() async {
+        let monitor = IdleMonitor(timeout: 60) { XCTFail("Active work must not expire") }
+        defer { monitor.stop() }
+        monitor.resetTimer()
+
+        await monitor.withActivity {
+            XCTAssertFalse(monitor.hasPendingTimer)
+            await monitor.withActivity {
+                monitor.resetTimer()
+                XCTAssertFalse(monitor.hasPendingTimer)
+            }
+            XCTAssertFalse(monitor.hasPendingTimer)
+        }
+
+        XCTAssertTrue(monitor.hasPendingTimer)
+    }
+
+    @ButtonHeistActor
+    func testThrowingActivityRearmsTimerButStopDoesNot() async {
+        let monitor = IdleMonitor(timeout: .greatestFiniteMagnitude) { XCTFail("Unexpected expiry") }
+        defer { monitor.stop() }
+        do {
+            try await monitor.withActivity { throw CancellationError() }
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {
+            XCTAssertTrue(monitor.hasPendingTimer)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        await monitor.withActivity { monitor.stop() }
+        XCTAssertFalse(monitor.hasPendingTimer)
+    }
+
+    @ButtonHeistActor
     func testTimeoutFiresAfterInactivity() async throws {
         let expectation = XCTestExpectation(description: "timeout fires")
         let monitor = IdleMonitor(timeout: 0.1) {

@@ -173,13 +173,12 @@ extension TheFenceHandlerTests {
             "step": .string(#"Activate(.label("Pay"))"#),
         ])
 
-        guard case .heistExecution(let plan, let report) = response else {
+        guard case .heistExecution(let report) = response else {
             return XCTFail("Expected heistExecution response, got \(response)")
         }
-        XCTAssertEqual(plan.body, [
+        XCTAssertEqual(mockConn.sent.sentHeistPlan?.body, [
             .action(ActionStep(command: .activate(.predicate(.label("Pay"))))),
         ])
-        XCTAssertEqual(mockConn.sent.sentHeistPlan, plan)
         XCTAssertEqual(report.nodes.map(\.kind), [.action])
         XCTAssertNil(report.failure)
 

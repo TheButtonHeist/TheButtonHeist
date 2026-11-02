@@ -11,15 +11,8 @@ extension FenceResponse {
 
     @_spi(ButtonHeistTooling) public func humanFormatted() -> String {
         switch self {
-        case .ok(let message):
-            return message
         case .error(let failure):
             return Self.diagnosticText(failure, headline: "Error")
-        case .status(let connected, let deviceName):
-            if connected, let name = deviceName {
-                return "Connected to \(name)"
-            }
-            return "Not connected"
         case .pong(let payload):
             return Self.formatPongHuman(payload)
         case .devices(let devices):
@@ -54,7 +47,7 @@ extension FenceResponse {
                 payload: payload,
                 options: options
             )
-        case .heistExecution(_, let report):
+        case .heistExecution(let report):
             return humanHeistFormatted(report)
         case .heistValidation(let report):
             return formatHeistValidationHuman(report)

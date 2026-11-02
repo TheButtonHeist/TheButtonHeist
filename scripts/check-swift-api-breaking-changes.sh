@@ -39,9 +39,13 @@ if [[ "${#PUBLIC_PRODUCTS[@]}" -eq 0 ]]; then
 fi
 
 echo "Checking Swift API breakage against $BASELINE_TAG"
+DIAGNOSE_ARGUMENTS=("$BASELINE_TAG" --products "${PUBLIC_PRODUCTS[@]}")
+# Exact internal-source changes expire when the next release becomes the baseline.
+if [[ "$BASELINE_TAG" == "v0.7.1" ]]; then
+    DIAGNOSE_ARGUMENTS+=(--breakage-allowlist-path "$SCRIPT_DIR/swift-api-breakages-v0.7.1.txt")
+fi
 set +e
-swift package diagnose-api-breaking-changes "$BASELINE_TAG" \
-    --products "${PUBLIC_PRODUCTS[@]}"
+swift package diagnose-api-breaking-changes "${DIAGNOSE_ARGUMENTS[@]}"
 status=$?
 set -e
 

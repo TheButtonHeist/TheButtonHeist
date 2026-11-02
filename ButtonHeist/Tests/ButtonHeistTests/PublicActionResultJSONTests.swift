@@ -177,7 +177,6 @@ final class PublicActionResultJSONTests: XCTestCase {
             failureKind: .elementNotFound,
             message: "Delete not found")
         let response = FenceResponse.heistExecution(
-            plan: try minimalPlan(),
             report: HeistReport.project(result: try HeistResult(
                 steps: [
                     HeistResultFixture.action(
@@ -230,7 +229,6 @@ final class PublicActionResultJSONTests: XCTestCase {
             observation: .observed(evidence)
         )
         let response = FenceResponse.heistExecution(
-            plan: try minimalPlan(),
             report: HeistReport.project(result: try HeistResult(
                 steps: [
                     HeistResultFixture.action(
@@ -404,7 +402,6 @@ final class PublicActionResultJSONTests: XCTestCase {
             )
         let heistResult = try HeistResult(steps: [step], durationMs: 7)
         let response = FenceResponse.heistExecution(
-            plan: try minimalPlan(),
             report: HeistReport.project(result: heistResult)
         )
         let report = try publicHeistReportJSON(response)
@@ -455,12 +452,6 @@ final class PublicActionResultJSONTests: XCTestCase {
                 failureInterfaceElements: HeistFailureDiagnostics.defaultElementLimit
             )
         )
-    }
-
-    private func minimalPlan() throws -> HeistPlan {
-        try HeistPlan(body: [
-            .action(ActionStep(command: .activate(.predicate(ElementPredicate(label: "Button"))))),
-        ])
     }
 
     private func assertRotorSuccess(

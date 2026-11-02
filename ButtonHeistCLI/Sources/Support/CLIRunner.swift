@@ -9,17 +9,11 @@ enum CLIRunner {
 
     typealias CommandOutputProjection = @ButtonHeistActor (TheFence, FenceResponse) throws -> CommandOutput
 
-    enum ExecutionMode: Equatable {
-        case connected
-        case direct
-    }
-
     struct CommandDescriptor {
         let fenceDescriptor: FenceCommandDescriptor
         let connection: ConnectionOptions
         let format: OutputFormat?
         let arguments: TheFence.CommandArgumentEnvelope
-        private(set) var executionMode: ExecutionMode = .connected
         private(set) var statusMessage: String?
         private(set) var configuration: EnvironmentConfig?
         private(set) var cleanup: () -> Void = {}
@@ -67,16 +61,17 @@ enum CLIRunner {
         do {
             fence = try makeFence(descriptor: descriptor)
             do {
-                if descriptor.executionMode == .connected {
+                let command = try fence.admit(FenceCommandInput(
+                    command: descriptor.fenceDescriptor.command,
+                    arguments: descriptor.arguments
+                ))
+                if descriptor.fenceDescriptor.requiresConnectionForCLIInvocation {
                     try await fence.start()
                 }
                 if let statusMessage = descriptor.statusMessage, !isQuiet(descriptor) {
                     logStatus(statusMessage)
                 }
-                response = try await fence.execute(try fence.admit(FenceCommandInput(
-                    command: descriptor.fenceDescriptor.command,
-                    arguments: descriptor.arguments
-                )))
+                response = try await fence.execute(command)
             } catch {
                 fence.stop()
                 throw error
@@ -198,8 +193,6 @@ enum CLIRunner {
         let config: EnvironmentConfig
         if let configuration = descriptor.configuration {
             config = configuration
-        } else if descriptor.executionMode == .direct {
-            config = try EnvironmentConfig.resolve(autoReconnect: false)
         } else {
             let connection = descriptor.connection
             config = try EnvironmentConfig.resolve(
@@ -218,6 +211,6 @@ enum CLIRunner {
     }
 
     private static func isQuiet(_ descriptor: CommandDescriptor) -> Bool {
-        descriptor.executionMode == .direct || descriptor.connection.quiet
+        !descriptor.fenceDescriptor.requiresConnectionForCLIInvocation || descriptor.connection.quiet
     }
 }

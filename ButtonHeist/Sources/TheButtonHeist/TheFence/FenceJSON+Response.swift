@@ -106,12 +106,8 @@ struct PublicResponseModel: Encodable {
 
     func encode(to encoder: Encoder) throws {
         switch response {
-        case .ok(let message):
-            try PublicOKResponse(message: message).encode(to: encoder)
         case .error(let failure):
             try PublicErrorResponse(failure: failure).encode(to: encoder)
-        case .status(let connected, let deviceName):
-            try PublicStatusResponse(connected: connected, device: deviceName).encode(to: encoder)
         case .pong(let payload):
             try PublicPongResponse(payload: payload).encode(to: encoder)
         case .devices(let devices):
@@ -145,7 +141,7 @@ struct PublicResponseModel: Encodable {
                 includeInterface: options.includeInterface,
                 profile: profile
             )).encode(to: encoder)
-        case .heistExecution(_, let report):
+        case .heistExecution(let report):
             try PublicHeistExecutionResponse(
                 report: report,
                 profile: profile

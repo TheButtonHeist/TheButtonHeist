@@ -62,4 +62,16 @@ grep -Fq 'package diagnose-api-breaking-changes v0.6.38 --products' \
     "$FIXTURE_ROOT/swift-arguments.txt" \
     || fail "gate did not invoke Swift's native API diagnosis"
 
-echo "PASS: Swift API gate uses native diagnostics with one tag-scoped waiver"
+run_gate v0.7.1 strict 1
+[[ "$STATUS" -eq 1 ]] || fail "known internal changes concealed unrelated native breakage: $OUTPUT"
+grep -Fq -- "--breakage-allowlist-path $REPO_ROOT/scripts/swift-api-breakages-v0.7.1.txt" \
+    "$FIXTURE_ROOT/swift-arguments.txt" \
+    || fail "v0.7.1 did not use the exact native diagnostic allowlist"
+
+run_gate v0.7.2 strict 1
+[[ "$STATUS" -eq 1 ]] || fail "expired internal-source allowlist accepted native breakage: $OUTPUT"
+if grep -Fq -- '--breakage-allowlist-path' "$FIXTURE_ROOT/swift-arguments.txt"; then
+    fail "internal-source allowlist did not expire with its baseline"
+fi
+
+echo "PASS: Swift API gate uses native diagnostics with baseline-scoped exceptions"

@@ -391,7 +391,7 @@ import Testing
 }
 
 @Test func `payload decoding uses the same admission bounds without repair`() throws {
-    for json in ["0", "-1", "60.0000000001"] {
+    for json in ["0", "-1", "60.0000000001", "1e20", "-1e20", "1.7976931348623157e308"] {
         expectDataCorrupted("gesture duration \(json)", contains: "duration must be") {
             _ = try JSONDecoder().decode(GestureDuration.self, from: Data(json.utf8))
         }
@@ -410,6 +410,15 @@ import Testing
     expectDataCorrupted("pasteboard", contains: "pasteboard text must be non-empty") {
         _ = try JSONDecoder().decode(SetPasteboardTarget.self, from: Data(#"{"text":""}"#.utf8))
     }
+}
+
+@Test func `number rendering preserves finite values outside integer range`() throws {
+    for value in [Double(Int.max), Double(Int.min).nextDown, 1e20, -1e20, Double.greatestFiniteMagnitude] {
+        let text = CanonicalValueDescription.decimal(value)
+        #expect(Double(text) == value)
+    }
+    #expect(CanonicalValueDescription.decimal(1.000_000_1) == "1")
+    #expect(CanonicalValueDescription.decimal(1.25) == "1.25")
 }
 
 @Test func `nonpositive wait timeout wire payloads are rejected at admission`() {

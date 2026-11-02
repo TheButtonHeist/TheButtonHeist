@@ -53,7 +53,6 @@ struct ConnectCommand: ConnectedOneShotCLICommand {
             connection: connection,
             format: output.format,
             arguments: Self.fenceArguments(),
-            executionMode: .direct,
             configuration: resolved
         )
     }

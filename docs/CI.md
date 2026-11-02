@@ -102,6 +102,9 @@ uploads, not a new evidence format:
   wrapped command's exit status, and supports `--ios-sandbox` for
   simulator-hosted test processes that must write results inside their own
   container.
+  Unknown recording modes fail before directory creation or command launch.
+  Swift configuration resolution also rejects unknown modes; automatic
+  recording logs that error without changing the execution result.
 - `scripts/collect-ios-heist-results.sh` copies `*.json` and `*.json.gz`
   results from simulator `buttonheist-results` directories into the host
   artifact directory. It also writes `collection-diagnostics.txt`, and missing
@@ -113,6 +116,13 @@ uploads, not a new evidence format:
 Upload the whole result directory after the manifest step. Consumers should
 look for `manifest.txt`, then inspect the raw `.json` or `.json.gz` results
 listed in `result-files.txt`.
+
+Pass the same task slug through `--simulator-name` for each phase of a local
+run. It scopes both artifact and derived-data roots, including macOS suites.
+`BUTTONHEIST_TEST_SIMULATOR_NAME` supplies the default slug. Different slugs
+isolate simultaneous workers; the same slug reuses one build across split
+phases. Names must be single directory components. Unnamed runs retain the
+suite-only paths and must run sequentially in a checkout.
 
 ## Topology 1: app-hosted tests (recommended)
 

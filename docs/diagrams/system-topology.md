@@ -13,7 +13,7 @@ flowchart TD
         CLI["buttonheist CLI"]
         MAC["Mac app"]
         SWIFT["ButtonHeist.withSession<br/>typed Swift operations"]
-        FENCE["TheFence<br/>command parse and dispatch"]
+        FENCE["TheFence<br/>command admission<br/>connection policy and dispatch"]
         HANDOFF["TheHandoff<br/>discovery and connection"]
         AGENT --> MCP
         AGENT --> CLI
@@ -45,4 +45,5 @@ Notes:
 - The version handshake compares the client's and server's typed `ButtonHeistVersion` values for exact equality and rejects on any mismatch (`MuscleHandshakePhase`).
 - Source Release builds exclude the runtime through `#if DEBUG`. App builds that use the prebuilt Debug runtime must exclude its framework from distribution.
 - `ButtonHeist.withSession` scopes the existing Fence connection. Typed Swift calls and command adapters share plan execution, recording, and interface capture.
+- CLI and MCP admit commands before Fence applies connection policy. Local commands do not enter TheHandoff. Both session adapters suspend idle expiry during active requests.
 - Current-view capture refreshes live evidence without viewport exploration. Discovery remains an explicit query choice for Swift callers.

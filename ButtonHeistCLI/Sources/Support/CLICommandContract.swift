@@ -112,7 +112,6 @@ protocol OneShotCLICommand: AsyncParsableCommand {
 
     var runnerConnection: ConnectionOptions { get }
     var runnerFormat: OutputFormat? { get }
-    var runnerExecutionMode: CLIRunner.ExecutionMode { get }
     var runnerStatusMessage: String? { get }
 
     func requestArguments() throws -> TheFence.CommandArgumentEnvelope
@@ -131,7 +130,6 @@ protocol LocalOneShotCLICommand: OneShotCLICommand {
 }
 
 extension OneShotCLICommand {
-    var runnerExecutionMode: CLIRunner.ExecutionMode { .connected }
     var runnerStatusMessage: String? { nil }
 
     func requestArguments() throws -> TheFence.CommandArgumentEnvelope {
@@ -145,7 +143,6 @@ extension OneShotCLICommand {
             connection: runnerConnection,
             format: runnerFormat,
             arguments: try requestArguments(),
-            executionMode: runnerExecutionMode,
             statusMessage: runnerStatusMessage
         )
     }
@@ -164,7 +161,6 @@ extension ConnectedOneShotCLICommand {
 extension LocalOneShotCLICommand {
     var runnerConnection: ConnectionOptions { ConnectionOptions() }
     var runnerFormat: OutputFormat? { output.format }
-    var runnerExecutionMode: CLIRunner.ExecutionMode { .direct }
 }
 
 enum CLICommandCatalog {
