@@ -6,12 +6,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-BUTTONHEIST_TOOL="${BUTTONHEIST_TOOL:-$REPO_ROOT/ButtonHeistCLI/.build/debug/buttonheist}"
+BUTTONHEIST_TOOL="${BUTTONHEIST_TOOL:-$(swift build --package-path "$REPO_ROOT/ButtonHeistCLI" --show-bin-path)/buttonheist}"
 if [[ ! -x "$BUTTONHEIST_TOOL" ]]; then
     echo "Error: buttonheist executable not found at $BUTTONHEIST_TOOL" >&2
     exit 1
 fi
-HEIST_THEPLANS_BUILD_DIR="${HEIST_THEPLANS_BUILD_DIR:-$REPO_ROOT/.build/debug}"
+HEIST_THEPLANS_BUILD_DIR="${HEIST_THEPLANS_BUILD_DIR:-$(swift build --show-bin-path)}"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/plan-compile.XXXXXX")"
 cleanup() {
@@ -73,11 +73,13 @@ INSTALLED_PREFIX="$TMP_DIR/installed-prefix"
 INSTALLED_TOOL="$INSTALLED_PREFIX/bin/buttonheist"
 INSTALLED_OUTPUT="$TMP_DIR/installed.heist"
 INTERFACE_BUILD_DIR="$TMP_DIR/interface-build"
-INTERFACE_ARTIFACT_DIR="$INTERFACE_BUILD_DIR/arm64-apple-macosx/release"
-swift build -c release --arch arm64 --target ThePlans \
+# The installed contract contains native SwiftPM object files and textual interfaces.
+swift build --build-system native -c release --arch arm64 --target ThePlans \
     -Xswiftc -enable-library-evolution \
     -Xswiftc -emit-module-interface \
     --scratch-path "$INTERFACE_BUILD_DIR"
+INTERFACE_ARTIFACT_DIR="$(swift build --build-system native -c release --arch arm64 \
+    --scratch-path "$INTERFACE_BUILD_DIR" --show-bin-path)"
 mkdir -p "$INSTALLED_PREFIX/bin" "$INSTALLED_PREFIX/lib/ThePlans/arm64-apple-macosx/release"
 cp "$BUTTONHEIST_TOOL" "$INSTALLED_TOOL"
 mkdir -p "$INSTALLED_PREFIX/lib/ThePlans/arm64-apple-macosx/release/Modules"

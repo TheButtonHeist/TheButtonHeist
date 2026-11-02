@@ -39,7 +39,8 @@ extension HeistPlanBuildError {
             Supply HeistPlanCompiler.Configuration(packageRoot:) with one ButtonHeist package root, \
             run an installed Button Heist executable with its lib/ThePlans artifacts, or set \
             HEIST_THEPLANS_BUILD_DIR to one exact build directory holding ThePlans artifacts \
-            (Modules/ThePlans.swiftmodule or Modules/ThePlans.swiftinterface, plus ThePlans.build/*.swift.o).
+            (ThePlans.swiftmodule plus ThePlans.o, or Modules/ThePlans.swiftmodule \
+            or Modules/ThePlans.swiftinterface plus ThePlans.build/*.swift.o).
             """),
             source: source
         )

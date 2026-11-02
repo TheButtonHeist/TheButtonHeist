@@ -494,16 +494,19 @@ Compiling Swift source links the user file against a **built** `ThePlans`
 module. The compiler accepts only these sources, in this order:
 
 1. **`HEIST_THEPLANS_BUILD_DIR`** — the exact override. Set it to an absolute
-   SwiftPM build directory containing `Modules/ThePlans.swiftmodule` or
-   `Modules/ThePlans.swiftinterface`, plus `ThePlans.build/*.swift.o`; or set it
-   to an Xcode products directory containing `ThePlans.framework`. This is what
-   CI uses for SwiftPM command-line compilation:
+   SwiftPM build directory. Swift Build products contain `ThePlans.swiftmodule`
+   and the aggregate `ThePlans.o` directly in that directory. Native SwiftPM
+   products contain `Modules/ThePlans.swiftmodule` or
+   `Modules/ThePlans.swiftinterface`, plus `ThePlans.build/*.swift.o`.
+   An Xcode products directory containing `ThePlans.framework` is also accepted.
+   CI uses SwiftPM's reported directory for command-line compilation:
 
    ```bash
    swift build --target ThePlans
    swift build --package-path ButtonHeistCLI
    HEIST_THEPLANS_BUILD_DIR="$(swift build --show-bin-path)" \
-     ButtonHeistCLI/.build/debug/buttonheist plan compile Flow.swift --entry makeHeist --output Flow.heist
+     "$(swift build --package-path ButtonHeistCLI --show-bin-path)/buttonheist" \
+     plan compile Flow.swift --entry makeHeist --output Flow.heist
    ```
 
 2. **An explicit package root** —
