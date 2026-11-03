@@ -36,10 +36,6 @@ phase() {
 build_rules() {
     swift build --package-path "$REPO_ROOT/.bumper" --configuration debug --product bumper || return "$?"
     swift build --package-path "$REPO_ROOT/.bumper" --configuration debug --build-tests || return "$?"
-    if [[ "$COMMAND" == "lint" && "$BUMPER_RUNNER_BUILD_CONFIGURATION" != "debug" ]]; then
-        swift build --package-path "$REPO_ROOT/.bumper" \
-            --configuration "$BUMPER_RUNNER_BUILD_CONFIGURATION" --product BumperRulesRunner || return "$?"
-    fi
     local bin_path
     bin_path="$(swift build --package-path "$REPO_ROOT/.bumper" --configuration debug --show-bin-path)" || return "$?"
     if [[ "$bin_path" != /* || "$bin_path" == *$'\n'* || "$bin_path" == *$'\r'* || ! -x "$bin_path/bumper" ]]; then
@@ -52,5 +48,9 @@ build_rules() {
 phase build build_rules
 phase tests "$BUMPER_EXECUTABLE" test "$REPO_ROOT"
 if [[ "$COMMAND" == "lint" ]]; then
+    if [[ "$BUMPER_RUNNER_BUILD_CONFIGURATION" != "debug" ]]; then
+        phase runner-build swift build --package-path "$REPO_ROOT/.bumper" \
+            --configuration "$BUMPER_RUNNER_BUILD_CONFIGURATION" --product BumperRulesRunner
+    fi
     phase lint "$BUMPER_EXECUTABLE" lint "$REPO_ROOT"
 fi

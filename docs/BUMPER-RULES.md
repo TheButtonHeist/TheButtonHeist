@@ -158,7 +158,9 @@ Run `scripts/check-source-shape.sh` for the complete source check. It runs the
 rule tests before repository lint. `scripts/check-source-shape.sh test` runs
 only the tests. CI uses the complete check on every change. The wrapper reports
 build, tests, and lint durations with each phase's exit status, including failures.
-It builds the CLI and rule tests first. The test and lint phases retain Bumper's
+It builds the CLI and rule tests first. With a release runner, a separate
+`runner-build` phase follows the debug tests to avoid switching configurations
+back and forth. The test and lint phases retain Bumper's
 incremental SwiftPM checks and sandboxed source evaluation.
 
 Pass file scopes to `Rules.files` and `Rules.forbid` so unrelated files skip

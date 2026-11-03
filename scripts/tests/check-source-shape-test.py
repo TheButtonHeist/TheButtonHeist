@@ -61,22 +61,22 @@ class SourceShapeWrapperTests(unittest.TestCase):
                 for phase in ["build", "tests"] + (["lint"] if command == "lint" else []):
                     self.assertRegex(result.stderr, rf"Bumper {phase}: \d+s \(exit 0\)")
 
-    def test_release_runner_build_is_part_of_build_phase(self):
+    def test_release_runner_build_follows_debug_tests(self):
         result, calls = self.run_wrapper(BUMPER_RUNNER_BUILD_CONFIGURATION="release")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(calls, ["cli-build", "test-build", "release-build", "path", "test", "lint"])
+        self.assertEqual(calls, ["cli-build", "test-build", "path", "test", "release-build", "lint"])
         result, calls = self.run_wrapper("test", BUMPER_RUNNER_BUILD_CONFIGURATION="release")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("release-build", calls)
 
     def test_failures_stop_at_the_failing_phase(self):
-        steps = ["cli-build", "test-build", "release-build", "path", "test", "lint"]
+        steps = ["cli-build", "test-build", "path", "test", "release-build", "lint"]
         for index, step in enumerate(steps):
             with self.subTest(step=step):
                 result, calls = self.run_wrapper(FAIL_STEP=step, BUMPER_RUNNER_BUILD_CONFIGURATION="release")
                 self.assertEqual(result.returncode, 17, result.stderr)
                 self.assertEqual(calls, steps[:index + 1])
-                phase = {"test": "tests", "lint": "lint"}.get(step, "build")
+                phase = {"test": "tests", "lint": "lint", "release-build": "runner-build"}.get(step, "build")
                 self.assertRegex(result.stderr, rf"Bumper {phase}: \d+s \(exit 17\)")
 
     def test_invalid_binary_lookup_stops_before_tests(self):

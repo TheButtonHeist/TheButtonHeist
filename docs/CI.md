@@ -242,7 +242,7 @@ CI budgets macOS capacity explicitly:
   their explicit Xcode selection. `scripts/check-source-shape.sh` reports separate
   build, rule-test, and lint timings, including exit codes. Use
   `BUMPER_RUNNER_BUILD_CONFIGURATION=release` to measure an optimized rule runner;
-  the CLI and tests remain debug builds.
+  the CLI and tests remain debug builds, followed by a separate `runner-build` phase.
 - A final `exact-sha-suite` job records the commit, workflow revision, run ID,
   and every required suite conclusion in `buttonheist-exact-sha-suite`. Release
   admission requires a GitHub-verified commit signature, accepts only that
