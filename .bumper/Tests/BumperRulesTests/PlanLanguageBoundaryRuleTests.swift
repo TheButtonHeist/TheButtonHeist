@@ -283,7 +283,7 @@ struct PlanLanguageBoundaryRuleTests {
         #expect(report.first?.location.line == 1)
         #expect(report.first?.location.character == 22)
         #expect(report.first?.severity == .error)
-        #expect(report.first?.reason == "Tuple contract access is unresolved. Use a named Swift type or keep the target declaration in this file.")
+        #expect(report.first?.reason == "Tuple contract declares exported access. Effective visibility is unresolved. Use a named Swift type or narrow the declared access.")
     }
 
     @Test
@@ -307,4 +307,15 @@ struct PlanLanguageBoundaryRuleTests {
         #expect(denied.first?.ruleIdentifier == "buttonheist.plan_else_ownership")
     }
 
+    @Test
+    func `plan grammar rules do not inspect other component declarations`() throws {
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/TheInsideJob/Other.swift",
+            source: """
+                public struct HeistContent { public var count: Int { 0 } }
+                public struct Other { public func `else`() {} }
+                """
+        )
+        #expect(report.isEmpty)
+    }
 }

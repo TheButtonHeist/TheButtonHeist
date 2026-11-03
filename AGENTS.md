@@ -206,6 +206,11 @@ When adding new screens:
 
 Research harness screens are exempt when they probe the accessibility tree at the SPI level and use identifiers functionally to locate specific test fixtures.
 
+Bumper enforces identifier references and property overrides through
+`buttonheist.demo_accessibility_identifier`. Research exemptions require an
+exact path in `.bumper/Sources/BumperRules/BoundaryExceptionRules.swift`;
+a research-style filename alone grants no exemption.
+
 ## Simulator Quick Start
 
 Build and deploy the demo app to an iOS Simulator for end-to-end testing.
@@ -627,11 +632,22 @@ Declare `@Sendable` when a callback can run without actor isolation. When a call
 
 The Bumper rule `buttonheist.callback_isolation` requires explicitly typed optional function slots and `onFoo` callbacks to declare `@Sendable` or a known global actor. Optional slots are checked regardless of the binding name. It resolves file-local alias chains; imported aliases and inferred types remain compiler concerns. C and Objective-C ABI function types retain their calling convention.
 
+The rule also checks public and package function aliases ending in `Callback`,
+`Handler`, or `Completion`, and optional function aliases regardless of name.
+Non-optional synchronous aliases such as `Predicate` remain allowed. This is an
+explicit naming convention, not inference that every function is a callback.
+
 ## Value Isolation and Sendability
 
 Data-only `Sendable` structs and enums should not carry `@MainActor` or `@ButtonHeistActor`; their conformance already permits safe cross-actor transfer. Value types whose behavior or stored values are genuinely actor-bound may declare that isolation when the compiler requires it. Caseless namespace enums that expose UIKit or scene-state helpers are a legitimate example.
 
 If a lock-backed boundary type must use `@unchecked Sendable`, place a safety justification directly above its declaration. Name the synchronization mechanism and the complete mutable state it protects; do not use a lint suppression as the justification.
+
+Bumper's `buttonheist.unchecked_sendable_boundary` rule permits unchecked
+conformances only for the exact reviewed file and owner entries in
+`.bumper/Sources/BumperRules/BoundaryExceptionRules.swift`. New entries need a
+reviewed safety argument. The registry does not prove the wrapper remains safe
+when its implementation changes.
 
 ## Task Lifetime Tracking
 

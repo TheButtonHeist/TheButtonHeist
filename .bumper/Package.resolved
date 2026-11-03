@@ -1,13 +1,13 @@
 {
-  "originHash" : "ed9996ea77d1e1b8838fe760ad17e66306dd441010cdb25264a562cd0a55ba31",
+  "originHash" : "dc5fa4ef6852882bde3d9814053b8a493d60c8c2fdfb30716ee5bd66f1c39047",
   "pins" : [
     {
       "identity" : "bumperbowling",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/TheButtonHeist/BumperBowling.git",
       "state" : {
-        "revision" : "0918b12a21e3ef752ccc25f2ada606eae39cf183",
-        "version" : "0.7.1"
+        "revision" : "0098151948ecb31a1e9ee13efb71522460ea1767",
+        "version" : "0.7.2"
       }
     },
     {

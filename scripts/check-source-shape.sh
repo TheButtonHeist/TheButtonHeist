@@ -24,15 +24,33 @@ case "$COMMAND" in
         ;;
 esac
 
-# The ordinary rule package owns its dependencies and tests.
-swift run \
-    --package-path "$REPO_ROOT/.bumper" \
-    --configuration debug \
-    bumper test "$REPO_ROOT"
+# Keep build cost separate from rule tests and source evaluation.
+phase() {
+    local name="$1" started="$SECONDS" status=0
+    shift
+    "$@" || status=$?
+    echo "Bumper $name: $((SECONDS - started))s (exit $status)" >&2
+    return "$status"
+}
 
+build_rules() {
+    swift build --package-path "$REPO_ROOT/.bumper" --configuration debug --product bumper || return "$?"
+    swift build --package-path "$REPO_ROOT/.bumper" --configuration debug --build-tests || return "$?"
+    local bin_path
+    bin_path="$(swift build --package-path "$REPO_ROOT/.bumper" --configuration debug --show-bin-path)" || return "$?"
+    if [[ "$bin_path" != /* || "$bin_path" == *$'\n'* || "$bin_path" == *$'\r'* || ! -x "$bin_path/bumper" ]]; then
+        echo "SwiftPM did not return an executable Bumper directory." >&2
+        return 2
+    fi
+    BUMPER_EXECUTABLE="$bin_path/bumper"
+}
+
+phase build build_rules
+phase tests "$BUMPER_EXECUTABLE" test "$REPO_ROOT"
 if [[ "$COMMAND" == "lint" ]]; then
-    swift run \
-        --package-path "$REPO_ROOT/.bumper" \
-        --configuration debug \
-        bumper lint "$REPO_ROOT"
+    if [[ "$BUMPER_RUNNER_BUILD_CONFIGURATION" != "debug" ]]; then
+        phase runner-build swift build --package-path "$REPO_ROOT/.bumper" \
+            --configuration "$BUMPER_RUNNER_BUILD_CONFIGURATION" --product BumperRulesRunner
+    fi
+    phase lint "$BUMPER_EXECUTABLE" lint "$REPO_ROOT"
 fi
