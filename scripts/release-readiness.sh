@@ -19,6 +19,7 @@ run_step "Release contract and parser pin" "$SCRIPT_DIR/validate-release-contrac
 run_step "Homebrew formula rendering and upgrades" python3 "$SCRIPT_DIR/tests/render-homebrew-formula-test.py"
 run_step "Release publication failures and retries" python3 "$SCRIPT_DIR/tests/publish-release-test.py"
 run_step "Release preparation and admission" python3 "$SCRIPT_DIR/tests/release-test.py"
+run_step "Release boundary regressions" python3 "$SCRIPT_DIR/tests/release-boundaries-test.py"
 run_step "Signed exact-commit release gate" bash "$SCRIPT_DIR/tests/require-release-commit-test.sh"
 run_step "Swift public API breakage" "$SCRIPT_DIR/check-swift-api-breaking-changes.sh"
 run_step "Generate Xcode project" "$SCRIPT_DIR/generate-project.sh"

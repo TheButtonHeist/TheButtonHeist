@@ -1,11 +1,4 @@
-def required_suites:
-    [
-        "ios-demo-gates",
-        "ios-tests",
-        "macos-tests",
-        "main-integration",
-        "release-contract"
-    ];
+include "release-suites";
 
 def require($condition; $message):
     if $condition then . else error($message) end;
@@ -23,7 +16,7 @@ require(type == "object"; "exact-SHA suite manifest must be an object")
     "every exact-SHA suite must be a named object"
 )
 | require(
-    ([.suites[].name] | sort) == required_suites;
+    ([.suites[].name] | sort) == required_release_suites;
     "exact-SHA suite names must contain every required suite exactly once"
 )
 | ([.suites[] | select(.conclusion != "success") | "\(.name)=\(.conclusion // "null")"]) as $failed

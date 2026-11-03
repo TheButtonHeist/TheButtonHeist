@@ -19,9 +19,8 @@ MCP_SHA="$3"
 INSIDEJOB_SHA="$4"
 OUTPUT="$5"
 
-RELEASE_VERSION_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
 SHA256_REGEX='^[0-9a-f]{64}$'
-[[ "$VERSION" =~ $RELEASE_VERSION_REGEX ]] || { echo "Error: invalid release version: $VERSION" >&2; exit 1; }
+[[ "$VERSION" =~ $BUTTONHEIST_RELEASE_VERSION_REGEX ]] || { echo "Error: invalid release version: $VERSION" >&2; exit 1; }
 
 validate_sha() {
     [[ "$2" =~ $SHA256_REGEX ]] || { echo "Error: $1 checksum must be a lowercase SHA-256 hex digest" >&2; exit 1; }

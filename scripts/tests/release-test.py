@@ -65,8 +65,10 @@ echo "gh $*" >> "$TEST_LOG"
 case "$1 $2" in
     'run list')
         [[ "${TEST_RUN_LOOKUP_OK:-true}" == true ]] || exit 1
-        [[ "${TEST_MISSING_RUN:-false}" == true ]] || echo 42
+        if [[ "${TEST_MISSING_RUN:-false}" == true ]]; then echo '[]'
+        else echo '[{"databaseId":99,"displayTitle":"Release v1.2.4"},{"databaseId":42,"displayTitle":"Release v1.2.3"}]'; fi
         ;;
+    'workflow run') [[ "${TEST_DISPATCH_OK:-true}" == true ]] ;;
     'run watch') [[ "${TEST_WORKFLOW_OK:-true}" == true ]] ;;
     'release view')
         [[ "${TEST_RELEASE_EXISTS:-true}" == true ]] || exit 1
@@ -110,7 +112,11 @@ esac
         admission = next(call for call in calls if call.startswith("admit "))
         self.assertIn(SHA, admission)
         self.assertLess(calls.index(admission), calls.index(f"git tag v1.2.3 {SHA}"))
-        self.assertTrue(any(f"--commit {SHA}" in call for call in calls if call.startswith("gh run list")))
+        dispatch = "gh workflow run release.yml --repo TheButtonHeist/TheButtonHeist --ref main -f tag=v1.2.3"
+        self.assertIn(dispatch, calls)
+        self.assertLess(calls.index("git push origin refs/tags/v1.2.3"), calls.index(dispatch))
+        self.assertTrue(any("--branch main --event workflow_dispatch --created" in call for call in calls))
+        self.assertIn("gh run watch 42 --repo TheButtonHeist/TheButtonHeist --exit-status", calls)
         self.assert_preserved(calls)
 
     def test_dry_run_checks_admission_without_tagging(self):
@@ -163,13 +169,13 @@ esac
         self.assert_preserved(calls)
 
     def test_workflow_failure_or_missing_run_preserves_release_and_tag(self):
-        for environment in ({"TEST_WORKFLOW_OK": "false"}, {"TEST_MISSING_RUN": "true"},
+        for environment in ({"TEST_WORKFLOW_OK": "false"}, {"TEST_MISSING_RUN": "true"}, {"TEST_DISPATCH_OK": "false"},
                             {"TEST_RUN_LOOKUP_OK": "false"}):
             with self.subTest(environment=environment):
                 result, calls = self.run_release(**environment)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("gh workflow run release.yml", result.stdout)
-                self.assertIn("--ref v1.2.3 -f tag=v1.2.3", result.stdout)
+                self.assertIn("--ref main -f tag=v1.2.3", result.stdout)
                 self.assertFalse(any(call.startswith("brew ") for call in calls))
                 self.assert_preserved(calls)
 
@@ -223,11 +229,21 @@ esac
                 self.assert_preserved(calls)
 
     def test_rejects_invalid_or_conflicting_arguments_and_older_versions(self):
-        for arguments in (("bad",), ("--major", "--minor"), ("--tag-current", "1.2.4"), ("1.2.2",)):
+        for arguments in (("bad",), ("01.2.3",), ("1.02.3",), ("1.2.03",), ("--major", "--minor"), ("--tag-current", "1.2.4"), ("1.2.2",)):
             with self.subTest(arguments=arguments):
                 result, calls = self.run_release(*arguments)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertFalse(any(call.startswith("git tag ") for call in calls))
+
+    def test_bump_rejects_leading_zeroes_without_changing_source(self):
+        source = self.root / "ButtonHeist/Sources/TheScore/Wire/Messages.swift"
+        original = source.read_text()
+        for version in ("01.2.3", "1.02.3", "1.2.03"):
+            with self.subTest(version=version):
+                result = subprocess.run(["bash", str(self.root / "scripts/bump-version.sh"), version],
+                                        capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(source.read_text(), original)
 
 
 if __name__ == "__main__":

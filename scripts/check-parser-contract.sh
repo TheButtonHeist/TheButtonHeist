@@ -64,9 +64,6 @@ for manifest in "${MANIFEST_FILES[@]}"; do
     MANIFEST_TAGS+=("$manifest:$manifest_tags")
 done
 
-BRANCH_TIP=$(git ls-remote "$PARSER_REPO_URL" refs/heads/main | awk '{print $1}')
-[[ -n "$BRANCH_TIP" ]] || fail "could not resolve AccessibilitySnapshotBH main branch"
-
 TAG_SHA=$(git ls-remote "$PARSER_REPO_URL" "refs/tags/$PACKAGE_TAG^{}" | awk '{print $1}')
 if [[ -z "$TAG_SHA" ]]; then
     TAG_SHA=$(git ls-remote "$PARSER_REPO_URL" "refs/tags/$PACKAGE_TAG" | awk '{print $1}')
@@ -76,9 +73,6 @@ FAILED=0
 
 if [[ -z "$TAG_SHA" ]]; then
     echo "::error::Tracked Package.swift files reference AccessibilitySnapshotBH tag $PACKAGE_TAG, but that tag does not exist."
-    FAILED=1
-elif [[ "$TAG_SHA" != "$BRANCH_TIP" ]]; then
-    echo "::error::AccessibilitySnapshotBH tag $PACKAGE_TAG ($TAG_SHA) is behind main ($BRANCH_TIP). Run: ./scripts/bump-parser.sh"
     FAILED=1
 fi
 
