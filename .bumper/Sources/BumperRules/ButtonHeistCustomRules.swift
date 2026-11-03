@@ -99,7 +99,7 @@ public enum ExportedTupleContractRule: SyntaxRule {
                 let observed = tuples.map(\.trimmedDescription).joined(separator: ", ")
                 return [declaration.failure(message: "exported declaration contains a tuple contract: \(observed). Use a named Swift type.")]
             case .unresolved where contractAccessIntent(declaration.node) >= .package:
-                return [declaration.failure(message: "Tuple contract access is unresolved. Use a named Swift type or keep the target declaration in this file.")]
+                return [declaration.failure(message: "Tuple contract declares exported access. Effective visibility is unresolved. Use a named Swift type or narrow the declared access.")]
             default:
                 return []
             }
@@ -107,8 +107,8 @@ public enum ExportedTupleContractRule: SyntaxRule {
     }
 }
 
-// For unresolved targets, enforce written export intent without claiming compiler visibility.
-private func contractAccessIntent(_ node: some DeclSyntaxProtocol) -> AccessControlLevel {
+/// Resolve effective access or written export intent for an unresolved target.
+func contractAccessIntent(_ node: some DeclSyntaxProtocol) -> AccessControlLevel {
     switch node.effectiveAccess {
     case .resolved(let access): return access
     case .unresolved:

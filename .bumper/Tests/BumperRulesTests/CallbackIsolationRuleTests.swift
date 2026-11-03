@@ -225,4 +225,53 @@ struct CallbackIsolationRuleTests {
         #expect(allowed.isEmpty)
     }
 
+
+    @Test
+    func `exported callback aliases declare isolation before any stored use`() throws {
+        let path = "ButtonHeist/Sources/TheInsideJob/Callbacks.swift"
+        let report = try evaluateButtonHeistRules(path: path, source: "public typealias Handler = () -> Void")
+        #expect(report.count == 1)
+        #expect(report.first?.ruleIdentifier == "buttonheist.callback_isolation")
+        #expect(report.first?.location.file?.hasSuffix(path) == true)
+        #expect(report.first?.location.line == 1)
+        #expect(report.first?.location.character == 18)
+        #expect(report.first?.severity == .error)
+        #expect(report.first?.reason == "callback alias without explicit isolation: Handler. Declare a known global actor or @Sendable.")
+    }
+
+    @Test(arguments: [
+        "public typealias EventCallback = () -> Void",
+        "package typealias Completion = () -> Void",
+        "public typealias MaybePredicate = ((Int) -> Bool)?",
+        "public struct Owner {}\npublic extension Owner { typealias EventHandler = () -> Void }",
+        "import Foundation\npublic extension URL { typealias EventHandler = () -> Void }",
+        "public typealias `Handler` = () -> Void",
+    ])
+    func `exported callback naming and optional contracts require isolation`(source: String) throws {
+        let report = try evaluateButtonHeistRules(path: "ButtonHeist/Sources/TheInsideJob/Callbacks.swift", source: source)
+        #expect(report.count == 1)
+        #expect(report.first?.ruleIdentifier == "buttonheist.callback_isolation")
+    }
+
+    @Test
+    func `alias checks preserve synchronous functions private scratch and isolated callbacks`() throws {
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/TheInsideJob/Callbacks.swift",
+            source: """
+                @globalActor public actor UIExecutor { public static let shared = UIExecutor() }
+                public typealias EventCallback = @Sendable () -> Void
+                public typealias Completion = @MainActor () -> Void
+                public typealias EventHandler = @UIExecutor () -> Void
+                public typealias Predicate = (Int) -> Bool
+                public typealias CallbackResult = Int
+                private typealias PrivateHandler = () -> Void
+                typealias InternalCompletion = () -> Void
+                private struct LocalOwner { public typealias Handler = () -> Void }
+                public typealias ImportedHandler = UnknownFunction
+                public typealias CCallback = @convention(c) () -> Void
+                """
+        )
+        #expect(report.isEmpty)
+    }
+
 }

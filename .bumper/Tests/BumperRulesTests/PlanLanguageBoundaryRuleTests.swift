@@ -283,7 +283,7 @@ struct PlanLanguageBoundaryRuleTests {
         #expect(report.first?.location.line == 1)
         #expect(report.first?.location.character == 22)
         #expect(report.first?.severity == .error)
-        #expect(report.first?.reason == "Tuple contract access is unresolved. Use a named Swift type or keep the target declaration in this file.")
+        #expect(report.first?.reason == "Tuple contract declares exported access. Effective visibility is unresolved. Use a named Swift type or narrow the declared access.")
     }
 
     @Test
