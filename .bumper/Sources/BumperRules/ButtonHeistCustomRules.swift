@@ -42,7 +42,7 @@ public enum HeistContentOpacityRule: SyntaxRule {
     public static var body: SyntaxCheck {
         Rules.files(scope: plansScope) { file in
             SyntaxQuery<DeclSyntax>()
-                .filter { isContractDeclaration($0.node) }
+                .filter { $0.node.lexicalPlacement != .local }
                 .filter { match in
                     match.node.enclosingNominalNames.first == "HeistContent"
                         && contractAccessIntent(match.node) >= .public
@@ -66,7 +66,7 @@ public enum PlanElseOwnershipRule: SyntaxRule {
     public static var body: SyntaxCheck {
         Rules.files(scope: plansScope) { file in
             functions()
-                .filter { isContractDeclaration($0.node) }
+                .filter { $0.node.lexicalPlacement != .local }
                 .filter { match in
                     functionName(match.node) == "else"
                         && contractAccessIntent(match.node) >= .public
@@ -89,7 +89,7 @@ public enum ExportedTupleContractRule: SyntaxRule {
     )
 
     public static var body: SyntaxCheck {
-        Rules.each(SyntaxQuery<DeclSyntax>().filter { isContractDeclaration($0.node) }) { declaration in
+        Rules.each(SyntaxQuery<DeclSyntax>().filter { $0.node.lexicalPlacement != .local }) { declaration in
             let tuples = declaration.node.contractTypes.flatMap { $0.descendants(of: TupleTypeSyntax.self) }
                 .filter { $0.elements.count > 1 }
             guard !tuples.isEmpty else { return [] }

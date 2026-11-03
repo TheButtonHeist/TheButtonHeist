@@ -54,7 +54,7 @@ TheScore rejects UI, persistence, and test frameworks.
 ## Custom Rules
 
 These rules cover source invariants that the component graph and Swift access
-control cannot force. Import ownership uses Bumper 0.7.1 shared checks.
+control cannot force. Import ownership uses Bumper 0.7.2 shared checks.
 Source ownership, declaration access, contract types, and callback alias resolution
 also use the upstream helpers. The component map and policy remain local.
 
@@ -164,13 +164,12 @@ back and forth. The test and lint phases retain Bumper's
 incremental SwiftPM checks and sandboxed source evaluation.
 
 Pass file scopes to `Rules.files` and `Rules.forbid` so unrelated files skip
-query traversal. In Bumper 0.7.1, query-level `within` filters after extraction.
-`ContractDeclarationScope.swift` excludes getter-local scratch declarations
-while keeping fields in local types subject to contract rules. Remove this
-workaround after adopting the [upstream accessor-scope fix](https://github.com/TheButtonHeist/BumperBowling/pull/64). Getter-local alias
-lookup still needs that upstream fix; this workaround does not change resolution.
+query traversal. Bumper 0.7.2 also checks query-level `within` and `excluding`
+scopes before extraction. Its lexical helpers treat accessor bodies as local
+execution scopes: getter scratch remains local, fields in getter-local types
+remain contracts, and getter aliases cannot change stored-property type lookup.
 
-Bumper Bowling is pinned to 0.7.1 in the ordinary `.bumper` Swift package.
+Bumper Bowling is pinned to 0.7.2 in the ordinary `.bumper` Swift package.
 It requires macOS 15 and Swift 6.4. Its SwiftLint-backed engine reports native
 diagnostics. The wrapper keeps lint sandboxed and runs every rule test first.
 Bumper's dependencies are separate from the app and framework package graph.

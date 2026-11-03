@@ -237,7 +237,7 @@ CI budgets macOS capacity explicitly:
 - Pushes to `main` run those same three mandatory lanes. The genuine
   `TheInsideJobIntegrationTests` suite then runs behind the completed iOS logic
   lane, keeping macOS concurrency at three.
-- The macOS lane uses the `xcode-27` runner, matching Bumper 0.7.1's Swift 6.4
+- The macOS lane uses the `xcode-27` runner, matching Bumper 0.7.2's Swift 6.4
   requirement. Bumper builds its separate `.bumper` package; iOS lanes retain
   their explicit Xcode selection. `scripts/check-source-shape.sh` reports separate
   build, rule-test, and lint timings, including exit codes. Use

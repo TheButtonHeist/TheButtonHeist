@@ -292,4 +292,28 @@ struct CallbackIsolationRuleTests {
         #expect(report.first?.ruleIdentifier == "buttonheist.callback_isolation")
         #expect(report.first?.location.line == 4)
     }
+
+    @Test(arguments: [true, false])
+    func `getter aliases do not change stored callback contracts`(outerIsolated: Bool) throws {
+        let outerType = outerIsolated ? "@Sendable () -> Void" : "() -> Void"
+        let getterType = outerIsolated ? "() -> Void" : "@Sendable () -> Void"
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/TheInsideJob/Getter.swift",
+            source: """
+                typealias Handler = \(outerType)
+                struct Example {
+                    var count: Int {
+                        typealias Handler = \(getterType)
+                        return 0
+                    }
+                    var completion: Handler?
+                }
+                """
+        )
+        #expect(report.count == (outerIsolated ? 0 : 1))
+        if !outerIsolated {
+            #expect(report.first?.ruleIdentifier == "buttonheist.callback_isolation")
+            #expect(report.first?.location.line == 7)
+        }
+    }
 }
