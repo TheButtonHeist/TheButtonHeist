@@ -156,7 +156,17 @@ construction outside the owning declaration.
 
 Run `scripts/check-source-shape.sh` for the complete source check. It runs the
 rule tests before repository lint. `scripts/check-source-shape.sh test` runs
-only the tests. CI uses the complete check on every change.
+only the tests. CI uses the complete check on every change. The wrapper reports
+build, tests, and lint durations with each phase's exit status, including failures.
+It builds the CLI and rule tests first. The test and lint phases retain Bumper's
+incremental SwiftPM checks and sandboxed source evaluation.
+
+Pass file scopes to `Rules.files` and `Rules.forbid` so unrelated files skip
+query traversal. In Bumper 0.7.1, query-level `within` filters after extraction.
+`ContractDeclarationScope.swift` excludes getter-local scratch declarations
+while keeping fields in local types subject to contract rules. Remove this
+workaround after adopting the [upstream accessor-scope fix](https://github.com/TheButtonHeist/BumperBowling/pull/64). Getter-local alias
+lookup still needs that upstream fix; this workaround does not change resolution.
 
 Bumper Bowling is pinned to 0.7.1 in the ordinary `.bumper` Swift package.
 It requires macOS 15 and Swift 6.4. Its SwiftLint-backed engine reports native

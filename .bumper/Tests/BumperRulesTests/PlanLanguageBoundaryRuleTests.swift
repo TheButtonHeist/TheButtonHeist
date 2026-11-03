@@ -307,4 +307,15 @@ struct PlanLanguageBoundaryRuleTests {
         #expect(denied.first?.ruleIdentifier == "buttonheist.plan_else_ownership")
     }
 
+    @Test
+    func `plan grammar rules do not inspect other component declarations`() throws {
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/TheInsideJob/Other.swift",
+            source: """
+                public struct HeistContent { public var count: Int { 0 } }
+                public struct Other { public func `else`() {} }
+                """
+        )
+        #expect(report.isEmpty)
+    }
 }

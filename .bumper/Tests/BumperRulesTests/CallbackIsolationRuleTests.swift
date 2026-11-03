@@ -225,7 +225,6 @@ struct CallbackIsolationRuleTests {
         #expect(allowed.isEmpty)
     }
 
-
     @Test
     func `exported callback aliases declare isolation before any stored use`() throws {
         let path = "ButtonHeist/Sources/TheInsideJob/Callbacks.swift"
@@ -274,4 +273,23 @@ struct CallbackIsolationRuleTests {
         #expect(report.isEmpty)
     }
 
+    @Test
+    func `getter locals stay scratch while fields in getter local types remain contracts`() throws {
+        let report = try evaluateButtonHeistRules(
+            path: "ButtonHeist/Sources/TheInsideJob/Getter.swift",
+            source: """
+                struct Example {
+                    var count: Int {
+                        let completion: (() -> Void)? = nil
+                        struct Local { var completion: (() -> Void)? }
+                        _ = completion
+                        return 0
+                    }
+                }
+                """
+        )
+        #expect(report.count == 1)
+        #expect(report.first?.ruleIdentifier == "buttonheist.callback_isolation")
+        #expect(report.first?.location.line == 4)
+    }
 }

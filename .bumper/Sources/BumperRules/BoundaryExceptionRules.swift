@@ -58,14 +58,14 @@ public enum DemoAccessibilityIdentifierRule: SyntaxRule {
             + "Replace accessibilityIdentifier with labels, values, traits, hints, or actions; research exceptions require an exact harness path."
         Rules.forbid(
             SyntaxQuery<DeclReferenceExprSyntax>()
-                .within(scope)
-                .filter { $0.node.baseName.text.filter { $0 != "`" } == "accessibilityIdentifier" }
+                .filter { $0.node.baseName.text.filter { $0 != "`" } == "accessibilityIdentifier" },
+            scope: scope
         ) { _ in repair }
-        Rules.forbid(variables().within(scope).filter { match in
+        Rules.forbid(variables().filter { match in
             match.node.modifiers.contains { $0.name.text == "override" }
                 && match.node.bindings.contains {
                     $0.pattern.as(IdentifierPatternSyntax.self)?.identifier.text.filter { $0 != "`" } == "accessibilityIdentifier"
                 }
-        }) { _ in repair }
+        }, scope: scope) { _ in repair }
     }
 }

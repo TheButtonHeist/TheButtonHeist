@@ -18,7 +18,7 @@ public enum CallbackIsolationRule: SyntaxRule {
     )
 
     public static var body: SyntaxCheck {
-        Rules.each(variables().filter { $0.node.lexicalPlacement != .local }) { declaration in
+        Rules.each(variables().filter { isContractDeclaration($0.node) }) { declaration in
             declaration.node.bindings.compactMap { binding in
                 guard let syntax = binding.typeAnnotation?.type,
                     case .resolved(let type) = declaration.file.resolveType(syntax), type.function != nil
@@ -34,7 +34,7 @@ public enum CallbackIsolationRule: SyntaxRule {
             }
         }
         Rules.each(SyntaxQuery<TypeAliasDeclSyntax>().filter {
-            $0.node.lexicalPlacement != .local && contractAccessIntent($0.node) >= .package
+            isContractDeclaration($0.node) && contractAccessIntent($0.node) >= .package
         }) { declaration in
             guard case .resolved(let type) = declaration.file.resolveType(declaration.node.initializer.value),
                 type.function != nil else { return [] }
