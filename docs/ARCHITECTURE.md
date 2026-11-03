@@ -249,6 +249,14 @@ semantic owner in the current capture. The owner's tree path may change, and a
 matching reacquisition restores only a fresh complete value for that owner. A
 missing, ambiguous, or nonmatching owner keeps the state invalidated.
 
+Capture admission requires finite geometry. UIKit can report a non-finite
+activation point for an element whose frame is finite; a SwiftUI `Menu` on
+iOS 27 does. TheVault normalizes that point to the midpoint of the element's
+frame (or accessibility path bounds) as the parser's elements enter the
+capture, and reports it as the default center. An element with no finite
+shape either keeps its point, and admission rejects the capture. A rejected
+capture is logged with its tree path and field.
+
 Completed steps project immutable `Observation.Evidence` from Vault truth and
 the events consumed by the reducer. Current-state predicates read the current
 snapshot through the same target resolver that actions and `get_interface` use.

@@ -161,16 +161,7 @@ extension TheVault {
             let window = entry.window
             let rootView = entry.rootView
             let containsModalBoundary = autoreleasepool { () -> Bool in
-                let captured = hierarchyParser.parseAccessibilityHierarchy(
-                    in: rootView,
-                    rotorResultLimit: 0,
-                    makeElement: { element, traversalIndex, source in
-                        CaptureNode.element(element, traversalIndex: traversalIndex, source: source)
-                    },
-                    makeContainer: { container, children, source in
-                        CaptureNode.container(container, children: children, source: source)
-                    }
-                )
+                let captured = parseCaptureNodes(in: rootView)
 
                 let windowHierarchy = captured.map(\.hierarchy)
 
@@ -360,20 +351,32 @@ extension TheVault {
     /// discoverable by walking the current app hierarchy.
     func captureObject(_ object: NSObject) -> AccessibilityElement? {
         let root = SingleElementParsingRoot(object: object)
-        let captured = hierarchyParser.parseAccessibilityHierarchy(
+        let captured = parseCaptureNodes(in: root)
+        if let match = captured.lazy.compactMap({ $0.firstElement(matchingSource: object) }).first {
+            return match
+        }
+        return captured.map(\.hierarchy).sortedElements.first
+    }
+
+    /// Run the hierarchy parser over `root`, retaining each node's live source.
+    ///
+    /// This is where parsed elements enter Button Heist, so a non-finite activation point is
+    /// normalised here, before `InterfaceGeometryAdmission` sees the capture.
+    private func parseCaptureNodes(in root: UIView) -> [CaptureNode] {
+        hierarchyParser.parseAccessibilityHierarchy(
             in: root,
             rotorResultLimit: 0,
             makeElement: { element, traversalIndex, source in
-                CaptureNode.element(element, traversalIndex: traversalIndex, source: source)
+                CaptureNode.element(
+                    element.normalizingNonFiniteActivationPoint(),
+                    traversalIndex: traversalIndex,
+                    source: source
+                )
             },
             makeContainer: { container, children, source in
                 CaptureNode.container(container, children: children, source: source)
             }
         )
-        if let match = captured.lazy.compactMap({ $0.firstElement(matchingSource: object) }).first {
-            return match
-        }
-        return captured.map(\.hierarchy).sortedElements.first
     }
 
     /// Records the live source object for each element and container in a captured subtree, keyed

@@ -140,7 +140,17 @@ final class TheVault {
     }
 
     static func captureVisibleObservation(from vault: TheVault) -> InterfaceObservation? {
-        vault.capture().flatMap { try? admitObservation(from: $0) }
+        guard let capture = vault.capture() else { return nil }
+        do {
+            return try admitObservation(from: capture)
+        } catch let error as InterfaceGeometryAdmissionError {
+            // A tree path and a field name carry no app content, so they are safe to make public.
+            insideJobLogger.error("Accessibility capture rejected: \(error.description, privacy: .public)")
+            return nil
+        } catch {
+            insideJobLogger.error("Accessibility capture rejected: \(String(describing: error), privacy: .private)")
+            return nil
+        }
     }
 
     func captureVisibleObservation() -> InterfaceObservation? {
