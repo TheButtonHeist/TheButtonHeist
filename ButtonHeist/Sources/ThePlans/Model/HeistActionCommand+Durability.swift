@@ -75,16 +75,6 @@ public extension HeistActionCommand {
         case .rotor(let selection, _, _):
             if case .named = selection { return nil }
             return "rotor selection \(selection) is not a durable heist action"
-        case .swipe(let target):
-            if target.duration != nil {
-                return "swipe duration \(String(describing: target.duration)) is not a durable heist action"
-            }
-            return nil
-        case .drag(let target):
-            if target.duration != nil {
-                return "drag duration \(String(describing: target.duration)) is not a durable heist action"
-            }
-            return nil
         case .scroll:
             return "scroll is a direct client command, not a durable heist action"
         case .scrollToVisible:
@@ -92,7 +82,8 @@ public extension HeistActionCommand {
         case .scrollToEdge:
             return "scroll_to_edge is a direct client command, not a durable heist action"
         case .activate, .increment, .decrement, .customAction, .typeText, .oneFingerTap, .longPress,
-             .dismiss, .magicTap, .editAction, .setPasteboard, .takeScreenshot, .dismissKeyboard:
+             .swipe, .drag, .dismiss, .magicTap, .editAction, .setPasteboard, .takeScreenshot,
+             .dismissKeyboard:
             return nil
         }
     }

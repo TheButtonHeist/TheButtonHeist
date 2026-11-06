@@ -154,6 +154,14 @@ import Testing
             "longPress(ScreenPoint(x: 1, y: 1), duration: 61)",
             "duration must be"
         ),
+        (
+            "swipe(from: ScreenPoint(x: 1, y: 1), .up, duration: 0)",
+            "duration must be"
+        ),
+        (
+            "drag(from: ScreenPoint(x: 1, y: 1), to: ScreenPoint(x: 2, y: 2), duration: 61)",
+            "duration must be"
+        ),
     ]
 
     for (source, expected) in cases {

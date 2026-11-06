@@ -109,6 +109,41 @@ func rootAccessibilityTargetPlanRendersCanonicalSwiftAndCompilesBack() async thr
 }
 
 @Test
+func timedGesturePlanRendersCanonicalSwiftAndCompilesBack() async throws {
+    let plan = try HeistPlan {
+        swipe(from: ScreenPoint(x: 10, y: 20), .left, duration: 0.3)
+
+        drag(.label("Piece"), to: ScreenPoint(x: 200, y: 40), duration: 0.25)
+
+        drag(from: ScreenPoint(x: 10, y: 20), to: ScreenPoint(x: 30, y: 40), duration: 0.9)
+    }
+
+    let rendered = try plan.canonicalSwiftDSL()
+
+    #expect(rendered == """
+    HeistPlan {
+        swipe(from: ScreenPoint(x: 10, y: 20), .left, duration: 0.3)
+
+        drag(.label("Piece"), to: ScreenPoint(x: 200, y: 40), duration: 0.25)
+
+        drag(from: ScreenPoint(x: 10, y: 20), to: ScreenPoint(x: 30, y: 40), duration: 0.9)
+    }
+    """)
+
+    #if SWIFT_PACKAGE && (os(macOS) || os(Linux))
+    let source = """
+    import ThePlans
+
+    func heist() throws -> HeistPlan {
+        try \(rendered)
+    }
+    """
+    let compiled = try await compileCanonicalHeist(source)
+    #expect(compiled == plan)
+    #endif
+}
+
+@Test
 func canonicalSwiftRendererPreservesHelperDefinitionDependencies() throws {
     enum LibraryScreen {
         static let tapAddButton = HeistDef<Void>("AddButton.tap") {

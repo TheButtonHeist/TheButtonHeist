@@ -277,22 +277,51 @@ public func swipe(_ target: AccessibilityTarget, _ direction: SwipeDirection) ->
 
 public func swipe(
     _ target: AccessibilityTarget,
+    _ direction: SwipeDirection,
+    duration: GestureDuration
+) -> Action {
+    Action(command: .swipe(SwipeTarget(selection: .elementDirection(target, direction), duration: duration)))
+}
+
+public func swipe(
+    _ target: AccessibilityTarget,
     from start: UnitPoint,
     to end: UnitPoint
 ) -> Action {
     Action(command: .swipe(SwipeTarget(selection: .unitElement(target, start: start, end: end))))
 }
 
+public func swipe(
+    _ target: AccessibilityTarget,
+    from start: UnitPoint,
+    to end: UnitPoint,
+    duration: GestureDuration
+) -> Action {
+    Action(command: .swipe(SwipeTarget(selection: .unitElement(target, start: start, end: end), duration: duration)))
+}
+
 public func swipe(from start: ScreenPoint, to end: ScreenPoint) -> Action {
     Action(command: .swipe(SwipeTarget(selection: .pointToPoint(start: start, end: end))))
+}
+
+public func swipe(from start: ScreenPoint, to end: ScreenPoint, duration: GestureDuration) -> Action {
+    Action(command: .swipe(SwipeTarget(selection: .pointToPoint(start: start, end: end), duration: duration)))
 }
 
 public func swipe(from start: ScreenPoint, _ direction: SwipeDirection) -> Action {
     Action(command: .swipe(SwipeTarget(selection: .pointDirection(start: start, direction: direction))))
 }
 
+public func swipe(from start: ScreenPoint, _ direction: SwipeDirection, duration: GestureDuration) -> Action {
+    Action(command: .swipe(SwipeTarget(selection: .pointDirection(start: start, direction: direction), duration: duration)))
+}
+
 public func drag(_ target: AccessibilityTarget, to end: ScreenPoint) -> Action {
     Action(command: .drag(DragTarget(start: .element(target), end: end)))
+}
+
+public func drag(_ target: AccessibilityTarget, to end: ScreenPoint, duration: GestureDuration) -> Action {
+    Action(command: .drag(DragTarget(start: .element(target), end: end, duration: duration)))
 }
 
 public func drag(
@@ -303,6 +332,19 @@ public func drag(
     Action(command: .drag(DragTarget(start: .elementUnitPoint(target, start), end: end)))
 }
 
+public func drag(
+    _ target: AccessibilityTarget,
+    from start: UnitPoint,
+    to end: ScreenPoint,
+    duration: GestureDuration
+) -> Action {
+    Action(command: .drag(DragTarget(start: .elementUnitPoint(target, start), end: end, duration: duration)))
+}
+
 public func drag(from start: ScreenPoint, to end: ScreenPoint) -> Action {
     Action(command: .drag(DragTarget(start: .coordinate(start), end: end)))
+}
+
+public func drag(from start: ScreenPoint, to end: ScreenPoint, duration: GestureDuration) -> Action {
+    Action(command: .drag(DragTarget(start: .coordinate(start), end: end, duration: duration)))
 }
