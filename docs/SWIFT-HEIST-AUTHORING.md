@@ -248,6 +248,16 @@ make that intent visible:
 oneFingerTap(ScreenPoint(x: 120, y: 400))
 ```
 
+`longPress`, `swipe`, and `drag` take an optional `duration:` in seconds,
+admitted as a `GestureDuration`. Without one, a long press holds for 0.5
+seconds, a swipe takes 0.15 seconds, and a drag takes 0.5 seconds. A duration
+is part of the durable action, so it renders in canonical source and survives
+`.heist` artifacts:
+
+```swift
+drag(.label("Piece"), to: ScreenPoint(x: 200, y: 40), duration: 0.8)
+```
+
 Viewport/debug/session action types such as `scroll`, `scrollToEdge`, and
 `scrollToVisible` are direct `action` inputs, not durable Swift Heist
 primitives. Normal semantic actions do not need pre-action viewport movement.

@@ -191,6 +191,27 @@ func `public spatial gesture authoring uses direct concrete verbs`() throws {
 }
 
 @Test
+func `public swipe and drag authoring carries an explicit duration into the plan`() throws {
+    let plan = try HeistPlan {
+        swipe(.label("Carousel"), .left, duration: 0.3)
+        swipe(from: ScreenPoint(x: 10, y: 20), to: ScreenPoint(x: 30, y: 40), duration: 0.4)
+        drag(.label("Piece"), to: ScreenPoint(x: 30, y: 40), duration: 0.25)
+        drag(.label("Piece"), from: UnitPoint(x: 0.5, y: 0.5), to: ScreenPoint(x: 30, y: 40), duration: 0.8)
+        drag(from: ScreenPoint(x: 10, y: 20), to: ScreenPoint(x: 30, y: 40), duration: 0.9)
+    }
+
+    let durations: [GestureDuration?] = plan.body.map { step in
+        guard case .action(let action) = step else { return nil }
+        switch action.command {
+        case .swipe(let target): return target.duration
+        case .drag(let target): return target.duration
+        default: return nil
+        }
+    }
+    #expect(durations == [0.3, 0.4, 0.25, 0.8, 0.9])
+}
+
+@Test
 func `public command construction preserves one action spelling`() {
     let commands: [HeistActionCommand] = [
         .oneFingerTap(TapTarget(selection: .coordinate(ScreenPoint(x: 10, y: 20)))),

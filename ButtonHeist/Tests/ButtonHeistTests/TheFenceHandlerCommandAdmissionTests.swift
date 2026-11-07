@@ -63,6 +63,25 @@ extension TheFenceHandlerTests {
     }
 
     @ButtonHeistActor
+    func testTimedDragUsesTheHeistWirePipeline() async throws {
+        let (fence, connection) = makeConnectedFence()
+        let action = HeistActionCommand.drag(DragTarget(
+            start: .coordinate(ScreenPoint(x: 10, y: 20)),
+            end: ScreenPoint(x: 30, y: 40),
+            duration: 0.8
+        ))
+
+        _ = try await fence.execute(command: .action, values: try actionArguments(action))
+
+        XCTAssertEqual(connection.sent.count, 1)
+        guard case .heistPlan(let run) = connection.sent.first?.0,
+              case .action(let step) = run.plan.body.first else {
+            return XCTFail("Expected the canonical single-step heist wire message")
+        }
+        XCTAssertEqual(step.command, action)
+    }
+
+    @ButtonHeistActor
     func testTransientActionUsesTheRuntimeActionWirePipeline() async throws {
         let (fence, connection) = makeConnectedFence()
         let action = HeistActionCommand.scroll(ScrollTarget(direction: .down))

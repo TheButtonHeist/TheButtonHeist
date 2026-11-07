@@ -63,7 +63,46 @@ import Testing
         .action(ActionStep(command: .drag(DragTarget(
             selection: .pointToPoint(start: ScreenPoint(x: 10, y: 10), end: ScreenPoint(x: 100, y: 100))
         )))),
+        .action(ActionStep(command: .swipe(SwipeTarget(
+            selection: .pointDirection(start: ScreenPoint(x: 10, y: 20), direction: .left),
+            duration: 0.3
+        )))),
+        .action(ActionStep(command: .swipe(SwipeTarget(
+            selection: .unitElement(.label("Carousel"), start: UnitPoint(x: 0.8, y: 0.5), end: UnitPoint(x: 0.2, y: 0.5)),
+            duration: 0.6
+        )))),
+        .action(ActionStep(command: .drag(DragTarget(
+            selection: .elementToPoint(.label("Piece"), start: nil, end: ScreenPoint(x: 40, y: 80)),
+            duration: 0.25
+        )))),
+        .action(ActionStep(command: .drag(DragTarget(
+            selection: .pointToPoint(start: ScreenPoint(x: 10, y: 10), end: ScreenPoint(x: 100, y: 100)),
+            duration: 0.9
+        )))),
     ]))
+}
+
+@Test func `explicit default swipe and drag durations survive canonical source`() throws {
+    let plan = try HeistPlan(body: [
+        .action(ActionStep(command: .swipe(SwipeTarget(
+            selection: .elementDirection(.label("List"), .up),
+            duration: SwipeTarget.defaultDuration
+        )))),
+        .action(ActionStep(command: .drag(DragTarget(
+            start: .coordinate(ScreenPoint(x: 10, y: 20)),
+            end: ScreenPoint(x: 30, y: 40),
+            duration: DragTarget.defaultDuration
+        )))),
+    ])
+
+    #expect(try plan.canonicalSwiftDSL() == """
+    HeistPlan {
+        swipe(.label("List"), .up, duration: 0.15)
+
+        drag(from: ScreenPoint(x: 10, y: 20), to: ScreenPoint(x: 30, y: 40), duration: 0.5)
+    }
+    """)
+    try assertCanonicalRoundTrip(plan)
 }
 
 @Test func `spatial gesture tap ScreenPoint source parses to raw coordinate tap`() throws {

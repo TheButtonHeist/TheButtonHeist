@@ -197,7 +197,6 @@ extension HeistPlanSourceParser {
     mutating func parseLongPress() throws -> HeistActionCommand {
         try expectSymbol("(")
         let selection: GesturePointSelection
-        var duration = GestureDuration.longPressDefault
         if currentToken.kind == .identifier("ScreenPoint") {
             selection = .coordinate(try parseScreenPoint())
         } else {
@@ -211,11 +210,7 @@ extension HeistPlanSourceParser {
                 selection = .element(target)
             }
         }
-        if consumeSymbol(",") {
-            try expectIdentifier("duration")
-            try expectSymbol(":")
-            duration = try parseGestureDuration()
-        }
+        let duration = try parseOptionalGestureDurationArgument() ?? .longPressDefault
         try expectSymbol(")")
         return .longPress(LongPressTarget(selection: selection, duration: duration))
     }
@@ -245,8 +240,9 @@ extension HeistPlanSourceParser {
                 selection = .elementDirection(target, try parseEnumCase(SwipeDirection.self, role: "swipe direction"))
             }
         }
+        let duration = try parseOptionalGestureDurationArgument()
         try expectSymbol(")")
-        return .swipe(SwipeTarget(selection: selection))
+        return .swipe(SwipeTarget(selection: selection, duration: duration))
     }
 
     mutating func parseDrag() throws -> HeistActionCommand {
@@ -272,8 +268,9 @@ extension HeistPlanSourceParser {
             try expectSymbol(":")
             selection = .elementToPoint(target, start: start, end: try parseScreenPoint())
         }
+        let duration = try parseOptionalGestureDurationArgument()
         try expectSymbol(")")
-        return .drag(DragTarget(selection: selection))
+        return .drag(DragTarget(selection: selection, duration: duration))
     }
 
     mutating func parseFiniteCoordinate() throws -> FiniteCoordinate {
@@ -322,6 +319,13 @@ extension HeistPlanSourceParser {
         } catch let validationError {
             throw error(durationToken, String(describing: validationError))
         }
+    }
+
+    mutating func parseOptionalGestureDurationArgument() throws -> GestureDuration? {
+        guard consumeSymbol(",") else { return nil }
+        try expectIdentifier("duration")
+        try expectSymbol(":")
+        return try parseGestureDuration()
     }
 
     mutating func parseActionStep(

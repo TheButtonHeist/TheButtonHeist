@@ -153,6 +153,27 @@ import Testing
     }
 }
 
+@Test func `timed swipe and drag commands are durable heist actions`() throws {
+    let cases: [(HeistActionCommand, String)] = [
+        (
+            .swipe(SwipeTarget(selection: .elementDirection(.label("List"), .up), duration: 0.4)),
+            #"swipe(.label("List"), .up, duration: 0.4)"#
+        ),
+        (
+            .drag(DragTarget(start: .element(.label("Slider")), end: ScreenPoint(x: 200, y: 40), duration: 0.8)),
+            #"drag(.label("Slider"), to: ScreenPoint(x: 200, y: 40), duration: 0.8)"#
+        ),
+    ]
+
+    for (command, canonicalLine) in cases {
+        #expect(command.durableHeistActionFailure == nil)
+        let plan = try HeistPlan(body: [.action(ActionStep(command: command))])
+        let expectedSource = canonicalPlanSource(canonicalLine)
+        #expect(try plan.canonicalSwiftDSL() == expectedSource)
+        #expect(try HeistSourceParser.parse(expectedSource) == plan)
+    }
+}
+
 @Test func `runtime admission validates every string loop value through invocations`() throws {
     let definition = try HeistPlan(
         name: "typeQuery",

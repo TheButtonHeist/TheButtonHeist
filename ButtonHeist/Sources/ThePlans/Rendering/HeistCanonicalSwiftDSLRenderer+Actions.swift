@@ -138,28 +138,38 @@ extension HeistCanonicalSwiftDSLRenderer {
         }
     }
 
-    func renderSwipe(_ target: SwipeTarget, environment: RenderEnvironment) throws -> String {
-        switch target.selection {
+    func renderSwipe(_ request: SwipeTarget, environment: RenderEnvironment) throws -> String {
+        let duration = renderDurationArgument(request.duration)
+        switch request.selection {
         case .unitElement(let target, let start, let end):
-            return "swipe(\(try render(target: target, environment: environment)), from: \(render(unitPoint: start)), to: \(render(unitPoint: end)))"
+            let target = try render(target: target, environment: environment)
+            return "swipe(\(target), from: \(render(unitPoint: start)), to: \(render(unitPoint: end))\(duration))"
         case .elementDirection(let target, let direction):
-            return "swipe(\(try render(target: target, environment: environment)), .\(direction.rawValue))"
+            return "swipe(\(try render(target: target, environment: environment)), .\(direction.rawValue)\(duration))"
         case .pointToPoint(let start, let end):
-            return "swipe(from: \(render(point: start)), to: \(render(point: end)))"
+            return "swipe(from: \(render(point: start)), to: \(render(point: end))\(duration))"
         case .pointDirection(let start, let direction):
-            return "swipe(from: \(render(point: start)), .\(direction.rawValue))"
+            return "swipe(from: \(render(point: start)), .\(direction.rawValue)\(duration))"
         }
     }
 
-    func renderDrag(_ target: DragTarget, environment: RenderEnvironment) throws -> String {
-        switch target.selection {
+    func renderDrag(_ request: DragTarget, environment: RenderEnvironment) throws -> String {
+        let duration = renderDurationArgument(request.duration)
+        switch request.selection {
         case .elementToPoint(let target, let start, let end):
+            let target = try render(target: target, environment: environment)
             if let start {
-                return "drag(\(try render(target: target, environment: environment)), from: \(render(unitPoint: start)), to: \(render(point: end)))"
+                return "drag(\(target), from: \(render(unitPoint: start)), to: \(render(point: end))\(duration))"
             }
-            return "drag(\(try render(target: target, environment: environment)), to: \(render(point: end)))"
+            return "drag(\(target), to: \(render(point: end))\(duration))"
         case .pointToPoint(let start, let end):
-            return "drag(from: \(render(point: start)), to: \(render(point: end)))"
+            return "drag(from: \(render(point: start)), to: \(render(point: end))\(duration))"
         }
+    }
+
+    /// An explicit swipe or drag duration renders even when it equals the
+    /// default, so parsing the source restores the same optional payload.
+    private func renderDurationArgument(_ duration: GestureDuration?) -> String {
+        duration.map { ", duration: \(render(duration: $0))" } ?? ""
     }
 }
