@@ -1,228 +1,73 @@
 #!/usr/bin/env bash
-
+# GitHub job metadata remains usable after diagnostic artifacts expire.
 set -euo pipefail
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-GUARD="$REPO_ROOT/scripts/require-release-commit.sh"
-COMMIT="0123456789abcdef0123456789abcdef01234567"
-GH_VERIFICATION_JSON=$(jq -cn --arg sha "$COMMIT" \
-    '{sha: $sha, commit: {verification: {verified: true, reason: "valid"}}}')
-export GH_VERIFICATION_JSON
+GUARD="$SCRIPT_DIR/../require-release-commit.sh"
+COMMIT=0123456789abcdef0123456789abcdef01234567
 TMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TMP_DIR"' EXIT
-
 cat > "$TMP_DIR/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ "${1:-}" == "api" ]]; then
-    [[ "${GH_SIGNATURE_API_OK:-true}" == true ]] || exit 1
-    printf '%s\n' "$GH_VERIFICATION_JSON"
-    exit 0
-fi
-if [[ "${1:-} ${2:-}" == "run list" ]]; then
+if [[ "$1 $2" == "run list" ]]; then
     printf '%s\n' "$GH_RUNS_JSON"
-    exit 0
+elif [[ "$1" == api ]]; then
+    case "$2" in
+        */commits/*) [[ "${GH_SIGNATURE_API_OK:-true}" == true ]] || exit 1; echo "$GH_VERIFICATION_JSON" ;;
+        */attempts/*/jobs) [[ "${GH_JOBS_API_OK:-true}" == true ]] || exit 1; echo "$GH_JOBS_JSON" ;;
+        */actions/runs/41) [[ "${GH_RUN_API_OK:-true}" == true ]] || exit 1; echo "$GH_RUN_JSON" ;;
+        *) exit 64 ;;
+    esac
+else
+    echo "unexpected gh invocation: $*" >&2
+    exit 64
 fi
-if [[ "${1:-} ${2:-}" == "run view" ]]; then
-    printf '%s\n' "$GH_JOBS_JSON"
-    exit 0
-fi
-if [[ "${1:-} ${2:-}" == "run download" ]]; then
-    destination=""
-    while [[ $# -gt 0 ]]; do
-        if [[ "$1" == "--dir" ]]; then
-            destination="${2:-}"
-            break
-        fi
-        shift
-    done
-    [[ -n "$destination" ]]
-    mkdir -p "$destination"
-    printf '%s\n' "$GH_MANIFEST_JSON" > "$destination/exact-sha-suite.json"
-    exit 0
-fi
-echo "unexpected gh invocation: $*" >&2
-exit 2
 EOF
 chmod +x "$TMP_DIR/gh"
-
-run_guard() {
-    GH_RUNS_JSON="$1" GH_JOBS_JSON="$2" PATH="$TMP_DIR:$PATH" \
-        GH_MANIFEST_JSON="$3" \
-        bash "$GUARD" --repo TheButtonHeist/TheButtonHeist --timeout 0 "$COMMIT" test-commit
-}
+export PATH="$TMP_DIR:$PATH"
+GH_VERIFICATION_JSON=$(jq -cn --arg sha "$COMMIT" '{sha:$sha,commit:{verification:{verified:true,reason:"valid"}}}')
+GH_RUNS_JSON=$(jq -cn --arg sha "$COMMIT" '[{databaseId:41,event:"push",headSha:$sha,status:"completed",conclusion:"success"}]')
+GH_RUN_JSON=$(jq -cn --arg sha "$COMMIT" '{id:41,head_sha:$sha,head_branch:"main",event:"push",path:".github/workflows/ci.yml",status:"completed",conclusion:"success",run_attempt:2}')
+GH_JOBS_JSON=$(jq -cn -L "$SCRIPT_DIR/.." 'include "release-suites";
+    [{jobs: [(required_release_suites + ["exact-sha-suite"])[] | {name:.,status:"completed",conclusion:"success"}]}]')
+export GH_VERIFICATION_JSON GH_RUNS_JSON GH_RUN_JSON GH_JOBS_JSON
 
 expect_success() {
-    local label="$1"
-    local runs="$2"
-    local jobs="$3"
-    local manifest="$4"
-    if ! run_guard "$runs" "$jobs" "$manifest" > "$TMP_DIR/output" 2>&1; then
-        echo "FAIL: expected success for $label" >&2
-        cat "$TMP_DIR/output" >&2
-        exit 1
+    if ! bash "$GUARD" --timeout 0 "$COMMIT" > "$TMP_DIR/output" 2>&1; then
+        echo "FAIL: $1" >&2; cat "$TMP_DIR/output" >&2; exit 1
     fi
 }
-
 expect_failure() {
-    local label="$1"
-    local runs="$2"
-    local jobs="$3"
-    local manifest="$4"
-    local expected_output="${5:-}"
-    if run_guard "$runs" "$jobs" "$manifest" > "$TMP_DIR/output" 2>&1; then
-        echo "FAIL: expected failure for $label" >&2
-        cat "$TMP_DIR/output" >&2
-        exit 1
-    fi
-    if [[ -n "$expected_output" ]] && ! grep -Fq "$expected_output" "$TMP_DIR/output"; then
-        echo "FAIL: missing diagnostic for $label: $expected_output" >&2
-        cat "$TMP_DIR/output" >&2
-        exit 1
+    if bash "$GUARD" --timeout 0 "$COMMIT" > "$TMP_DIR/output" 2>&1; then
+        echo "FAIL: unexpectedly admitted $1" >&2; exit 1
     fi
 }
 
-successful_run=$(jq -cn --arg sha "$COMMIT" '[{
-    databaseId: 41,
-    event: "push",
-    headSha: $sha,
-    status: "completed",
-    conclusion: "success"
-}]')
-successful_suite='{"jobs":[{"name":"exact-sha-suite","status":"completed","conclusion":"success"}]}'
-successful_manifest=$(jq -cn --arg sha "$COMMIT" '{
-    schemaVersion: 1,
-    commit: $sha,
-    workflow: {
-        ref: "TheButtonHeist/TheButtonHeist/.github/workflows/ci.yml@refs/heads/main",
-        sha: $sha,
-        runId: "41",
-        runAttempt: "1"
-    },
-    suites: [
-        {name: "release-contract", conclusion: "success"},
-        {name: "macos-tests", conclusion: "success"},
-        {name: "ios-tests", conclusion: "success"},
-        {name: "ios-demo-gates", conclusion: "success"},
-        {name: "main-integration", conclusion: "success"}
-    ]
-}')
-
-expect_success "complete exact-SHA aggregate" "$successful_run" "$successful_suite" "$successful_manifest"
-
+expect_success "signed main CI, current attempt and all required jobs, without downloading artifacts"
+# A paginated response must include every page, including jobs after the first 100.
+GH_JOBS_JSON=$(jq '[{jobs: .[0].jobs[:2]}, {jobs: .[0].jobs[2:]}]' <<< "$GH_JOBS_JSON")     expect_success "paginated jobs"
 for reason in unsigned bad_email expired_key unknown_key; do
-    GH_VERIFICATION_JSON=$(jq -cn --arg sha "$COMMIT" --arg reason "$reason" \
-        '{sha: $sha, commit: {verification: {verified: false, reason: $reason}}}') \
-        expect_failure "signature $reason" "$successful_run" "$successful_suite" \
-            "$successful_manifest" "must have a GitHub-verified commit signature"
+    GH_VERIFICATION_JSON=$(jq -cn --arg sha "$COMMIT" --arg reason "$reason"         '{sha:$sha,commit:{verification:{verified:false,reason:$reason}}}') expect_failure "signature $reason"
 done
-GH_VERIFICATION_JSON=$(jq -c '.sha = "wrong-commit"' <<< "$GH_VERIFICATION_JSON") \
-    expect_failure "signature from wrong SHA" "$successful_run" "$successful_suite" \
-        "$successful_manifest" "must have a GitHub-verified commit signature"
-GH_SIGNATURE_API_OK=false \
-    expect_failure "signature lookup failure" "$successful_run" "$successful_suite" \
-        "$successful_manifest" "must have a GitHub-verified commit signature"
-
-for conclusion in failure cancelled timed_out action_required startup_failure stale; do
-    rejected_manifest=$(jq -c --arg conclusion "$conclusion" \
-        '.suites[0].conclusion = $conclusion' <<< "$successful_manifest")
-    expect_failure \
-        "required suite conclusion $conclusion" \
-        "$successful_run" \
-        "$successful_suite" \
-        "$rejected_manifest"
+GH_VERIFICATION_JSON=$(jq '.sha = "wrong"' <<< "$GH_VERIFICATION_JSON") expect_failure "wrong signature SHA"
+GH_SIGNATURE_API_OK=false expect_failure "signature API failure"
+GH_RUN_API_OK=false expect_failure "run API failure"
+GH_JOBS_API_OK=false expect_failure "jobs API failure"
+for field in head_sha head_branch event path id run_attempt; do
+    GH_RUN_JSON=$(jq --arg field "$field" '.[$field] = "wrong"' <<< "$GH_RUN_JSON") expect_failure "wrong $field"
 done
-skipped_manifest=$(jq -c '.suites[0].conclusion = "skipped"' <<< "$successful_manifest")
-expect_failure \
-    "required suite conclusion skipped" \
-    "$successful_run" \
-    "$successful_suite" \
-    "$skipped_manifest" \
-    "release-contract=skipped"
-null_conclusion_manifest=$(jq -c '.suites[0].conclusion = null' <<< "$successful_manifest")
-expect_failure \
-    "required suite null conclusion" \
-    "$successful_run" \
-    "$successful_suite" \
-    "$null_conclusion_manifest"
-
-for status in queued pending requested waiting in_progress; do
-    incomplete_run=$(jq -cn --arg sha "$COMMIT" --arg status "$status" '[{
-        databaseId: 41,
-        event: "push",
-        headSha: $sha,
-        status: $status,
-        conclusion: "success"
-    }]')
-    expect_failure \
-        "aggregate status $status" \
-        "$incomplete_run" \
-        "$successful_suite" \
-        "$successful_manifest"
+for status in queued in_progress waiting; do
+    GH_RUN_JSON=$(jq --arg value "$status" '.status = $value' <<< "$GH_RUN_JSON") expect_failure "run $status"
+    GH_JOBS_JSON=$(jq --arg value "$status" '.[0].jobs[0].status = $value' <<< "$GH_JOBS_JSON") expect_failure "job $status"
 done
-
-expect_failure \
-    "missing aggregate" \
-    "$successful_run" \
-    '{"jobs":[{"name":"release-contract","status":"completed","conclusion":"success"}]}' \
-    "$successful_manifest"
-expect_failure \
-    "skipped aggregate" \
-    "$successful_run" \
-    '{"jobs":[{"name":"exact-sha-suite","status":"completed","conclusion":"skipped"}]}' \
-    "$successful_manifest"
-expect_failure \
-    "cancelled aggregate" \
-    "$successful_run" \
-    '{"jobs":[{"name":"exact-sha-suite","status":"completed","conclusion":"cancelled"}]}' \
-    "$successful_manifest"
-
-incomplete_manifest=$(jq -c 'del(.suites[-1])' <<< "$successful_manifest")
-expect_failure "incomplete manifest" "$successful_run" "$successful_suite" "$incomplete_manifest"
-
-duplicate_manifest=$(jq -c '.suites += [.suites[0]]' <<< "$successful_manifest")
-expect_failure "duplicate suite" "$successful_run" "$successful_suite" "$duplicate_manifest"
-
-optional_substitution_manifest=$(jq -c \
-    'del(.suites[-1]) | .suites += [{name: "optional", conclusion: "success"}]' \
-    <<< "$successful_manifest")
-expect_failure \
-    "optional suite substitution" \
-    "$successful_run" \
-    "$successful_suite" \
-    "$optional_substitution_manifest"
-
-wrong_manifest_sha=$(jq -c '.commit = "ffffffffffffffffffffffffffffffffffffffff"' <<< "$successful_manifest")
-expect_failure "wrong manifest SHA" "$successful_run" "$successful_suite" "$wrong_manifest_sha"
-
-wrong_workflow_sha=$(jq -c '.workflow.sha = "ffffffffffffffffffffffffffffffffffffffff"' <<< "$successful_manifest")
-expect_failure "wrong workflow SHA" "$successful_run" "$successful_suite" "$wrong_workflow_sha"
-
-wrong_workflow_ref=$(jq -c \
-    '.workflow.ref = "TheButtonHeist/TheButtonHeist/.github/workflows/release.yml@refs/heads/main"' \
-    <<< "$successful_manifest")
-expect_failure "wrong workflow ref" "$successful_run" "$successful_suite" "$wrong_workflow_ref"
-
-wrong_run_id=$(jq -c '.workflow.runId = "99"' <<< "$successful_manifest")
-expect_failure "wrong run ID" "$successful_run" "$successful_suite" "$wrong_run_id"
-
-wrong_sha_run=$(jq -cn '[{
-    databaseId: 42,
-    event: "push",
-    headSha: "ffffffffffffffffffffffffffffffffffffffff",
-    status: "completed",
-    conclusion: "success"
-}]')
-expect_failure "wrong SHA" "$wrong_sha_run" "$successful_suite" "$successful_manifest"
-
-pull_request_run=$(jq -cn --arg sha "$COMMIT" '[{
-    databaseId: 43,
-    event: "pull_request",
-    headSha: $sha,
-    status: "completed",
-    conclusion: "success"
-}]')
-expect_failure "pull request result" "$pull_request_run" "$successful_suite" "$successful_manifest"
-
-echo "PASS: release admission requires a verified signature and the successful exact-SHA aggregate"
+for conclusion in failure cancelled timed_out skipped null; do
+    GH_JOBS_JSON=$(jq --arg value "$conclusion" '.[0].jobs[0].conclusion = (if $value == "null" then null else $value end)' <<< "$GH_JOBS_JSON")         expect_failure "job $conclusion"
+done
+for name in release-contract macos-tests ios-logic ios-hosted ios-integration exact-sha-suite; do
+    GH_JOBS_JSON=$(jq --arg name "$name" '.[0].jobs |= map(select(.name != $name))' <<< "$GH_JOBS_JSON")         expect_failure "missing $name"
+    GH_JOBS_JSON=$(jq --arg name "$name" '.[0].jobs += [.[0].jobs[] | select(.name == $name)]' <<< "$GH_JOBS_JSON")         expect_failure "duplicate $name"
+done
+GH_RUNS_JSON=$(jq '.[0].headSha = "wrong"' <<< "$GH_RUNS_JSON") expect_failure "wrong run SHA"
+GH_RUNS_JSON=$(jq '.[0].event = "pull_request"' <<< "$GH_RUNS_JSON") expect_failure "PR run"
+GH_RUNS_JSON='[]' expect_failure "missing CI"
+echo "PASS: release admission verifies the signed SHA and current main CI jobs without expiring artifacts"

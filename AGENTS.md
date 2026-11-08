@@ -590,7 +590,7 @@ Development changes retain the last release number. After changing TheScore or T
 
 `scripts/bump-version.sh` prepares the next release version and clears the development hash. Prepared versions must exceed the newest release tag; unpublished numbers can be reconciled before publication. From a clean `main` at `origin/main`, `scripts/release.sh` requires a GitHub-verified signature and the existing successful exact-commit main CI suite. A development build or already-published version prepares the next patch and stops. Explicit versions, `--minor`, and `--major` also prepare a bump and stop. Merge that change as a signed commit and let main CI pass before publication. Release preparation never commits or pushes source changes.
 
-When main has an unreleased version, `release.sh` tags that exact admitted SHA. The tag workflow rechecks its signature and existing CI, then builds and verifies the release artifacts. It does not trigger another source CI run. Publication uploads a draft, verifies the uploaded files, and publishes it before updating both Homebrew formulas in one commit. Retries reuse published assets; failures preserve the tag and published release. `scripts/release-readiness.sh` owns optional local preflight.
+When main has an unreleased version, `release.sh` tags that exact admitted SHA and dispatches the release workflow from protected main. Trusted main scripts validate the tag, signature, current-attempt main CI job results and tap write access before checking out the admitted source. Diagnostic artifacts are not admission proof. Build and publication use separate jobs; retries reuse retained archives or existing published assets. Publication uploads a draft, verifies the uploaded files, and publishes it before updating both Homebrew formulas in one commit. Formula templates come from the admitted release commit. Failures preserve tags and published assets. `scripts/release-readiness.sh` owns optional local preflight.
 
 ```bash
 ./scripts/release.sh               # Publish unreleased main, or prepare the next patch
@@ -605,7 +605,7 @@ When main has an unreleased version, `release.sh` tags that exact admitted SHA. 
 To retry publication, use the command printed after a workflow failure. For example:
 
 ```bash
-gh workflow run release.yml --repo TheButtonHeist/TheButtonHeist --ref v0.7.1 -f tag=v0.7.1
+gh workflow run release.yml --repo TheButtonHeist/TheButtonHeist --ref main -f tag=v0.7.1
 ```
 
 Do not delete or move a release tag to recover from a publishing failure.

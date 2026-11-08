@@ -47,8 +47,11 @@ def verified_checksums(directory: Path, archives: list[str]) -> dict[str, str]:
 
 
 def publish(version: str, directory: Path, notes: Path) -> None:
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+    if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
         raise ValueError(f"Invalid release version: {version}")
+    token = os.environ.get("HOMEBREW_TAP_TOKEN")
+    if not token:
+        raise ValueError("HOMEBREW_TAP_TOKEN is required to publish both Homebrew formulas")
     contract = subprocess.check_output([
         "bash", "-euo", "pipefail", "-c", '''
 source "$1"
@@ -85,10 +88,6 @@ printf '%s\\n' "$BUTTONHEIST_GITHUB_REPO" "$BUTTONHEIST_TAP_REPO" \
         if release is None or release["draft"]:
             gh("release", "edit", tag, "--repo", repo, "--draft=false")
 
-        token = os.environ.get("HOMEBREW_TAP_TOKEN")
-        if not token:
-            print(f"Published {tag}; HOMEBREW_TAP_TOKEN is unset, so the tap was not updated.")
-            return
         formulas = downloaded / "formulas"
         subprocess.run([
             "bash", str(ROOT / "scripts/render-homebrew-formula.sh"), version,

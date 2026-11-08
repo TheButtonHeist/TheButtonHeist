@@ -10,15 +10,13 @@ cd "$REPO_ROOT"
 # shellcheck source=scripts/release-contract.sh
 source "$SCRIPT_DIR/release-contract.sh"
 
-SEMVER_REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
-
 [[ $# -eq 1 ]] || { echo "Usage: $0 <version>" >&2; exit 1; }
 NEW_VERSION="$1"
-[[ "$NEW_VERSION" =~ $SEMVER_REGEX ]] \
+[[ "$NEW_VERSION" =~ $BUTTONHEIST_RELEASE_VERSION_REGEX ]] \
     || { echo "Error: '$NEW_VERSION' is not MAJOR.MINOR.PATCH" >&2; exit 1; }
 
 CURRENT_VERSION=$(buttonheist_code_version)
-[[ "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9a-f]{12})?$ ]] \
+[[ "$CURRENT_VERSION" =~ $BUTTONHEIST_BUILD_VERSION_REGEX ]] \
     || { echo "Error: canonical version '$CURRENT_VERSION' is invalid" >&2; exit 1; }
 
 TMP_DIR=$(mktemp -d)
