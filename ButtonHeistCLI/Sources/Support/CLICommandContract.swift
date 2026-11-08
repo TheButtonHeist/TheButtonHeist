@@ -159,7 +159,7 @@ extension ConnectedOneShotCLICommand {
 }
 
 extension LocalOneShotCLICommand {
-    var runnerConnection: ConnectionOptions { ConnectionOptions() }
+    var runnerConnection: ConnectionOptions { .unconfigured }
     var runnerFormat: OutputFormat? { output.format }
 }
 
