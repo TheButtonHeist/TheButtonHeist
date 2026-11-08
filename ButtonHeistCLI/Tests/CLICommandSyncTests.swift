@@ -40,6 +40,16 @@ final class CLICommandSyncTests: XCTestCase {
         XCTAssertFalse(local.fenceDescriptor.requiresConnectionForCLIInvocation)
     }
 
+    @ButtonHeistActor
+    func testLocalCommandConnectionOptionsAreReadable() async throws {
+        let local = try await ValidateHeistCommand.parse(["--plan", #"HeistPlan { Warn("Check") }"#]).runnerDescriptor()
+
+        XCTAssertNil(local.connection.device)
+        XCTAssertNil(local.connection.token)
+        XCTAssertNil(local.connection.connectTimeout)
+        XCTAssertFalse(local.connection.quiet)
+    }
+
     func testJSONLinesDefaultOutputIsCanonicalJSON() {
         XCTAssertEqual(JSONLinesDefaults.outputFormat, .json)
     }
