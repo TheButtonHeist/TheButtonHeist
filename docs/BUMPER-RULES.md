@@ -21,6 +21,8 @@ direction visible and rejects source imports that cross it.
 | `buttonheist.source_ownership` and component-map test | Every included Swift file has one owner, and component paths do not overlap. | Update the component paths. |
 | `buttonheist.platform_import` | Only named components can import each listed platform module. | Move the platform work to an allowed boundary and pass typed values inward. |
 | `buttonheist.checked_concurrency` | Production code contains no `@preconcurrency` or `nonisolated(unsafe)`. | Model actor isolation and Sendability with checked Swift concurrency. |
+| `buttonheist.unchecked_sendable_boundary` | Unchecked conformances belong only to the exact reviewed boundary declarations. | Use checked Sendable or review and register the declaration's safety argument. |
+| `buttonheist.demo_accessibility_identifier` | Demo identifier references and overrides stay in the three named research files. | Use user-facing accessibility properties in demo screens. |
 
 The internal dependency graph is:
 
@@ -52,14 +54,14 @@ TheScore rejects UI, persistence, and test frameworks.
 ## Custom Rules
 
 These rules cover source invariants that the component graph and Swift access
-control cannot force. Import ownership uses Bumper 0.7.1 shared checks.
+control cannot force. Import ownership uses Bumper 0.7.2 shared checks.
 Source ownership, declaration access, contract types, and callback alias resolution
 also use the upstream helpers. The component map and policy remain local.
 
 | Rule ID | What it protects | Repair |
 | --- | --- | --- |
 | `buttonheist.any_boundary` | The exact current Foundation and Objective-C bridge declarations are the only production declarations that use `Any`. The rule does not prove runtime normalization. | Convert the external value to a typed Button Heist value at its boundary. |
-| `buttonheist.callback_isolation` | Optional function slots and `onFoo` callbacks declare `@Sendable` or a known global actor. Optional slots are checked regardless of the binding name. File-local alias chains use nearest lexical scope. | Add the callback's actor or Sendability contract to its outer function type. |
+| `buttonheist.callback_isolation` | Optional function slots, `onFoo` callbacks, and exported callback aliases declare `@Sendable` or a known global actor. File-local alias chains use nearest lexical scope. | Add the callback's actor or Sendability contract to its outer function type. |
 | `buttonheist.heist_content_opacity` | `HeistContent` exposes no public members, including methods, initializers, subscripts, aliases, or nested types. | Keep builder state internal and create `HeistPlan` through its public initializer. |
 | `buttonheist.plan_else_ownership` | Only `WaitFor` and `IfContent` expose a public DSL `else` branch. Private/internal helpers are permitted. | Use a wait predicate or an enclosing conditional instead of a loop-local alternate body. |
 | `buttonheist.exported_tuple_contract` | Public, open, and package declarations use named contract types instead of multi-value tuples. | Add a named Swift type or narrow the declaration's access. |
@@ -73,8 +75,9 @@ such as `case pair(left: Int, right: Int)` are not tuple-valued payloads.
 
 Bumper resolves access through same-file declarations. For unresolved targets,
 the rules check written access on the declaration or its immediate type owner.
-A written exported tuple contract fails with a repair message. Use a named type
-or keep the target declaration in the same file. Unresolved contracts without
+A tuple contract with written export intent fails with a repair message that
+states the visibility uncertainty. Use a named type or narrow the declared
+access. File colocation is not a required repair. Unresolved contracts without
 written export intent remain unchecked. The opacity and DSL `else` rules use
 the same public API intent policy. This does not prove compiler visibility.
 
@@ -84,8 +87,14 @@ the same public API intent policy. This does not prove compiler visibility.
 | `buttonheist.security_import_ownership` | `Security` imports stay in the shared TLS boundary. | Use the canonical TLS operation. |
 
 The callback rule covers explicitly typed optional function slots and `onFoo`
-contracts. It permits non-optional synchronous dependency functions with other
-names: syntax alone cannot establish that they are callbacks.
+contracts. It also checks public and package function aliases whose names end
+in `Callback`, `Handler`, or `Completion`, plus optional function aliases with
+any name. Exported aliases are checked before any stored use. Private and
+internal aliases still participate in resolution of checked variable types.
+
+Ordinary non-optional synchronous dependency functions and aliases such as
+`Predicate` remain allowed. These names define the convention; syntax alone
+cannot establish that every function is a callback.
 
 Callback isolation recognizes `MainActor`, the imported `ButtonHeistActor`, and
 file-local `@globalActor` declarations. Actor names need no suffix. Optional and
@@ -99,6 +108,34 @@ requirements must preserve the same explicit contract.
 These checks inspect explicit syntax. They do not infer types, resolve imported
 aliases, prove symbol identity, or prove the absence of I/O through Foundation.
 Compiler checks still own actor validity and concurrency correctness.
+
+## Reviewed Boundary Exceptions
+
+`BoundaryExceptionRules.swift` records four unchecked-conformance exceptions.
+Each entry matches one repository-relative file and one qualified owner name.
+Other types in the same file, same-named types in another file, and local types
+remain subject to the rule. Same-file extensions of a registered owner are
+permitted. Checked `Sendable` conformances need no exception.
+
+| Owner | File under `ButtonHeist/Sources/TheInsideJob/` | Safety argument to maintain |
+| --- | --- | --- |
+| `PendingAccessibilityNotificationCallback` | `TheTripwire/AccessibilityNotificationObserver.swift` | Foreign notification payloads cross to the main queue for normalization. |
+| `ConnectionAdmission` | `Server/NetworkBoundary/SocketConnectionAdmission.swift` | A lock protects the complete admission state machine. |
+| `NetworkSocketListener` | `Server/NetworkBoundary/SocketListenerRuntime.swift` | The actor owns lifecycle; the Network boundary owns callbacks and invalidation is locked. |
+| `PendingSocketConnections.OwnedConnection` | `Server/NetworkBoundary/SocketListenerRuntime.swift` | A connection leaves the locked registry for cancellation after its state transition. |
+
+New exceptions need a reviewed safety argument and an exact registry entry.
+The rule does not prove synchronization or validate comment contents. Changes
+to an approved wrapper still need a review of its ownership and mutable state.
+
+Demo identifier exceptions are exactly `ScrollSPIHarnessView.swift`,
+`TraitValidationView.swift`, and `TraitProbeView.swift` under `TestApp/Sources/`.
+The rule checks written references, including modifiers, assignments, reads,
+key paths, and property overrides. A new research file needs an explicit entry;
+a name containing `Research`, `Probe`, or `Harness` grants no exception.
+Dynamic Objective-C lookup and inferred symbol identity remain outside this
+syntax check. The rule protects our testing method; it does not prove VoiceOver
+or Switch Control usability.
 
 ## Construction Boundaries
 
@@ -119,9 +156,20 @@ construction outside the owning declaration.
 
 Run `scripts/check-source-shape.sh` for the complete source check. It runs the
 rule tests before repository lint. `scripts/check-source-shape.sh test` runs
-only the tests. CI uses the complete check on every change.
+only the tests. CI uses the complete check on every change. The wrapper reports
+build, tests, and lint durations with each phase's exit status, including failures.
+It builds the CLI and rule tests first. With a release runner, a separate
+`runner-build` phase follows the debug tests to avoid switching configurations
+back and forth. The test and lint phases retain Bumper's
+incremental SwiftPM checks and sandboxed source evaluation.
 
-Bumper Bowling is pinned to 0.7.1 in the ordinary `.bumper` Swift package.
+Pass file scopes to `Rules.files` and `Rules.forbid` so unrelated files skip
+query traversal. Bumper 0.7.2 also checks query-level `within` and `excluding`
+scopes before extraction. Its lexical helpers treat accessor bodies as local
+execution scopes: getter scratch remains local, fields in getter-local types
+remain contracts, and getter aliases cannot change stored-property type lookup.
+
+Bumper Bowling is pinned to 0.7.2 in the ordinary `.bumper` Swift package.
 It requires macOS 15 and Swift 6.4. Its SwiftLint-backed engine reports native
 diagnostics. The wrapper keeps lint sandboxed and runs every rule test first.
 Bumper's dependencies are separate from the app and framework package graph.

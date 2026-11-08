@@ -62,6 +62,7 @@ jobs:
 
       - name: Test portable automation
         run: |
+          python3 scripts/tests/check-source-shape-test.py
           python3 scripts/tests/check-contract-version-test.py
           scripts/tests/check-swift-api-breaking-changes-test.sh
           scripts/tests/e2e-demo-smoke-test.sh

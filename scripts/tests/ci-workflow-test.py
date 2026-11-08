@@ -189,7 +189,7 @@ class CIWorkflowTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[2]
         manifest = (root / ".bumper/Package.swift").read_text()
         self.assertIn("swift-tools-version: 6.4", manifest)
-        self.assertIn('exact: "0.7.1"', manifest)
+        self.assertIn('exact: "0.7.2"', manifest)
         self.assertNotIn("BumperBowling", (root / "Package.swift").read_text())
         wrapper = (root / "scripts/check-source-shape.sh").read_text()
         self.assertIn('--package-path "$REPO_ROOT/.bumper"', wrapper)

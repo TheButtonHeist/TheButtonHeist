@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [.library(name: "BumperRules", targets: ["BumperRules"])],
     dependencies: [
-        .package(url: "https://github.com/TheButtonHeist/BumperBowling.git", exact: "0.7.1")
+        .package(url: "https://github.com/TheButtonHeist/BumperBowling.git", exact: "0.7.2")
     ],
     targets: [
         .target(

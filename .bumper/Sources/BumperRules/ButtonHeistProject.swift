@@ -9,6 +9,8 @@ public let buttonHeistProject = BumperProject(
     ComponentBoundaryRule.self
     PlatformImportRule.self
     CheckedConcurrencyRule.self
+    UncheckedSendableBoundaryRule.self
+    DemoAccessibilityIdentifierRule.self
     AnyBoundaryRule.self
     TransportImportOwnershipRule.self
     SecurityImportOwnershipRule.self
